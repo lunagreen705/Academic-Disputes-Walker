@@ -5,32 +5,32 @@ const path = require('path');
 const { initializePlayer } = require('./player');
 const { connectToDatabase } = require('./mongodb');
 const colors = require('./UI/colors/colors');
-// --- 這裡有改動：引入 @google/genai 的方式 ---
+// --- FIX START: Correct way to import GoogleGenerativeAI for the @google/genai package ---
 const { GoogleGenerativeAI } = require("@google/genai"); 
-// --- 結束改動 ---
+// --- FIX END ---
 require('dotenv').config();
 
-// --- Gemini AI 配置 ---
-const MODEL_NAME = "gemini-flash"; // 或 "gemini-pro"，根據您的需求選擇
-// --- 這裡有改動：正確實例化 GoogleGenerativeAI ---
-const genAI = new GoogleGenerativeAI.GoogleGenerativeAI(process.env.GEMINI_API_KEY); 
-// --- 結束改動 ---
+// --- Gemini AI Configuration ---
+const MODEL_NAME = "gemini-flash"; // Or "gemini-pro", depending on your needs
+// --- FIX START: Correct way to initialize GoogleGenerativeAI ---
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); 
+// --- FIX END ---
 
 const client = new Client({
-    // 精確地列出所需的 Intents，而不是全部啟用
+    // Explicitly list required Intents for better performance and security
     intents: [
-        GatewayIntentBits.Guilds,           // 用於伺服器相關事件 (例如加入/離開伺服器、頻道建立)
-        GatewayIntentBits.GuildMessages,    // 用於接收伺服器內的訊息
-        GatewayIntentBits.MessageContent,   // 【重要】用於讀取訊息的實際內容 (AI 回應和指令處理需要)
-        GatewayIntentBits.GuildVoiceStates, // 用於音樂機器人的語音頻道狀態更新
-        // 如果您的機器人需要更多功能 (例如獲取成員列表，或處理私人訊息)，請在此處添加相應的 Intent：
-        // GatewayIntentBits.GuildMembers,   // 【特權 Intent】用於獲取伺服器成員資訊 (需在 Discord Developer Portal 啟用)
-        // GatewayIntentBits.DirectMessages, // 用於接收直接訊息
+        GatewayIntentBits.Guilds,           // For server-related events (e.g., joining/leaving guilds, channel creation)
+        GatewayIntentBits.GuildMessages,    // For receiving messages in guilds
+        GatewayIntentBits.MessageContent,   // IMPORTANT: To read actual message content (needed for AI responses and command processing)
+        GatewayIntentBits.GuildVoiceStates, // For music bot's voice channel state updates
+        // Add other Intents if your bot needs more features (e.g., fetching member lists, or handling DMs):
+        // GatewayIntentBits.GuildMembers,   // PRIVILEGED INTENT: For fetching guild member information (must be enabled in Discord Developer Portal)
+        // GatewayIntentBits.DirectMessages, // For receiving direct messages
     ],
 });
 
-client.config = config; // 設定機器人配置
-initializePlayer(client); // 初始化音樂播放器
+client.config = config; // Set bot configuration
+initializePlayer(client); // Initialize the music player
 
 client.on("ready", async () => {
     console.log(`${colors.cyan}[ SYSTEM ]${colors.reset} ${colors.green}Client logged as ${colors.yellow}${client.user.tag}${colors.reset}`);
@@ -38,8 +38,8 @@ client.on("ready", async () => {
     console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.gray}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
     client.riffy.init(client.user.id);
 
-    // --- 註冊斜線指令 ---
-    // 確保您的 bot.js 或相關文件中處理了 client.commands 的填充
+    // --- Register Slash Commands ---
+    // Make sure client.commands is populated in your command loading logic
     if (client.commands.length > 0) {
         try {
             await client.application.commands.set(client.commands);
@@ -50,42 +50,42 @@ client.on("ready", async () => {
     } else {
         console.log(`${colors.cyan}[ COMMAND ]${colors.reset} ${colors.yellow}No slash commands found to register.${colors.reset}`);
     }
-    // --- 結束斜線指令註冊 ---
+    // --- End Slash Command Registration ---
 });
 
-// --- Gemini AI 訊息處理 ---
+// --- Gemini AI Message Handling ---
 client.on("messageCreate", async (message) => {
-    // 忽略來自機器人本身的訊息，防止無限循環
+    // Ignore messages from bots to prevent infinite loops
     if (message.author.bot) return;
 
-    // 當機器人被 @提及 時觸發
+    // Trigger when the bot is @mentioned
     if (message.mentions.has(client.user)) {
-        // 從訊息內容中移除機器人的 @提及 部分，並去除前後空白
+        // Remove bot mention from message content and trim whitespace
         const userMessage = message.content
-            .replace(`<@!${client.user.id}>`, "") // 處理 <@!ID> 格式的提及
-            .replace(`<@${client.user.id}>`, "")   // 處理 <@ID> 格式的提及
+            .replace(`<@!${client.user.id}>`, "") // Handle <@!ID> mention format
+            .replace(`<@${client.user.id}>`, "")   // Handle <@ID> mention format
             .trim();
 
-        // 如果訊息內容只剩下提及或空白，則不處理
+        // If message content is empty after removing mention, prompt user
         if (userMessage.length === 0) {
-            await message.reply("嗯？你需要我幫忙嗎？請在提及我後輸入你的問題。");
+            await message.reply("Hmm? Do you need help? Please type your question after mentioning me.");
             return;
         }
 
-        // 發送「正在輸入...」狀態，提升使用者體驗
+        // Send "typing..." status for better user experience
         await message.channel.sendTyping();
 
         try {
             const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
             const generationConfig = {
-                temperature: 0.9,      // 0.0-1.0，值越高，回應越具創意/隨機性
-                topK: 40,              // 建議值：考慮前 K 個可能性最高的詞元 (通常比 1 更好，增加多樣性)
-                topP: 0.9,             // 建議值：核採樣，考慮累積機率達到 P 的詞元 (通常比 1 更好，增加多樣性)
-                maxOutputTokens: 2048, // 最大輸出詞元數
+                temperature: 0.9,      // 0.0-1.0, higher values make responses more creative/random
+                topK: 40,              // Recommended: Consider top K most probable tokens (usually better than 1 for diversity)
+                topP: 0.9,             // Recommended: Nucleus sampling, consider tokens with cumulative probability P (usually better than 1 for diversity)
+                maxOutputTokens: 2048, // Maximum number of output tokens
             };
 
-            // 以「使用者」角色傳遞訊息給 Gemini 模型
+            // Pass message to Gemini model as "user" role
             const parts = [{
                 role: "user",
                 text: userMessage,
@@ -98,10 +98,10 @@ client.on("messageCreate", async (message) => {
 
             const reply = await result.response.text();
 
-            // 由於 Discord 訊息有 2000 字元限制，需要分割長訊息
+            // Split long messages due to Discord's 2000 character limit
             if (reply.length > 2000) {
-                const replyArray = reply.match(/[\s\S]{1,1999}/g); // 確保每個片段略小於 2000
-                for (const msg of replyArray) { // 使用 for...of 確保按順序發送
+                const replyArray = reply.match(/[\s\S]{1,1999}/g); // Ensure each chunk is slightly less than 2000
+                for (const msg of replyArray) { // Use for...of to ensure sequential sending
                     await message.reply(msg);
                 }
             } else {
@@ -109,25 +109,25 @@ client.on("messageCreate", async (message) => {
             }
         } catch (error) {
             console.error(`${colors.red}[ AI ERROR ]${colors.reset} Error generating content:`, error);
-            await message.reply("抱歉，我現在無法處理你的請求。請稍後再試。");
+            await message.reply("Sorry, I can't process your request right now. Please try again later.");
         }
     }
 });
-// --- 結束 Gemini AI 訊息處理 ---
+// --- End Gemini AI Message Handling ---
 
-// 讀取並註冊事件處理器 (例如 'messageCreate', 'interactionCreate' 等)
+// Read and register event handlers (e.g., 'messageCreate', 'interactionCreate')
 fs.readdir("./events", (_err, files) => {
     files.forEach((file) => {
         if (!file.endsWith(".js")) return;
         const event = require(`./events/${file}`);
         let eventName = file.split(".")[0];
         client.on(eventName, event.bind(null, client));
-        delete require.cache[require.resolve(`./events/${file}`)]; // 清除快取，有利於開發時熱重載
+        delete require.cache[require.resolve(`./events/${file}`)]; // Clear cache for hot reloading during development
     });
 });
 
-client.commands = []; // 初始化一個陣列來儲存斜線指令資訊
-// 讀取並載入斜線指令 (這些指令隨後會在 'ready' 事件中註冊到 Discord API)
+client.commands = []; // Initialize array to store slash command info
+// Read and load slash commands (these commands will be registered to Discord API in 'ready' event)
 fs.readdir(config.commandsDir, (err, files) => {
     if (err) {
         console.error(`${colors.red}[ ERROR ]${colors.reset} ${colors.red}Failed to read commands directory: ${err.message}${colors.reset}`);
@@ -150,23 +150,23 @@ fs.readdir(config.commandsDir, (err, files) => {
     });
 });
 
-// 處理原始 Discord 網關事件 (主要用於 Riffy 的語音狀態更新)
+// Handle raw Discord Gateway events (primarily for Riffy's voice state updates)
 client.on("raw", (d) => {
-    const { GatewayDispatchEvents } = require("discord.js"); // 局部引用，避免全域污染
+    const { GatewayDispatchEvents } = require("discord.js"); // Local import to avoid global pollution
     if (![GatewayDispatchEvents.VoiceStateUpdate, GatewayDispatchEvents.VoiceServerUpdate].includes(d.t)) return;
     client.riffy.updateVoiceState(d);
 });
 
-// 登入 Discord 機器人
+// Log in Discord bot
 client.login(config.TOKEN || process.env.TOKEN).catch((e) => {
     console.log('\n' + '─'.repeat(40));
     console.log(`${colors.magenta}${colors.bright}🔐 TOKEN VERIFICATION${colors.reset}`);
     console.log('─'.repeat(40));
     console.log(`${colors.cyan}[ TOKEN ]${colors.reset} ${colors.red}Authentication Failed ❌${colors.reset}`);
-    console.log(`${colors.gray}Error: ${e.message}. Please turn on necessary Intents or reset to a new Token.${colors.reset}`); // 更明確的錯誤提示
+    console.log(`${colors.gray}Error: ${e.message}. Please turn on necessary Intents or reset to a new Token.${colors.reset}`); // More explicit error message
 });
 
-// 連接到 MongoDB 資料庫
+// Connect to MongoDB database
 connectToDatabase().then(() => {
     console.log('\n' + '─'.repeat(40));
     console.log(`${colors.magenta}${colors.bright}🕸️  DATABASE STATUS${colors.reset}`);
@@ -180,12 +180,12 @@ connectToDatabase().then(() => {
     console.log(`${colors.gray}Error: ${err.message}${colors.reset}`);
 });
 
-// 設定一個簡單的 Express Web 伺服器
+// Set up a simple Express Web server
 const express = require("express");
 const app = express();
 const port = 3000;
 app.get('/', (req, res) => {
-    const filePath = path.join(__dirname, 'index.html'); // 假設 index.html 存在於機器人主目錄
+    const filePath = path.join(__dirname, 'index.html'); // Assumes index.html is in the bot's main directory
     res.sendFile(filePath);
 });
 
