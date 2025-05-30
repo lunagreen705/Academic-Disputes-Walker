@@ -1,6 +1,9 @@
+
+
+
 const { Riffy, Player } = require("riffy");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, PermissionsBitField } = require("discord.js");
-const { requesters } = require("./commands/play");
+const { requesters } = require("./commands/play"); // 確保 play.js 正確導出 requesters
 const { Dynamic } = require("musicard");
 const config = require("./config.js");
 const musicIcons = require('./UI/icons/musicicons.js');
@@ -25,7 +28,7 @@ async function sendMessageWithPermissionsCheck(channel, embed, attachment, actio
         const message = await channel.send({
             embeds: [embed],
             files: [attachment],
-            components: [actionRow1, actionRow2]
+            components: [actionRow1, actionRow2] // 注意：這裡只傳遞了兩個 ActionRow
         });
         return message;
     } catch (error) {
@@ -70,11 +73,20 @@ function initializePlayer(client) {
 
     client.riffy.on("trackStart", async (player, track) => {
         const channel = client.channels.cache.get(player.textChannel);
+        if (!channel) {
+            console.error(`Error: Text channel ${player.textChannel} not found for guild ${player.guildId}`);
+            return;
+        }
         const guildId = player.guildId;
         const trackUri = track.info.uri;
-        const requester = requesters.get(trackUri);
+        // 確保 requester 是從 Map 中獲取的用戶對象或用戶名
+        let requesterDisplay = "Autoplay/Unknown";
+        const requesterUser = requesters.get(trackUri);
+        if (requesterUser) {
+            requesterDisplay = typeof requesterUser === 'string' ? requesterUser : (requesterUser.tag || requesterUser.username || "User");
+        }
 
-        // Clean up previous track messages for this guild
+
         await cleanupPreviousTrackMessages(channel, guildId);
 
         try {
@@ -90,11 +102,9 @@ function initializePlayer(client) {
                 authorColor: '#696969',
             });
 
-            // Save the generated card to a file
             const cardPath = path.join(__dirname, 'musicard.png');
             fs.writeFileSync(cardPath, musicard);
 
-            // Prepare the attachment and embed
             const attachment = new AttachmentBuilder(cardPath, { name: 'musicard.png' });
             const embed = new EmbedBuilder()
             .setAuthor({ 
@@ -108,10 +118,42 @@ function initializePlayer(client) {
                 `- **Title:** [${track.info.title}](${track.info.uri})\n` +
                 `- **Author:** ${track.info.author || 'Unknown Artist'}\n` +
                 `- **Length:** ${formatDuration(track.info.length)}\n` +
-                `- **Requester:** ${requester}\n` +
-                `- **Source:** ${track.info.sourceName}\n` + '**- Controls :**\n 🔁 `Loop`, ❌ `Disable`, ⏭️ `Skip`, 🎤 `Lyrics`, 🗑️ `Clear`\n ⏹️ `Stop`, ⏸️ `Pause`, ▶️ `Resume`, 🔊 `Vol +`, 🔉 `Vol -`')
+                `- **Requester:** ${requesterDisplay}\n` + // 使用處理過的 requesterDisplay
+                `- **Source:** ${track.info.sourceName}\n` + '**- Controls :**\n 🔁 `Loop`, 📜 `Queue`, ⏭️ `Skip`, 🎤 `Lyrics`, 🗑️ `Clear`\n ⏹️ `Stop`, ⏸️ `Pause`, ▶️ `Resume`, 🔊 `Vol +`, 🔉 `Vol -`')
             .setImage('attachment://musicard.png')
             .setColor('#FF7A00');
+            
+            // --- 顯示佇列 (Up Next) ---
+            const queue = player.queue;
+            let upNextString = "Queue is empty."; 
+
+            if (queue && queue.length > 0) {
+                const displayLimit = 5; 
+                upNextString = queue.slice(0, displayLimit)
+                    .map((queuedTrack, index) => {
+                        let title = queuedTrack.info.title;
+                        if (title.length > 40) title = title.substring(0, 37) + "..."; 
+                        
+                        const queuedRequesterUser = requesters.get(queuedTrack.info.uri);
+                        let requesterInfo = "";
+                        if (queuedRequesterUser) {
+                            requesterInfo = ` (by ${typeof queuedRequesterUser === 'string' ? queuedRequesterUser : (queuedRequesterUser.tag || queuedRequesterUser.username || 'User')})`;
+                        }
+                        if ((`${index + 1}. ${title}${requesterInfo}`).length > 90) { 
+                            title = queuedTrack.info.title.substring(0, 25) + "..."; 
+                        }
+                        return `${index + 1}. ${title}${requesterInfo}`;
+                    })
+                    .join('\n');
+
+                if (queue.length > displayLimit) {
+                    upNextString += `\n...and ${queue.length - displayLimit} more.`;
+                }
+            }
+            
+            embed.addFields({ name: '🎶 Up Next', value: upNextString.substring(0, 1020) });
+            // --- 佇列資訊結束 ---
+
 
             const actionRow1 = createActionRow1(false);
             const actionRow2 = createActionRow2(false);
@@ -119,7 +161,6 @@ function initializePlayer(client) {
             const message = await sendMessageWithPermissionsCheck(channel, embed, attachment, actionRow1, actionRow2);
             
             if (message) {
-                // Store the track message for this guild
                 if (!guildTrackMessages.has(guildId)) {
                     guildTrackMessages.set(guildId, []);
                 }
@@ -137,52 +178,56 @@ function initializePlayer(client) {
             const errorEmbed = new EmbedBuilder()
                 .setColor('#FF0000')
                 .setDescription("⚠️ **Unable to load track card. Continuing playback...**");
-            await channel.send({ embeds: [errorEmbed] });
+            if (channel) await channel.send({ embeds: [errorEmbed] });
         }
     });
 
     client.riffy.on("trackEnd", async (player) => {
-        await cleanupTrackMessages(client, player);
+        // 之前這裡呼叫 cleanupTrackMessages，但 trackStart 時已經呼叫了 cleanupPreviousTrackMessages
+        // 通常在 trackEnd 後，如果沒有下一首歌，會觸發 queueEnd
+        // 如果有下一首歌，會觸發 trackStart，它會自己清理
+        // 為了避免在播放列表中每首歌結束都刪除"Now Playing"，這裡可以先不清理，讓 queueEnd 或 playerDisconnect 處理
+        // 或者確保 cleanupTrackMessages 只刪除特定 type 的訊息
     });
 
     client.riffy.on("playerDisconnect", async (player) => {
-        await cleanupTrackMessages(client, player);
+        await cleanupTrackMessages(client, player, ['track', 'lyrics']); // 清理所有相關訊息
     });
 
     client.riffy.on("queueEnd", async (player) => {
         const channel = client.channels.cache.get(player.textChannel);
         const guildId = player.guildId;
-    
+        
+        await cleanupTrackMessages(client, player, ['track']); // 清理 "Now Playing" 訊息
+
         try {
             const autoplaySetting = await autoplayCollection.findOne({ guildId });
-    
+        
             if (autoplaySetting?.autoplay) {
-                const nextTrack = await player.autoplay(player);
-    
+                const previousTrack = player.current; // Riffy 的 autoplay 可能需要前一首歌
+                const nextTrack = await player.autoplay(previousTrack || player); // 傳遞 player 作為備用
+            
                 if (!nextTrack) {
-                    await cleanupTrackMessages(client, player);
-                    player.destroy();
-                    await channel.send("⚠️ **No more tracks to autoplay. Disconnecting...**");
+                    if (channel) await channel.send("⚠️ **No more tracks to autoplay. Disconnecting...**").catch(console.error);
+                    if (!player.destroyed) player.destroy();
                 }
             } else {
-                await cleanupTrackMessages(client, player);
-                console.log(`Autoplay is disabled for guild: ${guildId}`);
-                player.destroy();
-                await channel.send("🎶 **Queue has ended. Autoplay is disabled.**");
+                if (channel) await channel.send("🎶 **Queue has ended. Autoplay is disabled.**").catch(console.error);
+                if (!player.destroyed) player.destroy();
             }
         } catch (error) {
-            console.error("Error handling autoplay:", error);
-            await cleanupTrackMessages(client, player);
-            player.destroy();
-            await channel.send("👾**Queue Empty! Disconnecting...**");
+            console.error("Error handling autoplay or queue end:", error);
+            if (!player.destroyed) player.destroy();
+            if (channel) await channel.send("👾**Queue Empty! Disconnecting...**").catch(console.error);
         }
     });
 }
 
 async function cleanupPreviousTrackMessages(channel, guildId) {
     const messages = guildTrackMessages.get(guildId) || [];
-    
-    for (const messageInfo of messages) {
+    const messagesToDelete = messages.filter(m => m.type === 'track'); // 只選取 'track' 類型
+
+    for (const messageInfo of messagesToDelete) {
         try {
             const fetchChannel = channel.client.channels.cache.get(messageInfo.channelId);
             if (fetchChannel) {
@@ -195,17 +240,21 @@ async function cleanupPreviousTrackMessages(channel, guildId) {
             console.error("Error cleaning up previous track message:", error);
         }
     }
-
-    // Clear the previous messages for this guild
-    guildTrackMessages.set(guildId, []);
+    // 從 guildTrackMessages 中移除已刪除的 'track' 訊息，保留其他類型
+    const remainingMessages = messages.filter(m => m.type !== 'track');
+    if (remainingMessages.length > 0) {
+        guildTrackMessages.set(guildId, remainingMessages);
+    } else {
+        guildTrackMessages.delete(guildId);
+    }
 }
 
-// New function to clean up track-related messages
-async function cleanupTrackMessages(client, player) {
+async function cleanupTrackMessages(client, player, typesToDelete = ['track']) { // typesToDelete 預設只刪除 'track'
     const guildId = player.guildId;
     const messages = guildTrackMessages.get(guildId) || [];
-    
-    for (const messageInfo of messages) {
+    const messagesOfTypeToDelete = messages.filter(m => typesToDelete.includes(m.type));
+
+    for (const messageInfo of messagesOfTypeToDelete) {
         try {
             const channel = client.channels.cache.get(messageInfo.channelId);
             if (channel) {
@@ -219,9 +268,14 @@ async function cleanupTrackMessages(client, player) {
         }
     }
 
-    // Clear the messages for this guild
-    guildTrackMessages.set(guildId, []);
+    const remainingMessages = messages.filter(m => !typesToDelete.includes(m.type));
+    if (remainingMessages.length > 0) {
+        guildTrackMessages.set(guildId, remainingMessages);
+    } else {
+        guildTrackMessages.delete(guildId);
+    }
 }
+
 function formatDuration(ms) {
     const seconds = Math.floor((ms / 1000) % 60);
     const minutes = Math.floor((ms / (1000 * 60)) % 60);
@@ -230,188 +284,324 @@ function formatDuration(ms) {
     return [
         hours > 0 ? `${hours}h` : null,
         minutes > 0 ? `${minutes}m` : null,
-        `${seconds}s`,
+        seconds > 0 ? `${seconds}s` : (minutes > 0 || hours > 0 ? null : '0s'), // 確保至少顯示 0s 如果時和分都為0
     ]
         .filter(Boolean)
-        .join(' ');
+        .join(' ') || '0s'; // 如果結果為空 (例如 ms < 1000 且秒為0)，則返回 '0s'
 }
+
 function setupCollector(client, player, channel, message) {
     const filter = i => [
-        'loopToggle', 'skipTrack', 'disableLoop', 'showLyrics', 'clearQueue',
+        'loopToggle', 'showQueue', 'skipTrack', 'showLyrics', 'clearQueue', // 'disableLoop' 已被 'showQueue' 取代
         'stopTrack', 'pauseTrack', 'resumeTrack', 'volumeUp', 'volumeDown'
-    ].includes(i.customId);
+    ].includes(i.customId); // <--- 加入 'showQueue'
 
-    const collector = message.createMessageComponentCollector({ filter, time: 600000 }); // Set timeout if desired
+    const collector = message.createMessageComponentCollector({ filter, time: player.current?.info.length || 600000 }); // 以歌曲長度或10分鐘為超時
 
     collector.on('collect', async i => {
         await i.deferUpdate();
 
         const member = i.member;
         const voiceChannel = member.voice.channel;
-        const playerChannel = player.voiceChannel;
+        // const playerChannel = player.voiceChannel; // Riffy player.voiceChannel 是 ID
+        const botVoiceChannelId = client.guilds.cache.get(player.guildId)?.members.me?.voice?.channelId;
 
-        if (!voiceChannel || voiceChannel.id !== playerChannel) {
+
+        if (!voiceChannel || voiceChannel.id !== botVoiceChannelId) {
             const vcEmbed = new EmbedBuilder()
-                .setColor(config.embedColor)
-                .setDescription('🔒 **You need to be in the same voice channel to use the controls!**');
-            const sentMessage = await channel.send({ embeds: [vcEmbed] });
-            setTimeout(() => sentMessage.delete().catch(console.error), config.embedTimeout * 1000);
+                .setColor(config.embedColor || '#FF7A00')
+                .setDescription('🔒 **You need to be in the same voice channel as the bot to use the controls!**');
+            
+            // 使用 i.followUp 發送臨時訊息
+            await i.followUp({ embeds: [vcEmbed], ephemeral: true }).catch(console.error);
             return;
         }
-
-        handleInteraction(i, player, channel);
+        // 傳遞 client 和原始 "Now Playing" message 給 handleInteraction
+        handleInteraction(i, player, channel, client, message); 
     });
 
-    collector.on('end', () => {
-        console.log("Collector stopped.");
+    collector.on('end', (collected, reason) => {
+        console.log(`Collector ended for message ${message.id}. Reason: ${reason}. Disabling components.`);
+        if (message.editable) {
+            const disabledActionRow1 = createActionRow1(true);
+            const disabledActionRow2 = createActionRow2(true);
+            message.edit({ components: [disabledActionRow1, disabledActionRow2] }).catch(err => {
+                if (err.code !== 10008) { // Unknown Message (已被刪除)
+                    console.error("Error disabling components on collector end:", err);
+                }
+            });
+        }
     });
 
     return collector;
 }
 
-async function handleInteraction(i, player, channel) {
+// handleInteraction 現在接收 client 和 originalMessage
+async function handleInteraction(i, player, channel, client, originalMessage) { 
     switch (i.customId) {
         case 'loopToggle':
-            toggleLoop(player, channel);
+            toggleLoop(player, channel); // 已修改 toggleLoop
+            break;
+        case 'showQueue': // <--- 新增 case
+            const queue = player.queue;
+            const currentTrack = player.current;
+
+            let description = "";
+            if (currentTrack) {
+                const requesterUserCurrent = requesters.get(currentTrack.info.uri);
+                let requesterDisplayCurrent = "Autoplay/Unknown";
+                if (requesterUserCurrent) {
+                     requesterDisplayCurrent = typeof requesterUserCurrent === 'string' ? requesterUserCurrent : (requesterUserCurrent.tag || requesterUserCurrent.username || "User");
+                }
+                description += `**Now Playing:**\n[${currentTrack.info.title.substring(0, 60)}](${currentTrack.info.uri}) [${formatDuration(currentTrack.info.length)}] (by ${requesterDisplayCurrent})\n\n`;
+            } else {
+                description += "**Nothing is currently playing.**\n\n";
+            }
+
+            if (!queue || queue.length === 0) {
+                description += "🎶 **The queue is currently empty!**";
+            } else {
+                description += "**Up Next:**\n";
+                const maxTracksToShow = 10;
+                let queueTracksString = queue.slice(0, maxTracksToShow)
+                    .map((track, index) => {
+                        let title = track.info.title;
+                        if (title.length > 45) title = title.substring(0, 42) + "...";
+                        
+                        const requesterUserNext = requesters.get(track.info.uri);
+                        let requesterDisplayNext = "Autoplay/Unknown";
+                        if (requesterUserNext) {
+                            requesterDisplayNext = typeof requesterUserNext === 'string' ? requesterUserNext : (requesterUserNext.tag || requesterUserNext.username || "User");
+                        }
+                        return `${index + 1}. ${title} [${formatDuration(track.info.length)}] (by ${requesterDisplayNext})`;
+                    })
+                    .join('\n');
+                description += queueTracksString;
+
+                if (queue.length > maxTracksToShow) {
+                    description += `\n\n...and ${queue.length - maxTracksToShow} more track(s).`;
+                }
+            }
+
+            const queueEmbed = new EmbedBuilder()
+                .setColor(config.embedColor || '#FF7A00')
+                .setTitle('🎶 Music Queue')
+                .setDescription(description.substring(0, 4090)) // 確保不超過限制
+                .setFooter({ text: `Total tracks in queue: ${queue?.length || 0}` });
+            
+            // 使用 interaction (i) 來回覆臨時訊息
+            await i.followUp({ embeds: [queueEmbed], ephemeral: true });
             break;
         case 'skipTrack':
-            player.stop();
-            await sendEmbed(channel, "⏭️ **Player will play the next song!**");
+            if (player.queue.length === 0 && player.loop !== "track") {
+                 await sendEmbed(channel, "⏭️ **Queue is empty. Nothing to skip to.**", i); // 傳遞 i
+            } else {
+                player.stop(); 
+                await sendEmbed(channel, "⏭️ **Skipping to the next song...**", i); // 傳遞 i
+            }
             break;
-        case 'disableLoop':
-            disableLoop(player, channel);
-            break;
+        // case 'disableLoop': // 已被取代
+        //     disableLoop(player, channel);
+        //     break;
         case 'showLyrics':
-            showLyrics(channel, player);
+            showLyrics(channel, player, client); // 傳遞 client
             break;
         case 'clearQueue':
-            player.queue.clear();
-            await sendEmbed(channel, "🗑️ **Queue has been cleared!**");
+            if (player.queue.length > 0) {
+                player.queue.clear();
+                await sendEmbed(channel, "🗑️ **Queue has been cleared!**", i); // 傳遞 i
+
+                if (originalMessage && originalMessage.embeds.length > 0 && originalMessage.editable) {
+                    try {
+                        const currentEmbed = originalMessage.embeds[0];
+                        const newEmbed = EmbedBuilder.from(currentEmbed); 
+
+                        const queueFieldIndex = newEmbed.data.fields?.findIndex(field => field.name === '🎶 Up Next');
+                        if (queueFieldIndex !== undefined && queueFieldIndex > -1) {
+                            newEmbed.data.fields[queueFieldIndex].value = "Queue is empty.";
+                        } else { 
+                            newEmbed.addFields({ name: '🎶 Up Next', value: "Queue is empty." });
+                        }
+                        await originalMessage.edit({ embeds: [newEmbed] });
+                    } catch(editError) {
+                        console.error("Error editing original message for clearQueue:", editError);
+                    }
+                }
+            } else {
+                await sendEmbed(channel, "🗑️ **Queue is already empty!**", i); // 傳遞 i
+            }
             break;
         case 'stopTrack':
-            player.stop();
-            player.destroy();
-            await sendEmbed(channel, '⏹️ **Playback has been stopped and player destroyed!**');
+            await sendEmbed(channel, '⏹️ **Playback has been stopped! Player will disconnect.**', i); // 傳遞 i
+            if (!player.destroyed) player.destroy(); 
             break;
         case 'pauseTrack':
             if (player.paused) {
-                await sendEmbed(channel, '⏸️ **Playback is already paused!**');
+                await sendEmbed(channel, '⏸️ **Playback is already paused!**', i); // 傳遞 i
             } else {
                 player.pause(true);
-                await sendEmbed(channel, '⏸️ **Playback has been paused!**');
+                await sendEmbed(channel, '⏸️ **Playback has been paused!**', i); // 傳遞 i
             }
             break;
         case 'resumeTrack':
             if (!player.paused) {
-                await sendEmbed(channel, '▶️ **Playback is already resumed!**');
+                await sendEmbed(channel, '▶️ **Playback is already resumed!**', i); // 傳遞 i
             } else {
                 player.pause(false);
-                await sendEmbed(channel, '▶️ **Playback has been resumed!**');
+                await sendEmbed(channel, '▶️ **Playback has been resumed!**', i); // 傳遞 i
             }
             break;
         case 'volumeUp':
-            adjustVolume(player, channel, 10);
+            adjustVolume(player, channel, 10, i); // 傳遞 i
             break;
         case 'volumeDown':
-            adjustVolume(player, channel, -10);
+            adjustVolume(player, channel, -10, i); // 傳遞 i
             break;
     }
 }
 
-async function sendEmbed(channel, message) {
-    const embed = new EmbedBuilder().setColor(config.embedColor).setDescription(message);
-    const sentMessage = await channel.send({ embeds: [embed] });
-    setTimeout(() => sentMessage.delete().catch(console.error), config.embedTimeout * 1000);
-}
-
-function adjustVolume(player, channel, amount) {
-    const newVolume = Math.min(100, Math.max(10, player.volume + amount));
-    if (newVolume === player.volume) {
-        sendEmbed(channel, amount > 0 ? '🔊 **Volume is already at maximum!**' : '🔉 **Volume is already at minimum!**');
-    } else {
-        player.setVolume(newVolume);
-        sendEmbed(channel, `🔊 **Volume changed to ${newVolume}%!**`);
+// 修改 sendEmbed 以支持 interaction 回覆 (用於按鈕後的臨時訊息)
+async function sendEmbed(channel, messageContent, interaction = null) {
+    const embed = new EmbedBuilder().setColor(config.embedColor || '#FF7A00').setDescription(messageContent);
+    if (interaction) { // 如果是按鈕互動，使用 followUp 發送臨時訊息
+        await interaction.followUp({ embeds: [embed], ephemeral: true }).catch(console.error);
+    } else { // 否則，發送到頻道並在一段時間後刪除
+        const sentMessage = await channel.send({ embeds: [embed] }).catch(console.error);
+        if (sentMessage) {
+            setTimeout(() => sentMessage.delete().catch(err => {
+                if (err.code !== 10008) console.error("Error deleting temporary embed:", err);
+            }), (config.embedTimeout || 5) * 1000);
+        }
+        return sentMessage; // 返回訊息對象，以便外部可以操作 (例如歌詞的 fetchingMessage)
     }
 }
 
 
-function toggleLoop(player, channel) {
-    player.setLoop(player.loop === "track" ? "queue" : "track");
-    sendEmbed(channel, player.loop === "track" ? "🔁 **Track loop is activated!**" : "🔁 **Queue loop is activated!**");
+function adjustVolume(player, channel, amount, interaction = null) { // 接收 interaction
+    const currentVolume = player.volume;
+    let newVolume = currentVolume + amount;
+    newVolume = Math.min(150, Math.max(0, newVolume)); 
+
+    if (newVolume === currentVolume) {
+        if (amount > 0 && currentVolume === 150) {
+            sendEmbed(channel, '🔊 **Volume is already at maximum (150%)!**', interaction);
+        } else if (amount < 0 && currentVolume === 0) {
+            sendEmbed(channel, '🔉 **Volume is already at minimum (0%)!**', interaction);
+        } else { // 音量未變，但不在極限值 (例如，嘗試增加 0)
+             sendEmbed(channel, `🔊 **Volume is already ${newVolume}%!**`, interaction);
+        }
+    } else {
+        player.setVolume(newVolume);
+        sendEmbed(channel, `🔊 **Volume changed to ${newVolume}%!**`, interaction);
+    }
 }
 
-function disableLoop(player, channel) {
-    player.setLoop("none");
-    sendEmbed(channel, "❌ **Loop is disabled!**");
+// 修改後的 toggleLoop
+function toggleLoop(player, channel, interaction = null) { // 接收 interaction
+    let newLoopMode;
+    let messageText; // 重命名避免與 collector 中的 message 變數衝突
+
+    if (player.loop === "none" || !player.loop) { 
+        newLoopMode = "track";
+        messageText = "🔁 **Track loop is activated!**";
+    } else if (player.loop === "track") {
+        newLoopMode = "queue";
+        messageText = "🔁 **Queue loop is activated!**";
+    } else { // player.loop === "queue"
+        newLoopMode = "none"; 
+        messageText = "❌ **Loop is disabled!**";
+    }
+    player.setLoop(newLoopMode);
+    sendEmbed(channel, messageText, interaction);
 }
 
+// disableLoop 函數現在不再被按鈕直接調用，但可以保留作為內部輔助函數或移除
+// function disableLoop(player, channel, interaction = null) { 
+//     if (player.loop === "none") {
+//         sendEmbed(channel, "❌ **Loop is already disabled!**", interaction);
+//     } else {
+//         player.setLoop("none");
+//         sendEmbed(channel, "❌ **Loop is disabled!**", interaction);
+//     }
+// }
 
 
 async function getLyrics(trackName, artistName, duration) {
     try {
-        //console.log(`🔍 Fetching lyrics for: ${trackName} - ${artistName} (${duration}s)`);
-
-      
         trackName = trackName
-            .replace(/\b(Official|Audio|Video|Lyrics|Theme|Soundtrack|Music|Full Version|HD|4K|Visualizer|Radio Edit|Live|Remix|Mix|Extended|Cover|Parody|Performance|Version|Unplugged|Reupload)\b/gi, "") 
-            .replace(/\s*[-_/|]\s*/g, " ") 
-            .replace(/\s+/g, " ") 
+            .replace(/\b(Official|Audio|Video|Lyrics|Theme|Soundtrack|Music|Full Version|HD|4K|Visualizer|Radio Edit|Live|Remix|Mix|Extended|Cover|Parody|Performance|Version|Unplugged|Reupload|Feat|Ft)\b/gi, "")
+            .replace(/\s*[-_/|]\s*/g, " ")
+            .replace(/[()\[\]{}]/g, "") 
+            .replace(/\s+/g, " ")
             .trim();
 
-      
         artistName = artistName
-            .replace(/\b(Topic|VEVO|Records|Label|Productions|Entertainment|Ltd|Inc|Band|DJ|Composer|Performer)\b/gi, "")
-            .replace(/ x /gi, " & ") 
-            .replace(/\s+/g, " ") 
+            .replace(/\b(Topic|VEVO|Records|Label|Productions|Entertainment|Ltd|Inc|Band|DJ|Composer|Performer|Feat|Ft)\b/gi, "")
+            .replace(/ x /gi, " & ")
+            .replace(/[()\[\]{}]/g, "") 
+            .replace(/\s+/g, " ")
             .trim();
-
-        //console.log(`✅ Cleaned Data: ${trackName} - ${artistName} (${duration}s)`);
-
         
         let response = await axios.get(`https://lrclib.net/api/get`, {
             params: { track_name: trackName, artist_name: artistName, duration }
         });
 
-        if (response.data.syncedLyrics || response.data.plainLyrics) {
+        if (response.data && (response.data.syncedLyrics || response.data.plainLyrics)) {
             return response.data.syncedLyrics || response.data.plainLyrics;
         }
-
-       
+        
+        // 如果第一次找不到，不帶 duration 再次嘗試
         response = await axios.get(`https://lrclib.net/api/get`, {
             params: { track_name: trackName, artist_name: artistName }
         });
 
-        return response.data.syncedLyrics || response.data.plainLyrics;
+        if (response.data && (response.data.syncedLyrics || response.data.plainLyrics)) {
+            return response.data.syncedLyrics || response.data.plainLyrics;
+        }
+        return null;
     } catch (error) {
-        console.error("❌ Lyrics fetch error:", error.response?.data?.message || error.message);
+        if (error.response && error.response.status === 404) {
+            // console.log(`Lyrics not found on Lrclib for: ${trackName} - ${artistName}`);
+        } else {
+            console.error("❌ Lyrics fetch error:", error.response?.data?.message || error.message);
+        }
         return null;
     }
 }
 
 
-
-async function showLyrics(channel, player) {
+async function showLyrics(channel, player, client) { 
     if (!player || !player.current || !player.current.info) {
-        sendEmbed(channel, "🚫 **No song is currently playing.**");
+        // 使用 sendEmbed 發送臨時通知，而不是直接用 interaction 回覆，因為 showLyrics 可能不是由按鈕觸發
+        await sendEmbed(channel, "🚫 **No song is currently playing.**"); 
         return;
     }
 
     const track = player.current.info;
+    
+    // 嘗試獲取歌詞前先發送 "Fetching..." 訊息
+    const fetchingMsgObject = await sendEmbed(channel, `🎤 **Fetching lyrics for ${track.title.substring(0,50)}...**`);
+
     const lyrics = await getLyrics(track.title, track.author, Math.floor(track.length / 1000));
+    
+    // 刪除 "Fetching..." 訊息
+    if (fetchingMsgObject && typeof fetchingMsgObject.delete === 'function') {
+         await fetchingMsgObject.delete().catch(() => {});
+    }
+
 
     if (!lyrics) {
-        sendEmbed(channel, "❌ **Lyrics not found!**");
+        await sendEmbed(channel, "❌ **Lyrics not found!**");
         return;
     }
 
-    
     const lines = lyrics.split('\n').map(line => line.trim()).filter(Boolean);
     const songDuration = Math.floor(track.length / 1000); 
 
     const embed = new EmbedBuilder()
-        .setTitle(`🎵 Live Lyrics: ${track.title}`)
+        .setTitle(`🎵 Live Lyrics: ${track.title.substring(0, 250)}`)
         .setDescription("🔄 Syncing lyrics...")
-        .setColor(config.embedColor);
+        .setColor(config.embedColor || '#FF7A00');
 
     const stopButton = new ButtonBuilder()
         .setCustomId("stopLyrics")
@@ -425,75 +615,128 @@ async function showLyrics(channel, player) {
 
     const row = new ActionRowBuilder().addComponents(fullButton, stopButton);
     
-    const message = await channel.send({ embeds: [embed], components: [row] });
+    const permissions = channel.permissionsFor(channel.guild.members.me);
+    if (!permissions.has(PermissionsBitField.Flags.SendMessages) || !permissions.has(PermissionsBitField.Flags.EmbedLinks)) {
+        console.error("Bot lacks permissions for lyrics message in channel:", channel.id);
+        await sendEmbed(channel, "⚠️ Bot lacks permissions to display lyrics here.");
+        return;
+    }
 
-    // Store the lyrics message
+    const message = await channel.send({ embeds: [embed], components: [row] }).catch(err => {
+        console.error("Error sending lyrics message:", err);
+        return null;
+    });
+    if (!message) return;
+
     const guildId = player.guildId;
     if (!guildTrackMessages.has(guildId)) {
         guildTrackMessages.set(guildId, []);
     }
-    guildTrackMessages.get(guildId).push({
+    const lyricsMessageInfo = {
         messageId: message.id,
         channelId: channel.id,
-        type: 'lyrics'
-    });
+        type: 'lyrics', 
+        intervalId: null 
+    };
+    guildTrackMessages.get(guildId).push(lyricsMessageInfo);
 
     const updateLyrics = async () => {
+        if (!player || player.destroyed || !player.current || player.current.info.uri !== track.uri || message.deleted) {
+            clearInterval(lyricsMessageInfo.intervalId);
+            if (message && !message.deleted) {
+                await message.delete().catch(() => {});
+            }
+            const currentMessages = guildTrackMessages.get(guildId) || [];
+            guildTrackMessages.set(guildId, currentMessages.filter(m => m.messageId !== message.id));
+            return;
+        }
+
         const currentTime = Math.floor(player.position / 1000); 
         const totalLines = lines.length;
-
-        const linesPerSecond = totalLines / songDuration; 
+        const linesPerSecond = songDuration > 0 ? totalLines / songDuration : 0; 
         const currentLineIndex = Math.floor(currentTime * linesPerSecond); 
 
         const start = Math.max(0, currentLineIndex - 3);
-        const end = Math.min(totalLines, currentLineIndex + 3);
+        const end = Math.min(totalLines, currentLineIndex + 4); 
         const visibleLines = lines.slice(start, end).join('\n');
 
-        embed.setDescription(visibleLines);
-        await message.edit({ embeds: [embed] });
+        embed.setDescription(visibleLines.substring(0, 4090)); 
+        if (message && !message.deleted) {
+             await message.edit({ embeds: [embed] }).catch(err => {
+                 if (err.code !== 10008) console.error("Error editing lyrics message:", err);
+                 else { 
+                    clearInterval(lyricsMessageInfo.intervalId);
+                    const currentMessages = guildTrackMessages.get(guildId) || [];
+                    guildTrackMessages.set(guildId, currentMessages.filter(m => m.messageId !== message.id));
+                 }
+             });
+        } else { // message might have been deleted externally
+            clearInterval(lyricsMessageInfo.intervalId);
+            const currentMessages = guildTrackMessages.get(guildId) || [];
+            guildTrackMessages.set(guildId, currentMessages.filter(m => m.messageId !== message.id));
+        }
     };
 
-    const interval = setInterval(updateLyrics, 3000);
+    lyricsMessageInfo.intervalId = setInterval(updateLyrics, 3000); 
     updateLyrics(); 
 
-    const collector = message.createMessageComponentCollector({ time: 600000 });
+    const collector = message.createMessageComponentCollector({ time: track.length > 0 ? track.length + 60000 : 600000 });
 
     collector.on('collect', async i => {
         await i.deferUpdate();
-    
+        
+        const member = i.member;
+        const voiceChannel = member.voice.channel;
+        const botVoiceChannelId = client.guilds.cache.get(player.guildId)?.members.me?.voice?.channelId;
+        if (!voiceChannel || voiceChannel.id !== botVoiceChannelId) {
+            await i.followUp({ 
+                embeds: [new EmbedBuilder().setColor(config.embedColor || '#FF7A00').setDescription('🔒 **You need to be in the same voice channel as the bot to interact with lyrics!**')],
+                ephemeral: true 
+            });
+            return;
+        }
+
         if (i.customId === "stopLyrics") {
-            clearInterval(interval);
-            await message.delete();
+            clearInterval(lyricsMessageInfo.intervalId);
+            if (message && !message.deleted) await message.delete().catch(() => {});
         } else if (i.customId === "fullLyrics") {
-            clearInterval(interval);
-            embed.setDescription(lines.join('\n'));
-    
+            clearInterval(lyricsMessageInfo.intervalId);
+            embed.setDescription(lines.join('\n').substring(0, 4090)); 
+        
             const deleteButton = new ButtonBuilder()
                 .setCustomId("deleteLyrics")
-                .setLabel("Delete")
+                .setLabel("Delete Lyrics")
                 .setStyle(ButtonStyle.Danger);
-    
+        
             const deleteRow = new ActionRowBuilder().addComponents(deleteButton);
-    
-            await message.edit({ embeds: [embed], components: [deleteRow] });
+            if (message && !message.deleted) await message.edit({ embeds: [embed], components: [deleteRow] }).catch(() => {});
         } else if (i.customId === "deleteLyrics") {
-            await message.delete();
+            clearInterval(lyricsMessageInfo.intervalId); 
+            if (message && !message.deleted) await message.delete().catch(() => {});
+        }
+        // 如果是按鈕操作導致訊息被刪除或 collector 停止，從 guildTrackMessages 移除
+        if ((i.customId === "stopLyrics" || i.customId === "deleteLyrics") || (message && message.deleted)){
+            const currentMessages = guildTrackMessages.get(guildId) || [];
+            guildTrackMessages.set(guildId, currentMessages.filter(m => m.messageId !== message.id));
         }
     });
 
     collector.on('end', () => {
-        clearInterval(interval);
-        message.delete().catch(() => {});
+        clearInterval(lyricsMessageInfo.intervalId);
+        if (message && !message.deleted) {
+            message.delete().catch(() => {}); 
+        }
+        const currentMessages = guildTrackMessages.get(guildId) || [];
+        guildTrackMessages.set(guildId, currentMessages.filter(m => m.messageId !== message.id));
     });
 }
 
-
-
+// 修改 createActionRow1
 function createActionRow1(disabled) {
     return new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder().setCustomId("loopToggle").setEmoji('🔁').setStyle(ButtonStyle.Secondary).setDisabled(disabled),
-            new ButtonBuilder().setCustomId("disableLoop").setEmoji('❌').setStyle(ButtonStyle.Secondary).setDisabled(disabled),
+            new ButtonBuilder().setCustomId("showQueue").setEmoji('📜').setStyle(ButtonStyle.Secondary).setDisabled(disabled), // <--- 替換按鈕
             new ButtonBuilder().setCustomId("skipTrack").setEmoji('⏭️').setStyle(ButtonStyle.Secondary).setDisabled(disabled),
             new ButtonBuilder().setCustomId("showLyrics").setEmoji('🎤').setStyle(ButtonStyle.Secondary).setDisabled(disabled),
             new ButtonBuilder().setCustomId("clearQueue").setEmoji('🗑️').setStyle(ButtonStyle.Secondary).setDisabled(disabled)
