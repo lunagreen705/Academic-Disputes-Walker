@@ -59,11 +59,6 @@ fs.readdir(config.commandsDir, (err, files) => {
     });
 });
 
----
-
-## Gemini AI 訊息處理 (已更新為新版 SDK)
-
----
 client.on("messageCreate", async (message) => {
     // 忽略來自機器人本身的訊息
     if (message.author.bot) return;
@@ -109,12 +104,6 @@ client.on("messageCreate", async (message) => {
         }
     }
 });
-
----
-
-## 其他 Bot 功能
-
----
 
 client.on("raw", (d) => {
     const { GatewayDispatchEvents } = require("discord.js");
