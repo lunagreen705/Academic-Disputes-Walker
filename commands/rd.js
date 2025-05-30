@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder } = require('discord.js'); // 確保引入 SlashCommandBuilder
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle} = require('discord.js'); // 確保引入 SlashCommandBuilder
 const config = require("../config.js");
 const musicIcons = require('../UI/icons/musicicons.js'); // 如果這個指令不需要，可以移除
 
