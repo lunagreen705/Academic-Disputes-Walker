@@ -1,9 +1,10 @@
 {
-  "name": "prime-music",
-  "version": "1.2",
-  "description": "Music Bot",
+  "name": "Academic-Disputes-Walker",
+  "version": "1.0",
+  "description": "fun Bot",
   "main": "index.js",
   "dependencies": {
+    "@google/genai": "^1.2.0",  
     "axios": "^1.8.1",
     "discord.js": "^14.15.1",
     "dotenv": "^16.4.7",
