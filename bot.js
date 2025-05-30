@@ -5,13 +5,16 @@ const path = require('path');
 const { initializePlayer } = require('./player');
 const { connectToDatabase } = require('./mongodb');
 const colors = require('./UI/colors/colors');
-const { GoogleGenerativeAI } = require("@google/genai"); // 使用新的 @google/genai 套件
+// --- 這裡有改動：引入 @google/genai 的方式 ---
+const { GoogleGenerativeAI } = require("@google/genai"); 
+// --- 結束改動 ---
 require('dotenv').config();
 
 // --- Gemini AI 配置 ---
 const MODEL_NAME = "gemini-flash"; // 或 "gemini-pro"，根據您的需求選擇
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// --- 結束 Gemini AI 配置 ---
+// --- 這裡有改動：正確實例化 GoogleGenerativeAI ---
+const genAI = new GoogleGenerativeAI.GoogleGenerativeAI(process.env.GEMINI_API_KEY); 
+// --- 結束改動 ---
 
 const client = new Client({
     // 精確地列出所需的 Intents，而不是全部啟用
@@ -30,9 +33,9 @@ client.config = config; // 設定機器人配置
 initializePlayer(client); // 初始化音樂播放器
 
 client.on("ready", async () => {
-    console.log(`${colors.cyan}[ SYSTEM ]${colors.reset} ${colors.green}Client logged as ${colors.yellow}${client.user.tag}${colors.reset}`);
-    console.log(`${colors.cyan}[ MUSIC ]${colors.reset} ${colors.green}Riffy Music System Ready 🎵${colors.reset}`);
-    console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.gray}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
+    console.log(`<span class="math-inline">\{colors\.cyan\}\[ SYSTEM \]</span>{colors.reset} ${colors.green}Client logged as <span class="math-inline">\{colors\.yellow\}</span>{client.user.tag}${colors.reset}`);
+    console.log(`<span class="math-inline">\{colors\.cyan\}\[ MUSIC \]</span>{colors.reset} <span class="math-inline">\{colors\.green\}Riffy Music System Ready 🎵</span>{colors.reset}`);
+    console.log(`<span class="math-inline">\{colors\.cyan\}\[ TIME \]</span>{colors.reset} <span class="math-inline">\{colors\.gray\}</span>{new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
     client.riffy.init(client.user.id);
 
     // --- 註冊斜線指令 ---
@@ -40,12 +43,12 @@ client.on("ready", async () => {
     if (client.commands.length > 0) {
         try {
             await client.application.commands.set(client.commands);
-            console.log(`${colors.cyan}[ COMMAND ]${colors.reset} ${colors.green}Successfully registered slash commands!${colors.reset}`);
+            console.log(`<span class="math-inline">\{colors\.cyan\}\[ COMMAND \]</span>{colors.reset} <span class="math-inline">\{colors\.green\}Successfully registered slash commands\!</span>{colors.reset}`);
         } catch (error) {
-            console.error(`${colors.red}[ ERROR ]${colors.reset} ${colors.red}Failed to register slash commands: ${error.message}${colors.reset}`);
+            console.error(`<span class="math-inline">\{colors\.red\}\[ ERROR \]</span>{colors.reset} ${colors.red}Failed to register slash commands: <span class="math-inline">\{error\.message\}</span>{colors.reset}`);
         }
     } else {
-        console.log(`${colors.cyan}[ COMMAND ]${colors.reset} ${colors.yellow}No slash commands found to register.${colors.reset}`);
+        console.log(`<span class="math-inline">\{colors\.cyan\}\[ COMMAND \]</span>{colors.reset} <span class="math-inline">\{colors\.yellow\}No slash commands found to register\.</span>{colors.reset}`);
     }
     // --- 結束斜線指令註冊 ---
 });
@@ -105,7 +108,7 @@ client.on("messageCreate", async (message) => {
                 await message.reply(reply);
             }
         } catch (error) {
-            console.error(`${colors.red}[ AI ERROR ]${colors.reset} Error generating content:`, error);
+            console.error(`<span class="math-inline">\{colors\.red\}\[ AI ERROR \]</span>{colors.reset} Error generating content:`, error);
             await message.reply("抱歉，我現在無法處理你的請求。請稍後再試。");
         }
     }
@@ -115,83 +118,4 @@ client.on("messageCreate", async (message) => {
 // 讀取並註冊事件處理器 (例如 'messageCreate', 'interactionCreate' 等)
 fs.readdir("./events", (_err, files) => {
     files.forEach((file) => {
-        if (!file.endsWith(".js")) return;
-        const event = require(`./events/${file}`);
-        let eventName = file.split(".")[0];
-        client.on(eventName, event.bind(null, client));
-        delete require.cache[require.resolve(`./events/${file}`)]; // 清除快取，有利於開發時熱重載
-    });
-});
-
-client.commands = []; // 初始化一個陣列來儲存斜線指令資訊
-// 讀取並載入斜線指令 (這些指令隨後會在 'ready' 事件中註冊到 Discord API)
-fs.readdir(config.commandsDir, (err, files) => {
-    if (err) {
-        console.error(`${colors.red}[ ERROR ]${colors.reset} ${colors.red}Failed to read commands directory: ${err.message}${colors.reset}`);
-        return;
-    }
-    files.forEach(async (f) => {
-        try {
-            if (f.endsWith(".js")) {
-                let props = require(`${config.commandsDir}/${f}`);
-                client.commands.push({
-                    name: props.name,
-                    description: props.description,
-                    options: props.options,
-                });
-                console.log(`${colors.cyan}[ COMMAND ]${colors.reset} ${colors.green}Loaded command: ${colors.yellow}${props.name}${colors.reset}`);
-            }
-        } catch (err) {
-            console.error(`${colors.red}[ ERROR ]${colors.reset} ${colors.red}Failed to load command ${f}: ${err.message}${colors.reset}`);
-        }
-    });
-});
-
-// 處理原始 Discord 網關事件 (主要用於 Riffy 的語音狀態更新)
-client.on("raw", (d) => {
-    const { GatewayDispatchEvents } = require("discord.js"); // 局部引用，避免全域污染
-    if (![GatewayDispatchEvents.VoiceStateUpdate, GatewayDispatchEvents.VoiceServerUpdate].includes(d.t)) return;
-    client.riffy.updateVoiceState(d);
-});
-
-// 登入 Discord 機器人
-client.login(config.TOKEN || process.env.TOKEN).catch((e) => {
-    console.log('\n' + '─'.repeat(40));
-    console.log(`${colors.magenta}${colors.bright}🔐 TOKEN VERIFICATION${colors.reset}`);
-    console.log('─'.repeat(40));
-    console.log(`${colors.cyan}[ TOKEN ]${colors.reset} ${colors.red}Authentication Failed ❌${colors.reset}`);
-    console.log(`${colors.gray}Error: ${e.message}. Please turn on necessary Intents or reset to a new Token.${colors.reset}`); // 更明確的錯誤提示
-});
-
-// 連接到 MongoDB 資料庫
-connectToDatabase().then(() => {
-    console.log('\n' + '─'.repeat(40));
-    console.log(`${colors.magenta}${colors.bright}🕸️  DATABASE STATUS${colors.reset}`);
-    console.log('─'.repeat(40));
-    console.log(`${colors.cyan}[ DATABASE ]${colors.reset} ${colors.green}MongoDB Online ✅${colors.reset}`);
-}).catch((err) => {
-    console.log('\n' + '─'.repeat(40));
-    console.log(`${colors.magenta}${colors.bright}🕸️  DATABASE STATUS${colors.reset}`);
-    console.log('─'.repeat(40));
-    console.log(`${colors.cyan}[ DATABASE ]${colors.reset} ${colors.red}Connection Failed ❌${colors.reset}`);
-    console.log(`${colors.gray}Error: ${err.message}${colors.reset}`);
-});
-
-// 設定一個簡單的 Express Web 伺服器
-const express = require("express");
-const app = express();
-const port = 3000;
-app.get('/', (req, res) => {
-    const filePath = path.join(__dirname, 'index.html'); // 假設 index.html 存在於機器人主目錄
-    res.sendFile(filePath);
-});
-
-app.listen(port, () => {
-    console.log('\n' + '─'.repeat(40));
-    console.log(`${colors.magenta}${colors.bright}🌐 SERVER STATUS${colors.reset}`);
-    console.log('─'.repeat(40));
-    console.log(`${colors.cyan}[ SERVER ]${colors.reset} ${colors.green}Online ✅${colors.reset}`);
-    console.log(`${colors.cyan}[ PORT ]${colors.reset} ${colors.yellow}http://localhost:${port}${colors.reset}`);
-    console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.gray}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
-    console.log(`${colors.cyan}[ USER ]${colors.reset} ${colors.yellow}GlaceYT${colors.reset}`);
-});
+        if (!file.endsWith(".js")) return
