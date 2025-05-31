@@ -24,12 +24,9 @@ client.on("ready", () => {
     console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.gray}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
     client.riffy.init(client.user.id);
         // --- 載入牌堆 ---
-    const decksToLoad = ['foods', 'quotes', 'tarot']; // 你要載入的牌堆名稱
-    deckManager.loadDecks(decksToLoad); // 呼叫 deckManager 載入牌堆
-    // --- 載入牌堆 (新版，不傳遞參數，讓 deckManager 自動掃描) ---
     deckManager.loadDecks(); // <-- 這裡就是唯一的修改！
     // --- 牌堆載入結束 ---
-
+    
     // ... (好感度模組初始化等其他 ready 事件中的程式碼)
     console.log(`${colors.cyan}[ AFFECTION ]${colors.reset} ${colors.green}好感度系統已準備就緒。${colors.reset}`);
 });
