@@ -10,14 +10,15 @@ module.exports = {
     description: "從指定的牌堆中抽取一個項目。",
     permissions: "0x0000000000000800",
 
-    options: [
-        {
-            name: 'deck', // 輸入框名稱
-            description: '選擇要抽取的牌堆',
-            type: ApplicationCommandOptionType.String,
-            required: true,
-        }
-    ],
+ options: [
+    {
+        name: 'deck',
+        description: '選擇要抽取的牌堆',
+        type: ApplicationCommandOptionType.String,
+        required: true,
+        autocomplete: true // 🔥 關鍵就在這一行
+    }
+],
 
     // Discord.js v13/v14 的 slash command 支援 autocomplete 功能
     async autocomplete(interaction) {
