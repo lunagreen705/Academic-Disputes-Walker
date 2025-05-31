@@ -22,26 +22,29 @@ module.exports = {
     // Discord.js v13/v14 的 slash command 支援 autocomplete 功能
     async autocomplete(interaction) {
         const focusedValue = interaction.options.getFocused();
-        const availableDecks = deckManager.getAvailableDeckNames(); // 從 deckManager 獲取所有可用牌堆名稱
+        // 從 deckManager 獲取所有可用牌堆名稱，這些名稱就是 .json 檔案的名稱（不含副檔名）
+        const availableDecks = deckManager.getAvailableDeckNames(); 
 
-        // 直接將牌堆的英文名稱作為選項的 name 和 value
+        // 直接將牌堆的原始英文名稱作為選項的 name 和 value
         const choices = availableDecks.map(name => ({
-            name: name, // 直接使用原始英文名稱
-            value: name  // value 仍然是英文檔案名
+            name: name, // 直接使用原始英文名稱作為顯示名稱
+            value: name  // value 仍然是英文檔案名，deckManager 處理時需要這個
         }));
 
+        // 根據用戶輸入過濾選項，使用 includes 實現模糊匹配
         const filtered = choices.filter(choice =>
-            choice.name.toLowerCase().includes(focusedValue.toLowerCase()) // 使用 includes 讓模糊匹配更好
+            choice.name.toLowerCase().includes(focusedValue.toLowerCase()) 
         );
 
+        // 回應 Discord，最多顯示 25 個選項
         await interaction.respond(
-            filtered.slice(0, 25) // Discord 限制最多 25 個選項
+            filtered.slice(0, 25) 
         );
     },
 
     run: async (client, interaction, lang) => {
         try {
-            const deckName = interaction.options.getString('deck');
+            const deckName = interaction.options.getString('deck'); // 這裡拿到的是用戶選擇的原始英文值
             let drawnItem = deckManager.drawFromDeck(deckName);
 
             if (!drawnItem) {
