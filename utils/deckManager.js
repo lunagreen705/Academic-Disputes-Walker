@@ -3,9 +3,9 @@ const fs = require('fs');
 const path = require('path');
 
 const decks = {}; // 用來儲存所有已載入的牌堆資料
+const availableDeckNames = []; // 新增：儲存所有已載入牌堆的名稱
 
 // 硬編碼牌堆資料夾路徑
-// 假設這個模組始終知道牌堆在項目根目錄下的 data/desk/
 const BASE_DATA_DIR = path.join(__dirname, '../data'); // 項目根目錄下的 data 資料夾
 const DECK_SUBFOLDER = 'desk'; // 牌堆所在的子資料夾
 const DECK_FOLDER_PATH = path.join(BASE_DATA_DIR, DECK_SUBFOLDER); // 完整的牌堆資料夾路徑
@@ -14,7 +14,13 @@ const DECK_FOLDER_PATH = path.join(BASE_DATA_DIR, DECK_SUBFOLDER); // 完整的�
  * 載入指定牌堆名稱的檔案，或自動載入DECK_FOLDER_PATH中所有的.json檔案。
  * @param {Array<string>} [deckNames=null] - 要載入的牌堆名稱陣列。如果為空或未提供，將自動載入所有.json檔案。
  */
-function loadDecks(deckNames = null) { // 將 deckNames 設為可選參數
+function loadDecks(deckNames = null) {
+    // 清空現有的牌堆和名稱列表，以便重新載入
+    for (const key in decks) {
+        delete decks[key];
+    }
+    availableDeckNames.length = 0; // 清空陣列
+
     // 確保牌堆資料夾存在
     if (!fs.existsSync(DECK_FOLDER_PATH)) {
         console.error(`[DECK MANAGER] 錯誤：牌堆資料夾不存在：${DECK_FOLDER_PATH}`);
@@ -40,12 +46,21 @@ function loadDecks(deckNames = null) { // 將 deckNames 設為可選參數
 
     // 逐一載入檔案
     for (const file of filesToLoad) {
-        const deckName = file.replace('.json', ''); // 從檔案名中移除 .json 得到牌堆名稱 (例如: foods)
+        const deckName = file.replace('.json', ''); // 從檔案名中移除 .json 得到牌堆名稱
         const filePath = path.join(DECK_FOLDER_PATH, file);
         try {
             const data = fs.readFileSync(filePath, 'utf8');
-            decks[deckName] = JSON.parse(data);
-            console.log(`[DECK MANAGER] 成功載入牌堆: ${deckName} (從 ${file})`);
+            const parsedData = JSON.parse(data);
+
+            // 檢查解析後的數據是否是有效的牌堆 (例如非空陣列)
+            if (Array.isArray(parsedData) && parsedData.length > 0) {
+                decks[deckName] = parsedData;
+                availableDeckNames.push(deckName); // 將載入成功的牌堆名稱加入列表
+                console.log(`[DECK MANAGER] 成功載入牌堆: ${deckName} (從 ${file})`);
+            } else {
+                console.warn(`[DECK MANAGER] 警告：牌堆 ${deckName} (檔案 ${file}) 為空或格式不正確，將不會載入。`);
+                decks[deckName] = []; // 依然設為空陣列以避免後續錯誤
+            }
         } catch (error) {
             console.error(`[DECK MANAGER] 載入牌堆 ${deckName} (檔案 ${file}) 失敗:`, error.message);
             decks[deckName] = []; // 載入失敗時初始化為空陣列
@@ -67,7 +82,16 @@ function drawFromDeck(deckName) {
     return deck[randomIndex];
 }
 
+/**
+ * 獲取所有已載入牌堆的名稱列表。
+ * @returns {Array<string>} 已載入牌堆名稱的陣列。
+ */
+function getAvailableDeckNames() {
+    return availableDeckNames;
+}
+
 module.exports = {
     loadDecks,
-    drawFromDeck
+    drawFromDeck,
+    getAvailableDeckNames // 新增導出這個函式
 };
