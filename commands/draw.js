@@ -3,9 +3,11 @@ const { EmbedBuilder, ApplicationCommandOptionType } = require('discord.js');
 const config = require("../config.js");
 const deckManager = require('../utils/deckManager'); // 引入牌堆管理模組
 
+// 不再需要 deckNameMap，因為我們直接顯示原始英文名稱
+
 module.exports = {
     name: "draw",
-    description: "從指定的牌堆中抽取一個項目 (食物、語錄、塔羅)。",
+    description: "從指定的牌堆中抽取一個項目。",
     permissions: "0x0000000000000800",
 
     options: [
@@ -14,13 +16,28 @@ module.exports = {
             description: '選擇要抽取的牌堆',
             type: ApplicationCommandOptionType.String,
             required: true,
-            choices: [ // 提供選項讓用戶選擇
-                { name: '食物', value: 'foods' },
-                { name: '語錄', value: 'quotes' },
-                { name: '塔羅', value: 'tarot' }
-            ]
         }
     ],
+
+    // Discord.js v13/v14 的 slash command 支援 autocomplete 功能
+    async autocomplete(interaction) {
+        const focusedValue = interaction.options.getFocused();
+        const availableDecks = deckManager.getAvailableDeckNames(); // 從 deckManager 獲取所有可用牌堆名稱
+
+        // 直接將牌堆的英文名稱作為選項的 name 和 value
+        const choices = availableDecks.map(name => ({
+            name: name, // 直接使用原始英文名稱
+            value: name  // value 仍然是英文檔案名
+        }));
+
+        const filtered = choices.filter(choice =>
+            choice.name.toLowerCase().includes(focusedValue.toLowerCase()) // 使用 includes 讓模糊匹配更好
+        );
+
+        await interaction.respond(
+            filtered.slice(0, 25) // Discord 限制最多 25 個選項
+        );
+    },
 
     run: async (client, interaction, lang) => {
         try {
@@ -31,22 +48,13 @@ module.exports = {
                 const errorEmbed = new EmbedBuilder()
                     .setColor('#ff0000')
                     .setTitle('❌ 錯誤')
-                    .setDescription(`找不到牌堆 "${deckName}" 或它目前是空的。`);
+                    .setDescription(`找不到牌堆 "${deckName}" 或它目前是空的。請確認你選擇了正確的牌堆。`);
                 return interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
 
-            let embedTitle = `✨ 抽取結果：${deckName} 牌堆`;
-            let embedDescription = '';
-
-            // 根據抽取到的項目類型來格式化輸出
-            if (typeof drawnItem === 'object' && drawnItem.name && drawnItem.meaning) {
-                // 如果是塔羅牌這樣的物件 (帶有 name 和 meaning 屬性)
-                embedDescription = `抽到牌面：**${drawnItem.name}**\n\n**牌義：** ${drawnItem.meaning}`;
-                embedTitle = `🔮 塔羅牌抽取：${drawnItem.name}`;
-            } else {
-                // 如果是字串（食物或語錄）
-                embedDescription = `你抽到了：**${drawnItem}**`;
-            }
+            // 標題也直接使用原始英文名稱
+            const embedTitle = `✨ 抽取結果：${deckName} 牌堆`;
+            const embedDescription = `你抽到了：**${drawnItem}**`;
 
             const embed = new EmbedBuilder()
                 .setColor(config.embedColor || '#0099ff')
