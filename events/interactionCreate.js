@@ -12,30 +12,53 @@ module.exports = async (client, interaction) => {
     const languageFile = path.join(__dirname, `../languages/${config.language}.js`);
     const lang = require(languageFile);
 
-    function cmd_loader() {
-      if (interaction?.type === InteractionType.ApplicationCommand) {
-        fs.readdir(config.commandsDir, (err, files) => {
-          if (err) throw err;
-          files.forEach(async (f) => {
-            let props = require(`.${config.commandsDir}/${f}`);
-            if (interaction.commandName === props.name) {
-              try {
-                if (interaction?.member?.permissions?.has(props?.permissions || "0x0000000000000800")) {
-                  return props.run(client, interaction, lang);
-                } else {
-                  return interaction?.reply({ content: lang.errors.noPermission, ephemeral: true });
-                }
-              } catch (e) {
-                return interaction?.reply({ content: lang.errors.generalError.replace("{error}", e.message), ephemeral: true });
-              }
-            }
-          });
-        });
+    // --- 🧠 Autocomplete 支援 ---
+    if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
+      try {
+        const commandPath = path.join(__dirname, "..", config.commandsDir, `${interaction.commandName}.js`);
+        if (fs.existsSync(commandPath)) {
+          const command = require(commandPath);
+          if (typeof command.autocomplete === "function") {
+            await command.autocomplete(interaction);
+          }
+        }
+      } catch (e) {
+        console.error("❌ Autocomplete 發生錯誤:", e);
       }
+      return; // 注意！處理完 autocomplete 要結束流程
     }
 
-    cmd_loader();
+    // --- 🎯 Slash 指令處理 ---
+    if (interaction.type === InteractionType.ApplicationCommand) {
+      fs.readdir(path.join(__dirname, "..", config.commandsDir), (err, files) => {
+        if (err) throw err;
+
+        files.forEach(async (file) => {
+          if (!file.endsWith(".js")) return;
+
+          const command = require(path.join(__dirname, "..", config.commandsDir, file));
+          if (interaction.commandName === command.name) {
+            try {
+              const hasPermission = interaction?.member?.permissions?.has(command?.permissions || "0x0000000000000800");
+              if (!hasPermission) {
+                return interaction.reply({ content: lang.errors.noPermission, ephemeral: true });
+              }
+
+              return command.run(client, interaction, lang);
+
+            } catch (e) {
+              console.error(`❌ 指令執行錯誤: ${e}`);
+              return interaction.reply({
+                content: lang.errors.generalError.replace("{error}", e.message),
+                ephemeral: true
+              });
+            }
+          }
+        });
+      });
+    }
+
   } catch (e) {
-    console.error(e);
+    console.error("❌ 總處理器錯誤:", e);
   }
 };
