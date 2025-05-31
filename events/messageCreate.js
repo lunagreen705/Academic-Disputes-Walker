@@ -12,7 +12,7 @@ module.exports = async (client, message) => { // 注意這裡接收 client 和 m
     const userId = message.author.id;
 
     if (message.content.toLowerCase().includes('早上好基地')) {
-        const currentAffection = affectionManager.addAffection(userId, 1);
+        const currentAffection = await affectionManager.addAffection(userId, 1); 
 
         let replyMessage = '';
         if (currentAffection >= 1 && currentAffection <= 25) {
