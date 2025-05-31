@@ -12,7 +12,22 @@ module.exports = async (client, message) => { // 注意這裡接收 client 和 m
     const userId = message.author.id;
 
     if (message.content.toLowerCase().includes('早上好基地')) {
-        const currentAffection = await affectionManager.addAffection(userId, 1); 
+        // 先檢查今天是否已經問候過
+        if (affectionManager.hasGreetedToday(userId)) {
+            await message.reply(`${message.author.username}，你今天已經向基地問候過了。學術糾紛機器人提醒你，重複的行為不值得額外關注。`);
+            return; // 終止函數執行
+        }
+
+        // 如果今天沒問候過，才增加好感度
+        // 注意這裡使用了 await，因為 addAffection 是一個異步函數
+        const currentAffection = await affectionManager.addAffection(userId, 1);
+
+        // 如果 addAffection 返回 false (表示今天已經觸發，但因之前沒有檢查而進入這裡)
+        // 雖然理論上被上面的 hasGreetedToday() 擋住了，但這是個額外的防禦性檢查
+        if (currentAffection === false) {
+             await message.reply(`${message.author.username}，你今天已經向基地問候過了。提醒你，重複的行為不值得額外關注📏`);
+             return;
+        }
 
         let replyMessage = '';
         if (currentAffection >= 1 && currentAffection <= 25) {
