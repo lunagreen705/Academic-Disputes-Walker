@@ -24,38 +24,15 @@ client.on("ready", () => {
 });
 client.config = config;
 
-// 這是您需要修改 bot.js / index.js 的部分
-
-// 確保有引入 path 模組
-const path = require('path'); 
-
 fs.readdir("./events", (_err, files) => {
   files.forEach((file) => {
     if (!file.endsWith(".js")) return;
-    const filePath = path.join(__dirname, 'events', file); // 使用 path 確保路徑正確性
-    const event = require(filePath); // 現在 event 是一個物件，例如 { name: 'ready', execute: fn }
-
-    // **新增的檢查，確保事件物件符合預期格式**
-    if (!event.name || typeof event.execute !== 'function') {
-        console.warn(`[WARNING] 事件檔案 ${file} 缺少必要的 'name' 或 'execute' 屬性，已跳過。`);
-        return; // 跳過不符合格式的檔案
-    }
-
-    // **關鍵的修正：根據 event 物件的屬性來正確註冊事件**
-    if (event.once) { // 如果事件物件有 once 屬性，表示它只觸發一次
-        client.once(event.name, (...args) => event.execute(...args));
-    } else { // 否則，表示它是會多次觸發的事件
-        client.on(event.name, (...args) => event.execute(...args));
-    }
-
-    // 這行用於開發時確保載入最新代碼，在生產環境中影響不大但無害
-    delete require.cache[require.resolve(filePath)]; 
+    const event = require(`./events/${file}`);
+    let eventName = file.split(".")[0]; 
+    client.on(eventName, event.bind(null, client));
+    delete require.cache[require.resolve(`./events/${file}`)];
   });
 });
-
-// 請確保您其他載入指令的邏輯也還在 bot.js / index.js 中
-// ... (載入 commands 的程式碼)
-// ... (client.on('messageCreate', ...) 用於處理指令的邏輯)
 
 
 client.commands = [];
