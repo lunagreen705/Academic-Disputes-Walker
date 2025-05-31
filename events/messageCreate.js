@@ -3,9 +3,6 @@ const fs = require('fs');
 const path = require('path');
 
 // 定義好感度資料檔案的路徑
-// __dirname 指向當前檔案 (messageCreate.js) 的目錄
-// '..' 向上一個目錄 (your-discord-bot/)
-// 'data' 進入 data 目錄
 const DATA_FILE = path.join(__dirname, '..', 'data', 'user_affection.json');
 
 /**
@@ -16,7 +13,6 @@ const DATA_FILE = path.join(__dirname, '..', 'data', 'user_affection.json');
 function loadAffectionData() {
     try {
         if (!fs.existsSync(DATA_FILE)) {
-            // 如果檔案不存在，創建一個空的 JSON 物件並寫入
             fs.writeFileSync(DATA_FILE, '{}', 'utf8');
             return {};
         }
@@ -24,7 +20,7 @@ function loadAffectionData() {
         return JSON.parse(data);
     } catch (error) {
         console.error('Error loading affection data:', error);
-        return {}; // 載入失敗時返回空物件，避免程式崩潰
+        return {};
     }
 }
 
@@ -34,7 +30,6 @@ function loadAffectionData() {
  */
 function saveAffectionData(data) {
     try {
-        // null, 2 讓 JSON 格式化更易讀
         fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
     } catch (error) {
         console.error('Error saving affection data:', error);
@@ -42,16 +37,16 @@ function saveAffectionData(data) {
 }
 
 module.exports = {
-    name: 'messageCreate', // 事件名稱，Discord.js 會監聽這個事件
-    async execute(message) { // 事件觸發時執行的函數
-        // 忽略機器人自己的訊息，避免無限循環
-        if (message.author.bot) return;
+    name: 'messageCreate',
+    async execute(message) {
+        if (message.author.bot) return; // 忽略機器人自己的訊息
 
         const userId = message.author.id;
-        let userAffection = loadAffectionData(); // 每次處理訊息都重新載入，確保是最新的資料
+        let userAffection = loadAffectionData();
 
-        // 檢查訊息內容是否包含「早安」
-        if (message.content.toLowerCase().includes('早安')) {
+        // **修改這裡的條件判斷**
+        // 檢查訊息內容是否包含「早上好基地」（不區分大小寫）
+        if (message.content.toLowerCase().includes('早上好基地')) {
             // 如果是新用戶，初始化好感度為 0
             if (!userAffection[userId]) {
                 userAffection[userId] = 0;
@@ -62,16 +57,15 @@ module.exports = {
             let replyMessage = '';
             // 根據好感度給出不同的回覆
             if (userAffection[userId] < 5) {
-                replyMessage = `早安！${message.author.username}，今天過得好嗎？`;
+                replyMessage = `早上好基地！${message.author.username}，歡迎來到這個充滿活力的一天！`;
             } else if (userAffection[userId] < 15) {
-                replyMessage = `☀️ 喔喔，又是個美好的一天！早安，${message.author.username}！好感度：${userAffection[userId]} ✨`;
+                replyMessage = `☀️ 喔喔，又是個美好的一天！早上好基地，${message.author.username}！好感度：${userAffection[userId]} ✨`;
             } else {
-                replyMessage = `💖 親愛的 ${message.author.username}，早安！和你說早安真是太開心了！今天的你一樣光芒四射呢！✨ 好感度：${userAffection[userId]}！`;
+                replyMessage = `💖 親愛的 ${message.author.username}，早上好基地！看到你真是太開心了！今天的你一樣光芒四射呢！✨ 好感度：${userAffection[userId]}！`;
             }
             await message.reply(replyMessage); // 回覆用戶
         }
 
-        // 注意：`!好感度` 指令的處理邏輯現在應該在 `commands/affection.js` 中處理。
-        // 所以這裡不需要再檢查 `!好感度` 的訊息。
+        // `!好感度` 指令的處理邏輯仍然由 `commands/affection.js` 和 `index.js` 中的指令處理部分負責。
     },
 };
