@@ -1,34 +1,22 @@
 const fs = require('fs');
 const path = require('path');
 
-// 資料與回應的檔案路徑
-const dataDir = path.join(__dirname, '../data');
-const dataPath = path.join(dataDir, 'user_affection.json');
-const responsePath = path.join(dataDir, 'affection', 'affectionResponses.json');
+// 定義資料與回應的檔案路徑
+const dataPath = path.join(__dirname, '../data/user_affection.json');
+const responsePath = path.join(__dirname, '../data/affection/affectionResponses.json');
 
-// 初始化資料容器
+// 儲存用戶資料
 let data = {};
 
-// 確保資料夾存在
-function ensureDataFolder() {
-    if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
-        console.log(`[AffectionManager] Created data folder: ${dataDir}`);
-    }
-}
-
-// 載入或初始化資料
+// 載入資料
 function loadData() {
-    ensureDataFolder();
-
     if (fs.existsSync(dataPath)) {
         const raw = fs.readFileSync(dataPath);
         data = JSON.parse(raw);
         console.log(`[AffectionManager] Loaded affection data from: ${dataPath}`);
     } else {
         data = {};
-        saveData();
-        console.log(`[AffectionManager] Created new affection file at: ${dataPath}`);
+        saveData(); // 初始創建空檔案
     }
 }
 
@@ -43,7 +31,7 @@ function getTodayDateStr() {
     return new Date().toISOString().split('T')[0];
 }
 
-// 初始化或檢查用戶資料
+// 初始化或檢查用戶資料（不自動儲存）
 function ensureUserData(userId) {
     const today = getTodayDateStr();
 
@@ -55,7 +43,6 @@ function ensureUserData(userId) {
         };
     }
 
-    // 每日重置問候次數
     if (data[userId].lastGreetDate !== today) {
         data[userId].lastGreetDate = today;
         data[userId].greetCountToday = 0;
@@ -64,8 +51,6 @@ function ensureUserData(userId) {
     if (typeof data[userId].greetCountToday !== 'number') {
         data[userId].greetCountToday = 0;
     }
-
-    saveData();
 }
 
 // 是否已問候過
@@ -80,7 +65,7 @@ function getGreetCount(userId) {
     return data[userId].greetCountToday;
 }
 
-// 增加好感度（僅第一次問候會加）
+// 增加好感度（只有第一次問候才加分）
 function addAffection(userId, amount = 1) {
     ensureUserData(userId);
 
@@ -97,40 +82,43 @@ function addAffection(userId, amount = 1) {
 
     user.lastGreetDate = today;
     user.greetCountToday += 1;
-    saveData();
 
+    saveData(); // ✅ 唯一一次寫入點
     return user.affection;
 }
 
-// 🔹 新增這個：用來讀取目前好感度
+// ✅ 提供外部查詢好感度用
 function getAffection(userId) {
     ensureUserData(userId);
     return data[userId].affection;
 }
 
-// 好感度等級（若你未使用可刪）
+// 根據好感度取得等級（若你未使用等級可忽略）
 function getAffectionLevel(affection) {
     if (affection > 100) return 11;
     return Math.min(Math.ceil(affection / 10), 10);
 }
 
-// 抽一句語句
+// 隨機一句語句（依好感度等級）
 function getRandomResponse(level) {
     const responsesByLevel = require(responsePath);
     const levelKey = level.toString();
+
     const responses = responsesByLevel[levelKey];
     if (!responses || responses.length === 0) return '（無法解析的回應，仿佛來自未知維度）';
+
     return responses[Math.floor(Math.random() * responses.length)];
 }
 
+// 初始化時載入
+loadData();
+
 // 匯出模組
 module.exports = {
-    loadData,
-    saveData,
+    getAffection,
+    addAffection,
     hasGreetedToday,
     getGreetCount,
-    addAffection,
-    getAffection,
     getAffectionLevel,
     getRandomResponse
 };
