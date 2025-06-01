@@ -7,7 +7,6 @@ const { connectToDatabase } = require('./mongodb');
 const colors = require('./UI/colors/colors');
 const deckManager = require('./utils/deckManager'); // <-- 加上這行！
 const affectionManager = require('./utils/affectionManager'); // 假設你有這個
-affectionManager.loadData();
 require('dotenv').config();
 
 const client = new Client({
@@ -29,6 +28,7 @@ client.on("ready", () => {
     // --- 牌堆載入結束 ---
     
     // ... (好感度模組初始化等其他 ready 事件中的程式碼)
+    affectionManager.loadData();
     console.log(`${colors.cyan}[ AFFECTION ]${colors.reset} ${colors.green}好感度系統已準備就緒。${colors.reset}`);
 });
 client.config = config;
