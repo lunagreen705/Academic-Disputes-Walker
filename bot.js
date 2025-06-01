@@ -7,6 +7,7 @@ const { connectToDatabase } = require('./mongodb');
 const colors = require('./UI/colors/colors');
 const deckManager = require('./utils/deckManager'); // <-- 加上這行！
 const affectionManager = require('./utils/affectionManager'); // 假設你有這個
+affectionManager.loadData();
 require('dotenv').config();
 
 const client = new Client({
