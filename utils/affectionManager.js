@@ -88,6 +88,12 @@ function addAffection(userId, amount = 1) {
     return user.affection;
 }
 
+// 💖 補上這個函式！
+function getAffection(userId) {
+    ensureUserData(userId);
+    return data[userId].affection;
+}
+
 // 根據好感度取得等級
 function getAffectionLevel(affection) {
     if (affection > 100) return 11;
@@ -105,13 +111,14 @@ function getRandomResponse(level) {
     return responses[Math.floor(Math.random() * responses.length)];
 }
 
-// 匯出模組
+// 匯出模組（這邊加上 getAffection）
 module.exports = {
     loadData,
     saveData,
     hasGreetedToday,
     getGreetCount,
     addAffection,
+    getAffection, // ✅ ←←← 加了這個妳就能用了
     getAffectionLevel,
     getRandomResponse
 };
