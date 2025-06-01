@@ -115,6 +115,7 @@ loadData();
 
 // 匯出模組
 module.exports = {
+    loadData,
     getAffection,
     addAffection,
     hasGreetedToday,
