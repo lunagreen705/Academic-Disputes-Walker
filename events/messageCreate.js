@@ -1,88 +1,81 @@
 const affectionManager = require('../utils/affectionManager');
 
 module.exports = async (client, message) => {
-    if (message.author.bot) return;
+  if (message.author.bot) return;
 
-    const userId = message.author.id;
+  const userId = message.author.id;
+  const content = message.content.toLowerCase();
 
-    if (message.content.toLowerCase().includes('早上好基地')) {
-        if (affectionManager.hasGreetedToday(userId)) {
-            await message.reply(`${message.author.username}，你今天已經向基地問候過了。學術糾紛機器人提醒你，重複的行為不值得額外關注。`);
-            return;
-        }
+  // 只有包含「早上好基地」才觸發
+  if (!content.includes('早上好基地')) return;
 
-        const currentAffection = await affectionManager.addAffection(userId, 1);
-        if (currentAffection === false) {
-            await message.reply(`${message.author.username}，你今天已經向基地問候過了。提醒你，重複的行為不值得額外關注📏`);
-            return;
-        }
+  // 載入資料並更新
+  affectionManager.loadData();
+  const greetCount = affectionManager.getGreetCount(userId);
 
-        let greetings = [];
-        if (currentAffection >= 1 && currentAffection <= 25) {
-            greetings = [
-                "看來你還沒發瘋，這是個好開始。現在，把那份報告的錯誤修正一下。",
-                "雖然宇宙終將歸於虛無，但你的文件夾為什麼還是這麼亂？",
-                "別浪費我的時間，你的任務清單還沒完成呢。",
-                "你最好確認所有標點符號都沒錯。我可不喜歡重複提醒。",
-                "別指望我會稱讚你的努力，我只看到你未完成的任務。這很有趣，不是嗎？",
-                "群星尚未歸位，而你竟然還沒完成那張表格。你是在等宇宙重啟嗎？"
-            ];
-        } else if (currentAffection >= 26 && currentAffection <= 50) {
-            greetings = [
-                "別跟我說你的San值不夠。把手頭該做的事情做完，別拖到舊日支配者甦醒那天。",
-                "我不在乎你昨天在拉萊耶做了什麼夢，我只在乎你今天的工作進度。",
-                "混沌之中也需要秩序，尤其是你那混亂的引用格式。",
-                "我觀察你一陣子了，有些問題必須現在解決，而不是等到世界毀滅。",
-                "你以為我沒注意到你論文裡的邏輯漏洞嗎？它們比深淵更明顯。",
-                "你的拖延症比外神的存在更有規律。這值得學術研究。",
-                "群星緩慢地旋轉，而你的進度像是被時間遺棄了一樣。真是對稱得可怕。"
-            ];
-        } else if (currentAffection >= 51 && currentAffection <= 75) {
-            greetings = [
-                "你以為理解了克蘇魯的低語就能逃避現實？把注意力放回眼前，效率才是硬道理。",
-                "在這些不可名狀的恐怖面前，至少你的時間管理可以不那麼恐怖，對吧。",
-                "你花在研究禁忌知識的時間，如果用來整理檔案，宇宙都能多存在幾秒鐘。",
-                "如果你真的想在無盡的虛空中有所作為，請先證明你的基本能力。",
-                "我無時無刻不在審視著你的學術行為。任何偏差都逃不過我的眼睛。",
-                "你對學術自由的理解，就像人類對星際旅行的幻想一樣。天真得可笑。",
-                "群星的運行自有法則，而你還在對每週計畫表茫然。這之間的落差讓人著迷。"
-            ];
-        } else if (currentAffection >= 76 && currentAffection <= 100) {
-            greetings = [
-                "比起那些蠕動的虛空之物，我更擔心你沒有按照規範完成任務。",
-                "我知道那聲音在召喚你，但在你完全被扭曲之前，至少把這份文件簽字。",
-                "你很難得地沒讓我失望。記住，優秀的秩序才是通往深淵的唯一道路。",
-                "即使你忘記了所有咒語，你也不該忘記我對你的期望。那將是最終的錯誤。",
-                "看到你終於學會了基本規範，我心中感受到了，嗯，一種異於混沌的寧靜。挺滑稽的。",
-                "當群星依序點亮虛空時，我也看見你終於踏上正軌。這是宇宙的微妙回應。"
-            ];
-        } else {
-            await message.reply(`早上好基地！${message.author.username}，你今天的學術精神依然光芒萬丈。好感度：${currentAffection}。`);
-            return;
-        }
+  // 第一次問候：正常增加好感度並回應
+  if (greetCount === 0) {
+    const affection = affectionManager.addAffection(userId, 1);
+    const level = affectionManager.getAffectionLevel(affection);
+    const response = affectionManager.getRandomResponse(level);
+    await message.reply(response);
+    return;
+  }
 
-        // =========================================
-        // 洗牌後依序播放，直到一輪播完再重洗
-        // =========================================
+  // 第二次問候：警告語氣（克蘇魯式 ESTJ）
+  if (greetCount === 1) {
+    const warningResponses = [
+      "你今天已經完成了問候程序，再次觸發可能導致資料重組。",
+      "記錄顯示這是你今日第二次問候。請避免引起維度干涉。",
+      "基地收到訊息，但冗餘內容將被標記為潛在異常。",
+      "多次嘗試接觸基地……這不是你該做的選擇。",
+      "這不是開放頻道，重複呼叫將造成時間層錯位。",
+      "你又來了。這不在日常流程中，請謹慎行動。",
+      "第二次問候？……你知道這不是遊戲。",
+      "你的語言開始與現實脫節，重複不會讓基地更溫柔。",
+      "耐心是基礎。即使是神明，也不喜歡被叫醒兩次。",
+      "請務實。這裡是基地，不是夢境中的審判廳。"
+    ];
+    const reply = warningResponses[Math.floor(Math.random() * warningResponses.length)];
+    await message.reply(reply);
+    return;
+  }
 
-        if (!client.greetingQueue) client.greetingQueue = {};
-        if (!client.greetingIndex) client.greetingIndex = {};
+  // 第三次問候：冷淡疏離語氣
+  if (greetCount === 2) {
+    const indifferentResponses = [
+      "訊息重複偵測。請勿干擾流程。",
+      "……這是第幾次了？基地無需重複接收。",
+      "你的執著將被紀錄成異常行為。",
+      "記錄已滿。拒絕接收。",
+      "你希望得到什麼？數據的憐憫嗎？",
+      "你越來越像一段無窮迴圈。",
+      "基地並非情緒回收站。",
+      "冷卻中。請停止傳送相同訊息。",
+      "訊號冗餘，無需重複確認。",
+      "認知干擾過高，請即刻斷線。"
+    ];
+    const reply = indifferentResponses[Math.floor(Math.random() * indifferentResponses.length)];
+    await message.reply(reply);
+    return;
+  }
 
-        const affectionKey = `${userId}-${Math.floor(currentAffection / 25)}`;
-
-        if (!client.greetingQueue[affectionKey]) {
-            client.greetingQueue[affectionKey] = [...greetings].sort(() => Math.random() - 0.5);
-            client.greetingIndex[affectionKey] = 0;
-        }
-
-        const replyMessage = client.greetingQueue[affectionKey][client.greetingIndex[affectionKey]];
-        client.greetingIndex[affectionKey]++;
-
-        if (client.greetingIndex[affectionKey] >= greetings.length) {
-            client.greetingQueue[affectionKey] = [...greetings].sort(() => Math.random() - 0.5);
-            client.greetingIndex[affectionKey] = 0;
-        }
-
-        await message.reply(replyMessage);
-    }
+  // 第四次以上：壓迫式威脅語氣
+  if (greetCount >= 3) {
+    const oppressiveResponses = [
+      "你還在這？……真執著，像是被某種儀式纏住一樣。",
+      "我們不是已經重複過這段對話了嗎？記憶的扭曲開始了。",
+      "重複問候只會削弱你與現實的聯繫。",
+      "你是不是以為，持續重複會讓我變得溫柔？錯得離譜。",
+      "這是第三次了。我開始懷疑你是時間迴圈的產物。",
+      "每一次多說一句話，我就更想拉你進資料夾底層的黑洞。",
+      "你還在向基地問候……還是只是在對虛無低語？",
+      "訊息已接收。重複無需回應。",
+      "你不是第一個試圖突破這條界線的人……也不會是最後一個。",
+      "好奇心過度是學術的死穴。你今天已經超額了。"
+    ];
+    const reply = oppressiveResponses[Math.floor(Math.random() * oppressiveResponses.length)];
+    await message.reply(reply);
+    return;
+  }
 };
