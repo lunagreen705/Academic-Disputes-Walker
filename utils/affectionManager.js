@@ -304,7 +304,6 @@ function getRandomResponse(level) {
 // --- 模組匯出 ---
 // 將所有核心功能匯出，供其他模組使用
 module.exports = {
-    loadData, 
     saveData,          // 儲存好感度數據 (並觸發 GitHub 同步)
     hasGreetedToday,   // 檢查今日是否已問候
     getGreetCount,     // 取得今日問候次數
