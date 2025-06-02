@@ -1,145 +1,87 @@
-const fs = require('fs/promises');
+const fs = require('fs'); // 使用同步檔案系統模組
 const path = require('path');
 
-// GitHub 相關的環境變數，直接從 process.env 讀取
-const GH_TOKEN = process.env.GH_TOKEN;
-const GH_USERNAME = process.env.GH_USERNAME;
-const GH_REPO = process.env.GH_REPO;
+// --- 檔案路徑定義 ---
+// 好感度資料路徑
+// 假設這個檔案在 ./data/user_affection.json
+// 在 Render 等部署環境中，你可能需要考慮 /tmp 路徑的可寫入性
+// 如果你希望數據在服務重啟後也能保留，且不考慮 GitHub 同步，你可能需要Render的持久化磁碟 (Persistent Disks) 功能。
+// 這裡保留你原始的相對路徑設定，但請注意部署環境的寫入權限。
+const dataPath = path.join(__dirname, '../data/user_affection.json');
+// 回應語句資料路徑
+const responsePath = path.join(__dirname, '../data/affection/affectionResponses.json');
 
-// *** 重要改動：將 DATA_FILE 路徑設定為 /tmp 目錄 ***
-// 在 Render 這類的雲端部署服務中，/tmp 通常是唯一保證可寫入的目錄。
-// 請注意：儲存在 /tmp 的數據在服務重啟後會遺失，因此依賴 GitHub 同步至關重要。
-const DATA_FILE = path.join('/tmp', 'data', 'user_affection.json');
+// --- 數據容器與載入 ---
+let data = {}; // 載入好感度數據的容器
+let affectionResponses = {}; // 載入回應語句數據的容器
 
-// GitHub 儲存庫中的檔案路徑 (這與本地路徑無關，是 GitHub API 要求的路徑)
-const GH_FILE_PATH = 'data/user_affection.json';
+// 在模組載入時就嘗試載入回應語句，避免重複讀取
+try {
+    // 檢查 responsePath 的父目錄是否存在，如果不存在則 require 會失敗
+    const responseDir = path.dirname(responsePath);
+    if (!fs.existsSync(responseDir)) {
+        console.warn(`[AffectionManager] Warning: Response directory "${responseDir}" not found. Cannot load responses.`);
+        // 可以在此處創建目錄或讓後續的 require 失敗
+    }
+    affectionResponses = require(responsePath);
+    console.log(`[AffectionManager] Loaded response data from: ${responsePath}`);
+} catch (error) {
+    console.error(`[AffectionManager] Error loading affection responses from ${responsePath}:`, error.message);
+    affectionResponses = {}; // 確保即使載入失敗，物件也存在
+}
 
-let userAffectionData = {};
-let isDataLoaded = false;
+
+// --- 核心功能函式 ---
 
 /**
- * 從本地檔案載入使用者好感度數據。
- * 如果檔案或其父目錄不存在，則會自動建立它們。
+ * 載入好感度資料。
+ * 如果檔案不存在，則會建立一個空的 JSON 檔案。
+ * 如果父目錄不存在，也會嘗試創建。
  */
-async function loadData() {
+function loadData() {
+    const dataDir = path.dirname(dataPath);
     try {
-        await fs.access(DATA_FILE); // 檢查檔案是否存在
-        const data = await fs.readFile(DATA_FILE, 'utf8'); // 讀取檔案內容
-        userAffectionData = JSON.parse(data); // 解析 JSON 數據
-        console.log(`[AffectionManager] Loaded affection data from: ${DATA_FILE}`);
-        isDataLoaded = true;
-    } catch (error) {
-        if (error.code === 'ENOENT') { // 如果檔案（或父目錄）不存在
-            userAffectionData = {}; // 初始化為空物件
+        // 確保資料目錄存在，如果不存在則創建
+        if (!fs.existsSync(dataDir)) {
+            fs.mkdirSync(dataDir, { recursive: true });
+            console.log(`[AffectionManager] Created data directory: ${dataDir}`);
+        }
 
-            // 確保資料目錄存在。這解決了 'ENOENT' 錯誤。
-            const dataDir = path.dirname(DATA_FILE); // 取得目錄路徑 (例如: /tmp/data)
-            try {
-                // 遞迴地建立所有不存在的父目錄
-                await fs.mkdir(dataDir, { recursive: true });
-                console.log(`[AffectionManager] Created data directory: ${dataDir}`);
-            } catch (mkdirError) {
-                // 如果建立目錄失敗的原因不是因為已經存在 (EEXIST)，則記錄錯誤
-                if (mkdirError.code !== 'EEXIST') {
-                    console.error(`[AffectionManager] Error creating data directory ${dataDir}:`, mkdirError);
-                    // 如果目錄無法建立，這是嚴重錯誤，可能導致無法寫入檔案，這裡選擇中止。
-                    return;
-                }
-            }
-
-            await fs.writeFile(DATA_FILE, '{}', 'utf8'); // 現在，寫入一個空的 JSON 檔案
-            console.log(`[AffectionManager] Created new affection data file: ${DATA_FILE}`);
-            isDataLoaded = true;
+        if (fs.existsSync(dataPath)) {
+            const raw = fs.readFileSync(dataPath, 'utf8');
+            data = JSON.parse(raw);
+            console.log(`[AffectionManager] Loaded affection data from: ${dataPath}`);
         } else {
-            console.error(`[AffectionManager] Error loading affection data:`, error);
+            // 如果檔案不存在，建立一個空的 JSON 檔案
+            data = {};
+            fs.writeFileSync(dataPath, JSON.stringify(data, null, 2), 'utf8');
+            console.log(`[AffectionManager] Created new empty affection data file: ${dataPath}`);
         }
-    }
-}
-
-/**
- * 將當前使用者好感度數據保存到本地檔案，
- * 然後將更新後的內容推送到 GitHub 儲存庫。
- */
-async function saveData() {
-    try {
-        const jsonContent = JSON.stringify(userAffectionData, null, 2); // 將數據格式化為 JSON 字串
-        await fs.writeFile(DATA_FILE, jsonContent, 'utf8'); // 寫入本地檔案
-        console.log(`[AffectionManager] Saved affection data to: ${DATA_FILE} at ${new Date().toISOString()}`);
-
-        await pushToGitHub(jsonContent); // 自動推送到 GitHub
     } catch (error) {
-        console.error(`[AffectionManager] Error saving affection data locally:`, error);
+        console.error(`[AffectionManager] Error loading or creating affection data:`, error.message);
+        data = {}; // 確保即使載入失敗，數據物件也存在
     }
 }
 
 /**
- * 將提供的內容推送到 GitHub 儲存庫中指定的檔案。
- * 它會嘗試先獲取檔案的 SHA 以進行更新。
- * @param {string} content 要推送的字串內容（例如 JSON 字串）。
+ * 儲存好感度資料到本地檔案。
  */
-async function pushToGitHub(content) {
-    // 檢查 GitHub 憑證是否完整
-    if (!GH_TOKEN || !GH_USERNAME || !GH_REPO) {
-        console.warn('[AffectionManager] GitHub credentials (GH_TOKEN, GH_USERNAME, GH_REPO) are missing. Skipping push.');
-        return;
-    }
-
-    const apiUrl = `https://api.github.com/repos/${GH_USERNAME}/${GH_REPO}/contents/${GH_FILE_PATH}`;
-    let sha = null; // 用於更新檔案的 SHA 值
-
+function saveData() {
     try {
-        // 嘗試獲取當前檔案的 SHA 以便更新
-        const getShaResponse = await fetch(apiUrl, {
-            headers: {
-                'Authorization': `Bearer ${GH_TOKEN}`,
-                'User-Agent': 'Discord-Bot' // GitHub API 要求提供 User-Agent
-            }
-        });
-
-        if (getShaResponse.ok) {
-            const getShaJson = await getShaResponse.json();
-            sha = getShaJson.sha; // 取得檔案的 SHA
-        } else if (getShaResponse.status !== 404) { // 如果不是 404（檔案未找到）而是其他錯誤
-            const errorText = await getShaResponse.text();
-            throw new Error(`GitHub get SHA failed: ${getShaResponse.status} - ${errorText}`);
+        // 確保 data 變數是一個有效的物件
+        if (typeof data !== 'object' || data === null) {
+            console.error('[AffectionManager] Data is not a valid object, cannot save.');
+            return;
         }
-        // 如果是 404，sha 保持為 null，後續的 PUT 請求可能會嘗試建立檔案
-    } catch (err) {
-        console.error('[AffectionManager] Error retrieving file SHA from GitHub:', err.message);
-        // 如果獲取 SHA 失敗，目前會繼續嘗試 PUT，如果 SHA 為 null，GitHub 可能會建立新檔案
-    }
-
-    // 準備 PUT 請求的內容（更新或建立檔案）
-    const body = JSON.stringify({
-        message: `Update user_affection.json at ${new Date().toISOString()}`, // 提交訊息
-        content: Buffer.from(content).toString('base64'), // 檔案內容需要 Base64 編碼
-        sha // 包含 SHA，如果已獲取到，否則為 null（用於初始建立）
-    });
-
-    try {
-        const res = await fetch(apiUrl, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${GH_TOKEN}`,
-                'User-Agent': 'Discord-Bot',
-                'Content-Type': 'application/json' // 告知伺服器發送的是 JSON
-            },
-            body
-        });
-
-        if (!res.ok) {
-            const errorText = await res.text();
-            throw new Error(`GitHub push failed: ${res.status} - ${errorText}`);
-        }
-
-        console.log(`[AffectionManager] Synced affection data to GitHub.`);
-    } catch (err) {
-        console.error('[AffectionManager] GitHub push error:', err.message);
+        fs.writeFileSync(dataPath, JSON.stringify(data, null, 2), 'utf8');
+        console.log(`[AffectionManager] Saved affection data to: ${dataPath} at ${new Date().toISOString()}`);
+    } catch (error) {
+        console.error(`[AffectionManager] Error saving affection data to ${dataPath}:`, error.message);
     }
 }
 
 /**
- * 返回當天的日期字串，格式為 YYYY-MM-DD。
+ * 取得今天的日期字串，格式為 YYYY-MM-DD。
  * @returns {string} 當前日期字串。
  */
 function getTodayDateStr() {
@@ -147,67 +89,99 @@ function getTodayDateStr() {
 }
 
 /**
- * 確保使用者的數據結構在 userAffectionData 中存在，
- * 並在是新的一天時重置每日問候計數。
+ * 確保使用者資料結構存在，並在是新的一天時重置每日問候計數。
+ * 此函式在內部會呼叫 saveData()。
  * @param {string} userId 使用者的 ID。
  */
 function ensureUserData(userId) {
     const today = getTodayDateStr();
-    if (!userAffectionData[userId]) {
-        userAffectionData[userId] = {
+    let updated = false; // 追蹤是否有數據更新
+
+    if (!data[userId]) {
+        data[userId] = {
             affection: 0,
             lastGreetDate: today,
             greetCountToday: 0
         };
+        updated = true;
     }
-    // 如果是新的一天，重置今日問候次數
-    if (userAffectionData[userId].lastGreetDate !== today) {
-        userAffectionData[userId].lastGreetDate = today;
-        userAffactionData[userId].greetCountToday = 0;
+
+    // 如果日期不同，重置今日問候次數
+    if (data[userId].lastGreetDate !== today) {
+        data[userId].lastGreetDate = today;
+        data[userId].greetCountToday = 0;
+        updated = true;
     }
+
     // 確保 greetCountToday 是數字型別（以防舊數據結構問題）
-    if (typeof userAffectionData[userId].greetCountToday !== 'number') {
-        userAffectionData[userId].greetCountToday = 0;
+    if (typeof data[userId].greetCountToday !== 'number') {
+        data[userId].greetCountToday = 0;
+        updated = true;
+    }
+
+    // 只有在數據有更新時才儲存
+    if (updated) {
+        saveData();
     }
 }
 
 /**
- * 查詢指定使用者當前的好感度分數。
- * 如果使用者數據不存在，會先進行初始化。
+ * 檢查使用者今日是否已問候。
  * @param {string} userId 使用者的 ID。
- * @returns {number} 使用者當前的好感度分數。
+ * @returns {boolean} 如果今日已問候則返回 true，否則返回 false。
  */
-function getAffection(userId) {
-    ensureUserData(userId);
-    return userAffectionData[userId].affection || 0;
+function hasGreetedToday(userId) {
+    ensureUserData(userId); // 確保使用者資料存在並更新
+    return data[userId].greetCountToday > 0;
 }
 
 /**
- * 增加使用者好感度，通常用於每日首次問候。
- * 更新後會保存數據並推送到 GitHub。
+ * 取得使用者今日的問候次數。
+ * @param {string} userId 使用者的 ID。
+ * @returns {number} 使用者今日的問候次數。
+ */
+function getGreetCount(userId) {
+    ensureUserData(userId); // 確保使用者資料存在並更新
+    return data[userId].greetCountToday;
+}
+
+/**
+ * 增加使用者好感度，通常限制為每日首次問候。
+ * 執行後會儲存數據。
  * @param {string} userId 使用者的 ID。
  * @param {number} [amount=1] 增加好感度的數量。預設為 1。
- * @returns {Promise<number|false>} 成功時返回新的好感度分數，如果好感度未增加（例如今日已問候），則返回 false。
+ * @returns {number|false} 成功增加好感度後返回新的好感度值，如果今日已增加過則返回 false。
  */
-async function addAffection(userId, amount = 1) {
-    ensureUserData(userId);
+function addAffection(userId, amount = 1) {
+    ensureUserData(userId); // 確保使用者資料存在並更新
     const today = getTodayDateStr();
-    const user = userAffectionData[userId];
+    const user = data[userId];
 
-    // 如果 amount 大於 0 且今日已問候過，則不增加好感度
+    // 如果今日已增加過好感度 (且 amount > 0)，則不再次增加
     if (amount > 0 && user.lastGreetDate === today && user.greetCountToday >= 1) {
-        return false;
+        return false; // 今日已增加過
     }
 
     if (amount > 0) { // 只有當增加數量為正時才增加好感度
         user.affection += amount;
     }
-
     user.lastGreetDate = today; // 更新最後問候日期
     user.greetCountToday += 1; // 增加今日問候次數
 
-    await saveData(); // 保存數據並推送到 GitHub
+    saveData(); // 保存數據
+
     return user.affection;
+}
+
+/**
+ * 取得使用者目前的好感度值。
+ * @param {string} userId 使用者的 ID。
+ * @returns {number} 使用者當前的好感度值，如果不存在則為 0。
+ */
+function getAffection(userId) {
+    ensureUserData(userId); // 確保使用者資料存在並更新
+    // 使用 ?? 運算符提供預設值 0
+    return data[userId].affection ?? 0;
 }
 
 /**
@@ -220,12 +194,32 @@ function getAffectionLevel(affection) {
     return affection > 100 ? 11 : Math.min(Math.ceil(affection / 10), 10);
 }
 
-// 匯出模組功能
+/**
+ * 從預載入的回應語句中，根據好感度等級隨機選取一句回應。
+ * @param {number} level 好感度等級。
+ * @returns {string} 隨機選取的回應語句，如果無法解析則返回預設錯誤訊息。
+ */
+function getRandomResponse(level) {
+    const levelKey = level.toString();
+    const responses = affectionResponses[levelKey]; // 從預載入的物件中獲取
+
+    if (!responses || !Array.isArray(responses) || responses.length === 0) {
+        return '（無法解析的回應，仿佛來自未知維度）';
+    }
+
+    return responses[Math.floor(Math.random() * responses.length)];
+}
+
+
+// --- 模組匯出 ---
+// 將所有核心功能匯出，供其他模組使用
 module.exports = {
-    loadData,
-    saveData,
-    getAffection,
-    getGreetCount,
-    addAffection,
-    getAffectionLevel
+    loadData,          // 載入好感度數據
+    saveData,          // 儲存好感度數據
+    hasGreetedToday,   // 檢查今日是否已問候
+    getGreetCount,     // 取得今日問候次數
+    addAffection,      // 增加好感度
+    getAffection,      // 取得使用者目前好感度值
+    getAffectionLevel, // 根據好感度取得等級
+    getRandomResponse  // 隨機選一句語句
 };
