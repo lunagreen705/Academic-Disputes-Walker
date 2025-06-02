@@ -1,14 +1,17 @@
 const fs = require('fs/promises');
 const path = require('path');
-// const https = require('https'); // 'https' 模組未直接使用於 fetch 呼叫，如果沒有其他地方需要可移除
 
+// GitHub 相關的環境變數，直接從 process.env 讀取
 const GH_TOKEN = process.env.GH_TOKEN;
 const GH_USERNAME = process.env.GH_USERNAME;
 const GH_REPO = process.env.GH_REPO;
 
-// 定義本地數據檔案路徑
-const DATA_FILE = path.join(__dirname, 'data', 'user_affection.json');
-// 定義 GitHub 儲存庫中的檔案路徑
+// *** 重要改動：將 DATA_FILE 路徑設定為 /tmp 目錄 ***
+// 在 Render 這類的雲端部署服務中，/tmp 通常是唯一保證可寫入的目錄。
+// 請注意：儲存在 /tmp 的數據在服務重啟後會遺失，因此依賴 GitHub 同步至關重要。
+const DATA_FILE = path.join('/tmp', 'data', 'user_affection.json');
+
+// GitHub 儲存庫中的檔案路徑 (這與本地路徑無關，是 GitHub API 要求的路徑)
 const GH_FILE_PATH = 'data/user_affection.json';
 
 let userAffectionData = {};
@@ -16,7 +19,7 @@ let isDataLoaded = false;
 
 /**
  * 從本地檔案載入使用者好感度數據。
- * 如果檔案不存在，則初始化一個空數據物件並建立該檔案。
+ * 如果檔案或其父目錄不存在，則會自動建立它們。
  */
 async function loadData() {
     try {
@@ -26,9 +29,25 @@ async function loadData() {
         console.log(`[AffectionManager] Loaded affection data from: ${DATA_FILE}`);
         isDataLoaded = true;
     } catch (error) {
-        if (error.code === 'ENOENT') { // 如果檔案不存在
+        if (error.code === 'ENOENT') { // 如果檔案（或父目錄）不存在
             userAffectionData = {}; // 初始化為空物件
-            await fs.writeFile(DATA_FILE, '{}', 'utf8'); // 建立一個空的 JSON 檔案
+
+            // 確保資料目錄存在。這解決了 'ENOENT' 錯誤。
+            const dataDir = path.dirname(DATA_FILE); // 取得目錄路徑 (例如: /tmp/data)
+            try {
+                // 遞迴地建立所有不存在的父目錄
+                await fs.mkdir(dataDir, { recursive: true });
+                console.log(`[AffectionManager] Created data directory: ${dataDir}`);
+            } catch (mkdirError) {
+                // 如果建立目錄失敗的原因不是因為已經存在 (EEXIST)，則記錄錯誤
+                if (mkdirError.code !== 'EEXIST') {
+                    console.error(`[AffectionManager] Error creating data directory ${dataDir}:`, mkdirError);
+                    // 如果目錄無法建立，這是嚴重錯誤，可能導致無法寫入檔案，這裡選擇中止。
+                    return;
+                }
+            }
+
+            await fs.writeFile(DATA_FILE, '{}', 'utf8'); // 現在，寫入一個空的 JSON 檔案
             console.log(`[AffectionManager] Created new affection data file: ${DATA_FILE}`);
             isDataLoaded = true;
         } else {
@@ -87,8 +106,7 @@ async function pushToGitHub(content) {
         // 如果是 404，sha 保持為 null，後續的 PUT 請求可能會嘗試建立檔案
     } catch (err) {
         console.error('[AffectionManager] Error retrieving file SHA from GitHub:', err.message);
-        // 如果獲取 SHA 失敗，可以選擇中止推送或繼續嘗試創建/更新
-        // 目前的實現會繼續嘗試 PUT，如果 SHA 為 null，GitHub 可能會建立新檔案
+        // 如果獲取 SHA 失敗，目前會繼續嘗試 PUT，如果 SHA 為 null，GitHub 可能會建立新檔案
     }
 
     // 準備 PUT 請求的內容（更新或建立檔案）
@@ -145,7 +163,7 @@ function ensureUserData(userId) {
     // 如果是新的一天，重置今日問候次數
     if (userAffectionData[userId].lastGreetDate !== today) {
         userAffectionData[userId].lastGreetDate = today;
-        userAffectionData[userId].greetCountToday = 0;
+        userAffactionData[userId].greetCountToday = 0;
     }
     // 確保 greetCountToday 是數字型別（以防舊數據結構問題）
     if (typeof userAffectionData[userId].greetCountToday !== 'number') {
