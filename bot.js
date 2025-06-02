@@ -28,7 +28,6 @@ client.on("ready", () => {
     // --- 牌堆載入結束 ---
     
     // ... (好感度模組初始化等其他 ready 事件中的程式碼)
-    affectionManager.loadData();
     console.log(`${colors.cyan}[ AFFECTION ]${colors.reset} ${colors.green}好感度系統已準備就緒。${colors.reset}`);
 });
 client.config = config;
