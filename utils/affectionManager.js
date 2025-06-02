@@ -225,6 +225,7 @@ module.exports = {
     loadData,
     saveData,
     getAffection,
+    getGreetCount,
     addAffection,
     getAffectionLevel
 };
