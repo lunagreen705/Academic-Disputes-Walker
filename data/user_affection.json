@@ -30,6 +30,11 @@
     "greetCountToday": 1
   },
   "1119983125754302565": {
+    "affection": 1,
+    "lastGreetDate": "2025-06-03",
+    "greetCountToday": 1
+  },
+  "695611197118218250": {
     "affection": 0,
     "lastGreetDate": "2025-06-03",
     "greetCountToday": 0
