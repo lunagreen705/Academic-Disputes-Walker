@@ -117,35 +117,66 @@ async function pushToGitHub(content) {
     }
 
     const apiUrl = `https://api.github.com/repos/${GH_USERNAME}/${GH_REPO}/contents/${GH_FILE_PATH}`;
-    let sha = null; // 用於更新檔案的 SHA 值
+    let currentSha = null; // 用於更新檔案的 SHA 值
+    let remoteContent = null; // 用於儲存遠端檔案內容
 
     try {
-        // 嘗試獲取當前檔案的 SHA 以便更新
-        const getShaResponse = await fetch(apiUrl, {
+        // 1. 嘗試從 GitHub 獲取最新檔案內容和 SHA
+        const getFileResponse = await fetch(apiUrl, {
             headers: {
                 'Authorization': `Bearer ${GH_TOKEN}`,
-                'User-Agent': 'Discord-Bot' // GitHub API 要求提供 User-Agent
+                'User-Agent': 'Discord-Bot', // GitHub API 要求提供 User-Agent
+                'Accept': 'application/vnd.github.v3+json' // 請求包含 SHA 和內容的 JSON 物件
             }
         });
 
-        if (getShaResponse.ok) {
-            const getShaJson = await getShaResponse.json();
-            sha = getShaJson.sha; // 取得檔案的 SHA
-        } else if (getShaResponse.status !== 404) { // 如果不是 404（檔案未找到）而是其他錯誤
-            const errorText = await getShaResponse.text();
-            throw new Error(`GitHub get SHA failed: ${getShaResponse.status} - ${errorText}`);
+        if (getFileResponse.ok) {
+            const fileData = await getFileResponse.json();
+            currentSha = fileData.sha;
+            // GitHub API 內容是 base64 編碼的
+            remoteContent = Buffer.from(fileData.content, 'base64').toString('utf8');
+            console.log(`[AffectionManager] Successfully retrieved current file SHA and content from GitHub. SHA: ${currentSha}`);
+        } else if (getFileResponse.status === 404) {
+            console.log(`[AffectionManager] File ${GH_FILE_PATH} not found on GitHub. Will create a new file.`);
+            currentSha = null; // 檔案不存在，SHA 為 null，將會是第一次建立
+        } else {
+            const errorText = await getFileResponse.text();
+            throw new Error(`GitHub get file failed: ${getFileResponse.status} - ${errorText}`);
         }
-        // 如果是 404，sha 保持為 null，後續的 PUT 請求可能會嘗試建立檔案
     } catch (err) {
-        console.error('[AffectionManager] Error retrieving file SHA from GitHub:', err.message);
-        // 如果獲取 SHA 失敗，目前會繼續嘗試 PUT，如果 SHA 為 null，GitHub 可能會建立新檔案
+        console.error('[AffectionManager] Error retrieving file from GitHub:', err.message);
+        // 如果獲取遠端檔案失敗，則停止推送，因為無法進行合併
+        return;
     }
 
-    // 準備 PUT 請求的內容（更新或建立檔案）
+    let finalContentToPush = content;
+
+    // 2. 如果遠端檔案存在，進行內容合併
+    if (remoteContent) {
+        try {
+            const localData = JSON.parse(content);
+            const remoteData = JSON.parse(remoteContent);
+
+            // 簡單的合併邏輯：以本地數據為準，並添加遠端數據中本地沒有的 user ID。
+            // 這表示如果同一用戶在兩個實例中被更新，本地最新的會覆蓋遠端的。
+            // 這可能會導致數據丟失，如果這是一個問題，請考慮使用真正的數據庫。
+            const mergedData = { ...remoteData, ...localData };
+
+            finalContentToPush = JSON.stringify(mergedData, null, 2);
+            console.log('[AffectionManager] Merged local changes with remote GitHub data.');
+
+        } catch (mergeError) {
+            console.error('[AffectionManager] Error merging affection data:', mergeError.message);
+            // 如果合併失敗，可能應該停止推送或記錄錯誤
+            return;
+        }
+    }
+
+    // 3. 準備 PUT 請求的內容（更新或建立檔案）
     const body = JSON.stringify({
         message: `Update user_affection.json at ${new Date().toISOString()}`, // 提交訊息
-        content: Buffer.from(content).toString('base64'), // 檔案內容需要 Base64 編碼
-        sha // 包含 SHA，如果已獲取到，否則為 null（用於初始建立）
+        content: Buffer.from(finalContentToPush).toString('base64'), // 檔案內容需要 Base64 編碼
+        sha: currentSha // 包含最新獲取的 SHA，如果已獲取到，否則為 null（用於初始建立）
     });
 
     try {
@@ -161,6 +192,11 @@ async function pushToGitHub(content) {
 
         if (!res.ok) {
             const errorText = await res.text();
+            // 如果再次遇到 409，可能表示合併後的數據在推送時又發生了衝突，
+            // 或者合併邏輯有問題。此時可以考慮重試幾次或拋出錯誤。
+            if (res.status === 409) {
+                console.error('[AffectionManager] GitHub push conflicted AGAIN after merge attempt. This might indicate rapid concurrent updates or a flawed merge strategy.');
+            }
             throw new Error(`GitHub push failed: ${res.status} - ${errorText}`);
         }
 
@@ -304,11 +340,11 @@ function getRandomResponse(level) {
 // --- 模組匯出 ---
 // 將所有核心功能匯出，供其他模組使用
 module.exports = {
-    saveData,          // 儲存好感度數據 (並觸發 GitHub 同步)
-    hasGreetedToday,   // 檢查今日是否已問候
-    getGreetCount,     // 取得今日問候次數
-    addAffection,      // 增加好感度
-    getAffection,      // 取得使用者目前好感度值
-    getAffectionLevel, // 根據好感度取得等級
-    getRandomResponse  // 隨機選一句語句
+    saveData,           // 儲存好感度數據 (並觸發 GitHub 同步)
+    hasGreetedToday,    // 檢查今日是否已問候
+    getGreetCount,      // 取得今日問候次數
+    addAffection,       // 增加好感度
+    getAffection,       // 取得使用者目前好感度值
+    getAffectionLevel,  // 根據好感度取得等級
+    getRandomResponse   // 隨機選一句語句
 };
