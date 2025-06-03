@@ -216,12 +216,13 @@ function getTodayDateStr() {
 
 /**
  * 確保使用者資料結構存在，並在是新的一天時重置每日問候計數。
- * 此函式在內部會呼叫 saveData()。
+ * 此函式現在只負責數據結構的確保和重置，不再觸發 saveData()。
  * @param {string} userId 使用者的 ID。
+ * @returns {boolean} 如果有任何數據被初始化或重置（需要保存）則返回 true，否則返回 false。
  */
 function ensureUserData(userId) {
     const today = getTodayDateStr();
-    let updated = false; // 追蹤是否有數據更新
+    let changed = false; // 追蹤是否有數據更新或重置
 
     if (!userAffectionData[userId]) {
         userAffectionData[userId] = {
@@ -229,26 +230,23 @@ function ensureUserData(userId) {
             lastGreetDate: today,
             greetCountToday: 0
         };
-        updated = true;
+        changed = true;
     }
 
     // 如果日期不同，重置今日問候次數
     if (userAffectionData[userId].lastGreetDate !== today) {
         userAffectionData[userId].lastGreetDate = today;
         userAffectionData[userId].greetCountToday = 0;
-        updated = true;
+        changed = true;
     }
 
     // 確保 greetCountToday 是數字型別（以防舊數據結構問題）
     if (typeof userAffectionData[userId].greetCountToday !== 'number') {
         userAffectionData[userId].greetCountToday = 0;
-        updated = true;
+        changed = true;
     }
-
-    // 只有在數據有更新時才儲存
-    if (updated) {
-        saveData();
-    }
+    
+    return changed; // 返回是否有變化
 }
 
 /**
@@ -257,7 +255,8 @@ function ensureUserData(userId) {
  * @returns {boolean} 如果今日已問候則返回 true，否則返回 false。
  */
 function hasGreetedToday(userId) {
-    ensureUserData(userId); // 確保使用者資料存在並更新
+    // 這裡我們仍然需要確保數據是最新且正確的，但不觸發保存
+    ensureUserData(userId); 
     return userAffectionData[userId].greetCountToday > 0;
 }
 
@@ -267,7 +266,8 @@ function hasGreetedToday(userId) {
  * @returns {number} 使用者今日的問候次數。
  */
 function getGreetCount(userId) {
-    ensureUserData(userId); // 確保使用者資料存在並更新
+    // 這裡我們仍然需要確保數據是最新且正確的，但不觸發保存
+    ensureUserData(userId);
     return userAffectionData[userId].greetCountToday;
 }
 
@@ -279,9 +279,11 @@ function getGreetCount(userId) {
  * @returns {number|false} 成功增加好感度後返回新的好感度值，如果今日已增加過則返回 false。
  */
 function addAffection(userId, amount = 1) {
-    ensureUserData(userId); // 確保使用者資料存在並更新
+    // 呼叫 ensureUserData，並檢查它是否有導致數據變更
+    const ensureChanged = ensureUserData(userId); 
     const today = getTodayDateStr();
     const user = userAffectionData[userId];
+    let dataChangedInAddAffection = false; // 追蹤 addAffection 自身是否有改變數據
 
     // 如果今日已增加過好感度 (且 amount > 0)，則不再次增加
     if (amount > 0 && user.lastGreetDate === today && user.greetCountToday >= 1) {
@@ -290,11 +292,27 @@ function addAffection(userId, amount = 1) {
 
     if (amount > 0) { // 只有當增加數量為正時才增加好感度
         user.affection += amount;
+        dataChangedInAddAffection = true;
     }
-    user.lastGreetDate = today; // 更新最後問候日期
-    user.greetCountToday += 1; // 增加今日問候次數
+    
+    // 如果 ensureUserData 已經處理了日期和計數，這裡可能不會改變
+    // 但為確保，我們仍然更新，並標記為改變
+    if (user.lastGreetDate !== today || user.greetCountToday === 0) { // 如果日期不是今天 或 計數是0 (表示是今天第一次問候)
+       user.lastGreetDate = today; // 更新最後問候日期
+       user.greetCountToday += 1; // 增加今日問候次數
+       dataChangedInAddAffection = true;
+    } else if (user.greetCountToday > 0 && amount === 0) {
+        // 如果是為了處理非好感度增加但需要記錄問候次數的情況
+        // 例如：有些問候不加好感度，但仍計入每日問候次數
+        user.greetCountToday += 1;
+        dataChangedInAddAffection = true;
+    }
 
-    saveData(); // 保存數據
+
+    // 只有當 ensureUserData 或 addAffection 內部有數據變更時才儲存
+    if (ensureChanged || dataChangedInAddAffection) {
+        saveData(); // 統一在此處保存數據
+    }
 
     return user.affection;
 }
@@ -305,7 +323,8 @@ function addAffection(userId, amount = 1) {
  * @returns {number} 使用者當前的好感度值，如果不存在則為 0。
  */
 function getAffection(userId) {
-    ensureUserData(userId); // 確保使用者資料存在並更新
+    // 這裡我們仍然需要確保數據是最新且正確的，但不觸發保存
+    ensureUserData(userId); 
     // 使用 ?? 運算符提供預設值 0
     return userAffectionData[userId].affection ?? 0;
 }
