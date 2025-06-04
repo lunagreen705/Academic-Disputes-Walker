@@ -57,7 +57,7 @@ async function deleteSong(client, interaction, lang) {
 
 module.exports = {
     name: 'deletesong',
-    description: 'Delete a song from a playlist',
+    description: '刪除歌單的歌曲',
     permissions: '0x0000000000000800',
     options: [
         {
