@@ -4,7 +4,7 @@ const musicIcons = require('../UI/icons/musicicons.js');
 
 module.exports = {
   name: "ping",
-  description: "Check the bot latency",
+  description: "確認機器人延遲",
   permissions: "0x0000000000000800",
   options: [],
   run: async (client, interaction, lang) => {
