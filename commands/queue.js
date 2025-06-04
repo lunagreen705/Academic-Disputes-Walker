@@ -119,7 +119,7 @@ async function queue(client, interaction, lang) {
 
 module.exports = {
     name: "queue",
-    description: "Show the current song queue",
+    description: "顯示正在播放的歌單",
     permissions: "0x0000000000000800",
     options: [],
     run: queue
