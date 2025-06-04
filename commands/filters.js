@@ -107,20 +107,20 @@ module.exports = {
     options: [
         {
             name: 'filter',
-            description: 'Select a filter to apply',
+            description: '音效調整',
             type: ApplicationCommandOptionType.String,
             required: true,
             choices: [
-                { name: 'Karaoke', value: 'karaoke' },
-                { name: 'Timescale', value: 'timescale' },
-                { name: 'Tremolo', value: 'tremolo' },
-                { name: 'Vibrato', value: 'vibrato' },
-                { name: '3D', value: 'rotation' },
-                { name: 'Distortion', value: 'distortion' },
-                { name: 'Channel Mix', value: 'channelmix' },
-                { name: 'Low Pass', value: 'lowpass' },
-                { name: 'Bassboost', value: 'bassboost' },
-                { name: 'Clear Filters', value: 'clear' }
+                { name: '卡拉OK模式', value: 'karaoke' },
+                { name: '慢動作/快轉模式', value: 'timescale' },
+                { name: '抖音效果', value: 'tremolo' },
+                { name: '顫音效果', value: 'vibrato' },
+                { name: '立體環繞', value: 'rotation' },
+                { name: '失真效果', value: 'distortion' },
+                { name: '聲道混合', value: 'channelmix' },
+                { name: '柔音模式', value: 'lowpass' },
+                { name: '重低音加強', value: 'bassboost' },
+                { name: '移除所有效果', value: 'clear' }
             ]
         }
     ],
