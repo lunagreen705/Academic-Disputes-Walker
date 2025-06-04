@@ -53,7 +53,7 @@ async function skip(client, interaction, lang) {
 
 module.exports = {
     name: "skip",
-    description: "跳過正在播放的歌曲",
+    description: "跳過當前播放歌曲",
     permissions: "0x0000000000000800",
     options: [],
     run: skip
