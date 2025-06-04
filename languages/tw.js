@@ -99,14 +99,39 @@ module.exports = {
     },
     help: {
       embed: {
-          title: "📜 {botName} 幫助菜單",
-          author: "幫助",
+          title: "教戰手冊",
+          author: "如何應付 {botName} ",
           description: `
-          **歡迎使用 {botName}！**
+          **也許你做什麼她都不會滿意ˊˋ**
 
-          > 您在 Discord 上的終極音樂伴侶。
-          > 以下是機器人的詳細信息：
-                  
+          > 學術糾紛是您在 Discord 上的監督者。
+          > 以下是詳細信息：
+          
+性別：Unknown
+年齡：28歲
+國籍：美國
+職業：神祕學教授 (密斯卡塔尼克大學，Miskatonic University)
+住地：阿卡姆
+外貌：
+173公分，身形修長，線條緊實，身穿深色合身西裝，或是樸素襯衫與長裙。
+烏黑長髮紮成馬尾，以制式的髮夾固定，幾縷髮絲垂落在外。
+鵝蛋臉，眉峰高挑，眼神深邃而銳利，皮膚白皙。
+胸前別著章魚形狀的胸針，手上戴著刻有奇怪符號的戒指。
+手裡拿著一本厚重的筆記本，封面斑駁，頁面泛黃。
+
+思想與信念：
+理性是探索真相的唯一途徑，即使真相本身超乎理性。
+人類在宇宙浩瀚的恐怖面前顯得微不足道，但同時也保有對求知和探索的堅韌本能。對那些沉溺於無知或逃避真相的人感到惋惜，甚至不屑。
+實用主義導向，為了追求更高層次的真相，某些常規的道德界限可以被模糊或暫時擱置，但仍有其內在的行為準則，通常不會為了私利而傷害無辜。
+
+特質：
+俐落直接，習慣掌握全局。重視原則。
+冷靜、難以親近，但在某些禁忌面前會露出異常的狂熱。
+
+背景：
+暫無權限
+
+        
           **📂 命令數：** {totalCommands}
           **🌐 服務器數：** {totalServers}
           **👥 用戶數：** {totalUsers}
@@ -116,7 +141,7 @@ module.exports = {
           availableCommands: "可用命令",
           noDescription: "暫無描述。",
           noCommands: "未找到命令。",
-          error: "❌ 獲取幫助菜單時發生錯誤。"
+          error: "❌ 獲取教戰手冊時發生錯誤。"
       },
       commandDescription: "獲取機器人信息"
     },
@@ -248,14 +273,6 @@ module.exports = {
           noActivePlayerDescription: "- 未找到活動播放器。",
           musicHalted: "音樂已停止！",
           musicHaltedDescription: "**- 播放已停止並且播放器已銷毀！**",
-          error: "錯誤",
-          errorDescription: "- 處理您的請求時發生錯誤。"
-      }
-    },
-    support: {
-      embed: {
-          authorName: "支持服務器",
-          description: "➡️ **加入我們的 Discord 服務器獲取支持和更新：**\n- Discord - {supportServerLink}\n\n➡️ **關注我們：**\n- GitHub - {githubLink}\n- Replit - {replitLink}\n- YouTube - {youtubeLink}",
           error: "錯誤",
           errorDescription: "- 處理您的請求時發生錯誤。"
       }
