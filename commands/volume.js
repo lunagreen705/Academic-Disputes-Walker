@@ -57,7 +57,7 @@ async function volume(client, interaction, lang) {
 
 module.exports = {
     name: "volume",
-    description: "Set the volume of the current song",
+    description: "調整當前歌曲音量",
     permissions: "0x0000000000000800",
     options: [{
         name: 'level',
