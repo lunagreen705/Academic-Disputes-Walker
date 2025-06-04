@@ -96,7 +96,7 @@ module.exports = {
         },
         {
             name: 'input',
-            description: '輸入歌曲名字或網址',
+            description: '輸入歌曲名字/網址',
             type: ApplicationCommandOptionType.String,
             required: true
         }
