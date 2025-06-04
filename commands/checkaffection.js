@@ -6,7 +6,7 @@ const affectionManager = require('../utils/affectionManager'); // 確保這個�
 module.exports = {
     // 指令的名稱和描述
     name: "checkaffection",
-    description: "查看你對機器人的好感度。",
+    description: "查看機器人對你的好感度。",
 
     // permissions 屬性（為了模仿舊結構而保留，不會影響斜線指令的實際部署行為）
     permissions: "0x0000000000000800",
