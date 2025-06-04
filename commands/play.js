@@ -182,11 +182,11 @@ async function play(client, interaction, lang) {
 
 module.exports = {
     name: "play",
-    description: "Play a song from a name or link",
+    description: "播放歌曲",
     permissions: "0x0000000000000800",
     options: [{
         name: 'name',
-        description: 'Enter song name / link or playlist',
+        description: '輸入歌曲名字/網址或歌單',
         type: ApplicationCommandOptionType.String,
         required: true
     }],
