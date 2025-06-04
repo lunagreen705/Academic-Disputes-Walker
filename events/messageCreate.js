@@ -10,23 +10,44 @@ module.exports = async (client, message) => {
     // 只有包含「早上好基地」才觸發
     if (!content.includes('早上好基地')) return;
 
-    // *** 移除此行：affectionManager.loadData() 不再需要手動呼叫 ***
-    // 數據在 affectionManager 模組載入時就已經自動載入
-    
+    // affectionManager 模組載入時會自動載入數據，無需在此手動呼叫 loadData()。
+
     const greetCount = affectionManager.getGreetCount(userId);
+
+    let replyMessage = ''; // 初始化一個變數來儲存最終的回覆訊息
 
     // 第一次問候：正常增加好感度並回應
     if (greetCount === 0) {
-        const affection = affectionManager.addAffection(userId, 1); // addAffection 內部會處理數據保存
-        const level = affectionManager.getAffectionLevel(affection);
-        const response = affectionManager.getRandomResponse(level);
-        await message.reply(response);
+        // addAffection 現在會回傳一個物件 { newAffection, optionalSecretReveal }
+        const result = affectionManager.addAffection(userId, 1); 
+        
+        if (result === false) { // 理想情況下 greetCount === 0 不會發生這種情況，但為了安全起見仍保留
+             replyMessage = '你今天已經問候過我了。';
+        } else {
+            const level = affectionManager.getAffectionLevel(result.newAffection);
+            // 根據好感度等級獲取一般回應。如果等級為 11，則使用特殊回應。
+            const response = affectionManager.getAffectionLevel(result.newAffection) === 11 
+                ? affectionManager.getRandomResponse(11) 
+                : affectionManager.getRandomResponse(level); 
+
+            replyMessage = response; // 從一般回應開始
+
+            // 如果有秘密透露語句，將其附加到回覆中
+            if (result.optionalSecretReveal) {
+                replyMessage += `\n\n突然間他的話語突然軟化了些，混雜著一絲猶豫與更深的信任，像是從心底抽出一句話，輕輕地向你說道：「${result.optionalSecretReveal}」`;
+            }
+        }
+        await message.reply(replyMessage);
         return;
     }
 
-    // 第二次問候：警告語氣（克蘇魯式 ESTJ）
+    // 第二次及之後的問候：警告、冷淡或壓迫性語氣
+    let responsesArray;
+    // 無論是否增加好感度，都會更新今日問候次數
+    // affectionManager.addAffection(userId, 0) 會處理好感度不變，但更新計數和保存數據
+    
     if (greetCount === 1) {
-        const warningResponses = [
+        responsesArray = [
             "你今天已經完成了問候程序，再次觸發可能導致資料重組。",
             "記錄顯示這是你今日第二次問候。請避免引起維度干涉。",
             "基地收到訊息，但冗餘內容將被標記為潛在異常。",
@@ -38,18 +59,8 @@ module.exports = async (client, message) => {
             "耐心是基礎。即使是神明，也不喜歡被叫醒兩次。",
             "請務實。這裡是基地，不是夢境中的審判廳。"
         ];
-        const reply = warningResponses[Math.floor(Math.random() * warningResponses.length)];
-        await message.reply(reply);
-        
-        // 雖然好感度不再增加，但可以記錄這次問候次數 (即使不影響好感度邏輯)
-        // 這會觸發 ensureUserData -> saveData。如果你只希望記錄但不觸發數據保存，需調整 addAffection
-        affectionManager.addAffection(userId, 0); // 傳入 0 避免好感度增加但仍更新 greetCountToday
-        return;
-    }
-
-    // 第三次問候：冷淡疏離語氣
-    if (greetCount === 2) {
-        const indifferentResponses = [
+    } else if (greetCount === 2) {
+        responsesArray = [
             "訊息重複偵測。請勿干擾流程。",
             "……這是第幾次了？基地無需重複接收。",
             "你的執著將被紀錄成異常行為。",
@@ -61,17 +72,8 @@ module.exports = async (client, message) => {
             "訊號冗餘，無需重複確認。",
             "認知干擾過高，請即刻斷線。"
         ];
-        const reply = indifferentResponses[Math.floor(Math.random() * indifferentResponses.length)];
-        await message.reply(reply);
-        
-        // 記錄這次問候次數
-        affectionManager.addAffection(userId, 0);
-        return;
-    }
-
-    // 第四次以上：壓迫式威脅語氣
-    if (greetCount >= 3) {
-        const oppressiveResponses = [
+    } else { // greetCount >= 3
+        responsesArray = [
             "你還在這？……真執著，像是被某種儀式纏住一樣。",
             "我們不是已經重複過這段對話了嗎？記憶的扭曲開始了。",
             "重複問候只會削弱你與現實的聯繫。",
@@ -83,11 +85,14 @@ module.exports = async (client, message) => {
             "你不是第一個試圖突破這條界線的人……也不會是最後一個。",
             "好奇心過度是學術的死穴。你今天已經超額了。"
         ];
-        const reply = oppressiveResponses[Math.floor(Math.random() * oppressiveResponses.length)];
-        await message.reply(reply);
-        
-        // 記錄這次問候次數
-        affectionManager.addAffection(userId, 0);
-        return;
     }
+
+    // 從確定的語句陣列中隨機選擇一個回覆
+    replyMessage = responsesArray[Math.floor(Math.random() * responsesArray.length)];
+
+    // 增加今日問候次數，但不增加好感度。
+    // affectionManager.addAffection(userId, 0) 會處理此邏輯。
+    affectionManager.addAffection(userId, 0); 
+    
+    await message.reply(replyMessage);
 };
