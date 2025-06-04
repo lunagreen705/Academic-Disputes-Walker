@@ -26,7 +26,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor(config.embedColor || '#0099ff') // 使用你在 config 中定義的顏色，或預設為藍色
                 .setTitle(`💖 好感度查詢：${interaction.user.username}`)
-                .setDescription(`你對機器人的好感度目前為：**${currentAffection} 點**。`);
+                .setDescription(`學術糾紛對你的的好感度目前為：**${currentAffection} 點**。`);
 
             await interaction.reply({ embeds: [embed] });
 
