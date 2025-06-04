@@ -62,13 +62,13 @@ module.exports = {
     options: [
         {
             name: 'playlist',
-            description: 'Enter playlist name',
+            description: '輸入歌單名字',
             type: ApplicationCommandOptionType.String,
             required: true
         },
         {
             name: 'song',
-            description: 'Enter song name',
+            description: '輸入歌曲名字',
             type: ApplicationCommandOptionType.String,
             required: true
         }
