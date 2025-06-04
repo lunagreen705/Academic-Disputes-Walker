@@ -75,7 +75,7 @@ async function myPlaylists(client, interaction, lang) {
 
 module.exports = {
     name: 'myplaylists',
-    description: 'List all playlists you have created',
+    description: '列出你的所有歌單',
     permissions: '0x0000000000000800',
     run: myPlaylists
 };
