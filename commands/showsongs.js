@@ -95,7 +95,7 @@ async function showSongs(client, interaction, lang) {
 
 module.exports = {
     name: 'showsongs',
-    description: '顯示歌單中的所有歌曲名字',
+    description: '顯示歌單中所有歌曲名字',
     permissions: '0x0000000000000800',
     options: [
         {
