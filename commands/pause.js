@@ -53,7 +53,7 @@ async function pause(client, interaction, lang) {
 
 module.exports = {
     name: "pause",
-    description: "暫停正在播放的歌曲",
+    description: "暫停當前播放歌曲",
     permissions: "0x0000000000000800",
     options: [],
     run: pause
