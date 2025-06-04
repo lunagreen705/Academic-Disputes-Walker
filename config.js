@@ -12,7 +12,6 @@ module.exports = {
   embedColor: "#1db954",
   activityName: "i don t want set the world on fire", 
   activityType: "LISTENING",  // Available activity types : LISTENING , PLAYING
-  SupportServer: "https://discord.gg/xQF9f9yUEM",
   embedTimeout: 5, 
   errorLog: "", 
   nodes: [
