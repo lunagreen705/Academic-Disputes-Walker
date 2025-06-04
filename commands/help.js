@@ -35,7 +35,6 @@ module.exports = {
         .setAuthor({
           name: lang.help.embed.author,
           iconURL: musicIcons.alertIcon,
-          url: config.SupportServer
         })
         .setThumbnail(client.user.displayAvatarURL({ dynamic: true }))
         .setDescription(lang.help.embed.description
