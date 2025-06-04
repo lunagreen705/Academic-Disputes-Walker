@@ -66,7 +66,7 @@ async function nowPlaying(client, interaction, lang) {
 
 module.exports = {
     name: "np",
-    description: "Displays the currently playing song with a progress bar",
+    description: "顯示正在播放的歌曲",
     permissions: "0x0000000000000800",
     options: [],
     run: nowPlaying,
