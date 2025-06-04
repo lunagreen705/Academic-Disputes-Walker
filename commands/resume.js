@@ -53,7 +53,7 @@ async function resume(client, interaction, lang) {
 
 module.exports = {
     name: "resume",
-    description: "Resume the current song",
+    description: "繼續播放歌曲",
     permissions: "0x0000000000000800",
     options: [],
     run: resume
