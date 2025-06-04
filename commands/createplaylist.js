@@ -84,7 +84,7 @@ module.exports = {
         },
         {
             name: 'private',
-            description: '是否設定私人',
+            description: '設定私人是/否',
             type: ApplicationCommandOptionType.Boolean,
             required: true
         }
