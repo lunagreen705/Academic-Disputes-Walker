@@ -95,12 +95,12 @@ async function showSongs(client, interaction, lang) {
 
 module.exports = {
     name: 'showsongs',
-    description: 'Show all songs in a playlist',
+    description: '顯示歌單中的所有歌曲名字',
     permissions: '0x0000000000000800',
     options: [
         {
             name: 'playlist',
-            description: 'Enter playlist name',
+            description: '輸入歌單名字',
             type: ApplicationCommandOptionType.String,
             required: true
         }
