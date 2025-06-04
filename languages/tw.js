@@ -102,7 +102,7 @@ module.exports = {
           title: "教戰手冊",
           author: "如何應付 {botName} ",
           description: `
-          **也許你做什麼她都不會滿意ˊˋ**
+          **也許你做什麼他都不會滿意ˊˋ**
 
           > 學術糾紛是您在 Discord 上的監督者。
           > 以下是詳細信息：
