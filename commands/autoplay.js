@@ -50,7 +50,7 @@ module.exports = {
     options: [
         {
             name: 'enable',
-            description: '循環播放與否',
+            description: '循環播放是/否',
             type: ApplicationCommandOptionType.Boolean,
             required: true
         }
