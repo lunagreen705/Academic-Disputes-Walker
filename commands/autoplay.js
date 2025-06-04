@@ -50,7 +50,7 @@ module.exports = {
     options: [
         {
             name: 'enable',
-            description: 'toggle autoplay on / off',
+            description: '循環播放與否',
             type: ApplicationCommandOptionType.Boolean,
             required: true
         }
