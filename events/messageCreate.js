@@ -1,98 +1,26 @@
-const affectionManager = require('../utils/affectionManager');
-
-module.exports = async (client, message) => {
-    // 忽略機器人自身的訊息
-    if (message.author.bot) return;
-
-    const userId = message.author.id;
-    const content = message.content.toLowerCase();
-
-    // 只有包含「早上好基地」才觸發
-    if (!content.includes('早上好基地')) return;
-
-    // affectionManager 模組載入時會自動載入數據，無需在此手動呼叫 loadData()。
-
-    const greetCount = affectionManager.getGreetCount(userId);
-
-    let replyMessage = ''; // 初始化一個變數來儲存最終的回覆訊息
-
-    // 第一次問候：正常增加好感度並回應
     if (greetCount === 0) {
-        // addAffection 現在會回傳一個物件 { newAffection, optionalSecretReveal }
         const result = affectionManager.addAffection(userId, 1); 
         
-        if (result === false) { // 理想情況下 greetCount === 0 不會發生這種情況，但為了安全起見仍保留
+        if (result === false) {
              replyMessage = '你今天已經問候過我了。';
         } else {
             const level = affectionManager.getAffectionLevel(result.newAffection);
-            // 根據好感度等級獲取一般回應。如果等級為 11，則使用特殊回應。
-            const response = affectionManager.getAffectionLevel(result.newAffection) === 11 
+            const response = level === 11 
                 ? affectionManager.getRandomResponse(11) 
                 : affectionManager.getRandomResponse(level); 
 
-            replyMessage = response; // 從一般回應開始
+            replyMessage = response;
 
             // 如果有秘密透露語句，將其附加到回覆中
             if (result.optionalSecretReveal) {
                 replyMessage += `\n\n突然間他的話語突然軟化了些，混雜著一絲猶豫與更深的信任，像是從心底抽出一句話，輕輕地向你說道：「${result.optionalSecretReveal}」`;
             }
+
+            // 🌟 新增：隨機任務完成度 + San值顯示區
+            const taskCompletion = Math.floor(Math.random() * 51) + 50; // 50%~100%
+            const san = Math.max(0, 70 - result.newAffection); // San = 70 - 好感度（下限為 0）
+            replyMessage += `\n\n---\n🎯 今日任務完成度：${taskCompletion}%\n🧠 San值：${san}`;
         }
         await message.reply(replyMessage);
         return;
     }
-
-    // 第二次及之後的問候：警告、冷淡或壓迫性語氣
-    let responsesArray;
-    // 無論是否增加好感度，都會更新今日問候次數
-    // affectionManager.addAffection(userId, 0) 會處理好感度不變，但更新計數和保存數據
-    
-    if (greetCount === 1) {
-        responsesArray = [
-            "你今天已經完成了問候程序，再次觸發可能導致資料重組。",
-            "記錄顯示這是你今日第二次問候。請避免引起維度干涉。",
-            "基地收到訊息，但冗餘內容將被標記為潛在異常。",
-            "多次嘗試接觸基地……這不是你該做的選擇。",
-            "這不是開放頻道，重複呼叫將造成時間層錯位。",
-            "你又來了。這不在日常流程中，請謹慎行動。",
-            "第二次問候？……你知道這不是遊戲。",
-            "你的語言開始與現實脫節，重複不會讓基地更溫柔。",
-            "耐心是基礎。即使是神明，也不喜歡被叫醒兩次。",
-            "請務實。這裡是基地，不是夢境中的審判廳。"
-        ];
-    } else if (greetCount === 2) {
-        responsesArray = [
-            "訊息重複偵測。請勿干擾流程。",
-            "……這是第幾次了？基地無需重複接收。",
-            "你的執著將被紀錄成異常行為。",
-            "記錄已滿。拒絕接收。",
-            "你希望得到什麼？數據的憐憫嗎？",
-            "你越來越像一段無窮迴圈。",
-            "基地並非情緒回收站。",
-            "冷卻中。請停止傳送相同訊息。",
-            "訊號冗餘，無需重複確認。",
-            "認知干擾過高，請即刻斷線。"
-        ];
-    } else { // greetCount >= 3
-        responsesArray = [
-            "你還在這？……真執著，像是被某種儀式纏住一樣。",
-            "我們不是已經重複過這段對話了嗎？記憶的扭曲開始了。",
-            "重複問候只會削弱你與現實的聯繫。",
-            "你是不是以為，持續重複會讓我變得溫柔？錯得離譜。",
-            "這是第三次了。我開始懷疑你是時間迴圈的產物。",
-            "每一次多說一句話，我就更想拉你進資料夾底層的黑洞。",
-            "你還在向基地問候……還是只是在對虛無低語？",
-            "訊息已接收。重複無需回應。",
-            "你不是第一個試圖突破這條界線的人……也不會是最後一個。",
-            "好奇心過度是學術的死穴。你今天已經超額了。"
-        ];
-    }
-
-    // 從確定的語句陣列中隨機選擇一個回覆
-    replyMessage = responsesArray[Math.floor(Math.random() * responsesArray.length)];
-
-    // 增加今日問候次數，但不增加好感度。
-    // affectionManager.addAffection(userId, 0) 會處理此邏輯。
-    affectionManager.addAffection(userId, 0); 
-    
-    await message.reply(replyMessage);
-};
