@@ -76,12 +76,14 @@ module.exports = async (client, message) => {
             embeds: [taskEmbed],
         });
 
-        if (revealSecret) {
-    if (taskCompletion >= 95) {
-        await message.reply(`🔐 他靠得更近，聲音幾乎貼在你耳邊：「${revealSecret}」`);
-    } else if (taskCompletion >= 75) {
-        await message.reply(`🔐 他略微猶豫，但最終還是說出了什麼：「${revealSecret}」`);
-    }
+        // 只有完成度 A (75) 以上才會揭露秘密
+        if (revealSecret && taskCompletion >= 75) {
+            if (taskCompletion >= 95) {
+                await message.reply(`🔐 他靠得更近，幾乎貼在你耳邊：「${revealSecret}」`);
+            } else {
+                await message.reply(`🔐 他略微猶豫，但最終還是說出了什麼：「${revealSecret}」`);
+            }
+        }
 
         return;
     }
