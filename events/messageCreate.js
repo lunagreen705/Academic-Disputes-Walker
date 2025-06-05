@@ -10,8 +10,8 @@ module.exports = async (client, message) => {
     if (!content.includes('早上好基地')) return;
 
     const greetCount = affectionManager.getGreetCount(userId);
-    let replyMessage = '';
 
+    // 第一次問候處理
     if (greetCount === 0) {
         const result = affectionManager.addAffection(userId, 1);
         if (result === false) {
@@ -20,9 +20,7 @@ module.exports = async (client, message) => {
         }
 
         const level = affectionManager.getAffectionLevel(result.newAffection);
-        const baseResponse = (level === 11)
-            ? affectionManager.getRandomResponse(11)
-            : affectionManager.getRandomResponse(level);
+        const baseResponse = affectionManager.getRandomResponse(level === 11 ? 11 : level);
 
         const taskCompletion = Math.floor(Math.random() * 101);
         let san = Math.max(0, 70 - result.newAffection);
@@ -43,23 +41,17 @@ module.exports = async (client, message) => {
         } else if (taskCompletion >= 60) {
             taskGrade = 'B 📈';
             taskEffectMsg = '他點了點頭，「尚可。」沒有特別情緒，似乎觀察著你是否能再進一步。';
-            affectionDelta = 0;
-            revealSecret = null;
         } else if (taskCompletion >= 40) {
             taskGrade = 'C ⚠️';
             taskEffectMsg = '「這樣的表現……不太行啊。」他皺起眉，目光變得銳利，像在重新評估你的價值。';
-            affectionDelta = 0;
-            revealSecret = null;
         } else if (taskCompletion >= 20) {
             taskGrade = 'D ❌';
             taskEffectMsg = '他靜靜地看著你，片刻後語氣冰冷地說：「基地不容許這種程度的誤差，你的存在將進入觀察清單。」';
             affectionDelta = -1;
-            revealSecret = null;
         } else {
             taskGrade = 'F ☠️';
             taskEffectMsg = '空氣沉重得可怕，他的聲音如雷打破寧靜：「……你在挑戰我的耐性？」那眼神裡再無一絲信任，只有深不見底的風險判斷。';
             affectionDelta = -2;
-            revealSecret = null;
         }
 
         if (affectionDelta !== 0) {
@@ -91,8 +83,9 @@ module.exports = async (client, message) => {
         return;
     }
 
-    // greetCount > 0 的狀況
-    let responsesArray;
+    // 第二次或以上問候處理
+    let responsesArray = [];
+
     if (greetCount === 1) {
         responsesArray = [
             "你今天已經完成了問候程序，再次觸發可能導致資料重組。",
@@ -134,7 +127,8 @@ module.exports = async (client, message) => {
         ];
     }
 
-    replyMessage = responsesArray[Math.floor(Math.random() * responsesArray.length)];
-    affectionManager.addAffection(userId, 0);
+    const replyMessage = responsesArray[Math.floor(Math.random() * responsesArray.length)];
+
+    affectionManager.addAffection(userId, 0); // 更新 greetCount 但不加好感
     await message.reply(replyMessage);
 };
