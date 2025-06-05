@@ -1,4 +1,5 @@
 const affectionManager = require('../utils/affectionManager');
+const { EmbedBuilder } = require('discord.js');
 
 module.exports = async (client, message) => {
     // 忽略機器人自身的訊息
@@ -17,69 +18,84 @@ module.exports = async (client, message) => {
     let replyMessage = ''; // 初始化一個變數來儲存最終的回覆訊息
 
     // 第一次問候：正常增加好感度並回應
-   if (greetCount === 0) {
-    const result = affectionManager.addAffection(userId, 1);
-    if (result === false) {
-        replyMessage = '你今天已經問候過我了。';
-    } else {
-        const level = affectionManager.getAffectionLevel(result.newAffection);
-        const baseResponse = (level === 11)
-            ? affectionManager.getRandomResponse(11)
-            : affectionManager.getRandomResponse(level);
+  if (greetCount === 0) {
+  const result = affectionManager.addAffection(userId, 1);
+  if (result === false) {
+    await message.reply('你今天已經問候過我了。');
+    return;
+  }
 
-        const taskCompletion = Math.floor(Math.random() * 101);
-        let san = Math.max(0, 70 - result.newAffection);
+  const level = affectionManager.getAffectionLevel(result.newAffection);
+  const baseResponse = (level === 11)
+    ? affectionManager.getRandomResponse(11)
+    : affectionManager.getRandomResponse(level);
 
-        let taskGrade = '';
-        let taskEffectMsg = '';
-        let affectionDelta = 0;
-        let revealSecret = result.optionalSecretReveal;
+  const taskCompletion = Math.floor(Math.random() * 101);
+  let san = Math.max(0, 70 - result.newAffection);
 
-        if (taskCompletion >= 95) {
-            taskGrade = 'S 🌟';
-            taskEffectMsg = '他沉默片刻，然後輕笑了一聲，那笑容近乎難得一見。「……你真的值得信任。」他靠近些，聲音低柔，「我會記住這份表現。」';
-            affectionDelta = 2;
-        } else if (taskCompletion >= 75) {
-            taskGrade = 'A ✅';
-            taskEffectMsg = '螢幕閃爍幾下，他傳來：「效率良好，你讓我省了不少麻煩。」語氣帶著些許不易察覺的欣賞。';
-            affectionDelta = 1;
-        } else if (taskCompletion >= 60) {
-            taskGrade = 'B 📈';
-            taskEffectMsg = '他點了點頭，「尚可。」沒有特別情緒，似乎觀察著你是否能再進一步。';
-            affectionDelta = 0;
-            revealSecret = null;
-        } else if (taskCompletion >= 40) {
-            taskGrade = 'C ⚠️';
-            taskEffectMsg = '「這樣的表現……不太行啊。」他皺起眉，目光變得銳利，像在重新評估你的價值。';
-            affectionDelta = 0;
-            revealSecret = null;
-        } else if (taskCompletion >= 20) {
-            taskGrade = 'D ❌';
-            taskEffectMsg = '他靜靜地看著你，片刻後語氣冰冷地說：「基地不容許這種程度的誤差，你的存在將進入觀察清單。」';
-            affectionDelta = -1;
-            revealSecret = null;
-        } else {
-            taskGrade = 'F ☠️';
-            taskEffectMsg = '空氣沉重得可怕，他的聲音如雷打破寧靜：「……你在挑戰我的耐性？」那眼神裡再無一絲信任，只有深不見底的風險判斷。';
-            affectionDelta = -2;
-            revealSecret = null;
-        }
+  let taskGrade = '';
+  let taskEffectMsg = '';
+  let affectionDelta = 0;
+  let revealSecret = result.optionalSecretReveal;
 
-        // 執行好感度調整並更新 san 值
-        if (affectionDelta !== 0) {
-            const affChange = affectionManager.addAffection(userId, affectionDelta);
-            if (affChange && typeof affChange.newAffection === 'number') {
-                san = Math.max(0, 70 - affChange.newAffection);
-            }
-        }
+  if (taskCompletion >= 95) {
+    taskGrade = 'S 🌟';
+    taskEffectMsg = '他沉默片刻，然後輕笑了一聲，那笑容近乎難得一見。「……你真的值得信任。」他靠近些，聲音低柔，「我會記住這份表現。」';
+    affectionDelta = 2;
+  } else if (taskCompletion >= 75) {
+    taskGrade = 'A ✅';
+    taskEffectMsg = '螢幕閃爍幾下，他傳來：「效率良好，你讓我省了不少麻煩。」語氣帶著些許不易察覺的欣賞。';
+    affectionDelta = 1;
+  } else if (taskCompletion >= 60) {
+    taskGrade = 'B 📈';
+    taskEffectMsg = '他點了點頭，「尚可。」沒有特別情緒，似乎觀察著你是否能再進一步。';
+    affectionDelta = 0;
+    revealSecret = null;
+  } else if (taskCompletion >= 40) {
+    taskGrade = 'C ⚠️';
+    taskEffectMsg = '「這樣的表現……不太行啊。」他皺起眉，目光變得銳利，像在重新評估你的價值。';
+    affectionDelta = 0;
+    revealSecret = null;
+  } else if (taskCompletion >= 20) {
+    taskGrade = 'D ❌';
+    taskEffectMsg = '他靜靜地看著你，片刻後語氣冰冷地說：「基地不容許這種程度的誤差，你的存在將進入觀察清單。」';
+    affectionDelta = -1;
+    revealSecret = null;
+  } else {
+    taskGrade = 'F ☠️';
+    taskEffectMsg = '空氣沉重得可怕，他的聲音如雷打破寧靜：「……你在挑戰我的耐性？」那眼神裡再無一絲信任，只有深不見底的風險判斷。';
+    affectionDelta = -2;
+    revealSecret = null;
+  }
 
-        // 組合最終回覆
-        replyMessage = `${baseResponse}\n\n---\n📊 任務完成度：${taskCompletion}%（${taskGrade}）\n🧠 San值：${san}`;
-        replyMessage += `\n\n📎 ${taskEffectMsg}`;
+  // 調整好感度 & 更新 San 值
+  if (affectionDelta !== 0) {
+    const affChange = affectionManager.addAffection(userId, affectionDelta);
+    if (affChange && typeof affChange.newAffection === 'number') {
+      san = Math.max(0, 70 - affChange.newAffection);
+    }
+  }
 
-        if (revealSecret) {
-            replyMessage += `\n\n🔐 之後他的瞳孔混雜著一絲猶豫與更深的信任，接著像是從心底抽出一句話，輕輕地說道：「${revealSecret}」`;
-        }
+  // 🧊 建立任務完成度嵌入訊息
+  const taskEmbed = new EmbedBuilder()
+    .setColor('#7289DA') // 可改成依 taskGrade 不同改變色彩
+    .setTitle('📊 任務評估')
+    .addFields(
+      { name: '今日完成度', value: `${taskCompletion}%（${taskGrade}）`, inline: true },
+      { name: '🧠 San值', value: `${san}`, inline: true },
+      { name: '📎 學術糾紛的反應', value: `${taskEffectMsg}` }
+    )
+    .setFooter({ text: '由基地生成' });
+
+  // 💬 發送主回覆與嵌入
+  await message.reply({
+    content: baseResponse,
+    embeds: [taskEmbed],
+  });
+
+     if (revealSecret) {
+  await message.reply(`🔐 忽然他的瞳孔混雜著一絲猶豫與更深的信任，接著像是從心底抽出一句話，輕輕地說道：「${revealSecret}」`);
+}
     }
     await message.reply(replyMessage);
     return;
