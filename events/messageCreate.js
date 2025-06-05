@@ -77,8 +77,11 @@ module.exports = async (client, message) => {
         });
 
         if (revealSecret) {
-            await message.reply(`🔐 忽然他的瞳孔混雜著一絲猶豫與更深的信任，接著像是從心底抽出一句話，輕輕地說道：「${revealSecret}」`);
-        }
+    if (taskCompletion >= 95) {
+        await message.reply(`🔐 他靠得更近，聲音幾乎貼在你耳邊：「${revealSecret}」`);
+    } else if (taskCompletion >= 75) {
+        await message.reply(`🔐 他略微猶豫，但最終還是說出了什麼：「${revealSecret}」`);
+    }
 
         return;
     }
