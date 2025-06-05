@@ -154,5 +154,5 @@ module.exports = async (client, message) => {
     // affectionManager.addAffection(userId, 0) 會處理此邏輯。
     affectionManager.addAffection(userId, 0); 
     
-
+return;
 };
