@@ -10,11 +10,13 @@ const config = require("../../config.js");
 // 載入 .env 檔案的環境變數
 require('dotenv').config();
 
+const mongoURI = process.env.mongodbUri || config.mongodbUri; 
+
 let client; // MongoDB 客戶端實例容器
 
 // 檢查 config 裡是否有設定 URI，如果有就用來建立 client
-if (config.mongodbUri) {
-    const uri = config.mongodbUri;
+if (mongoURI) {
+     const uri = mongoURI; // 使用這個優先級更高的 URI
     client = new MongoClient(uri);
 } else {
     // 如果沒有設定，給使用者黃色警告
