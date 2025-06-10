@@ -7,11 +7,11 @@ const GH_USERNAME = process.env.GH_USERNAME;
 const GH_REPO = process.env.GH_REPO;
 
 // --- 檔案路徑定義 ---
-const DATA_FILE = path.join(__dirname, '../data/affection/user_affection.json');
+const DATA_FILE = path.join(__dirname, '../../data/affection/user_affection.json');
 const GH_FILE_PATH = 'data/affection/user_affection.json'; // 這裡也要同步修改為新的 GitHub 路徑
 
 // 回應語句資料路徑
-const RESPONSE_FILE = path.join(__dirname, '../data/affection/affectionResponses.json');
+const RESPONSE_FILE = path.join(__dirname, '../../data/affection/affectionResponses.json');
 
 
 // --- 數據容器與載入 ---
