@@ -3,10 +3,10 @@ const config = require("./config.js");
 const fs = require("fs");
 const path = require('path');
 const { initializePlayer } = require('./player');
-const { connectToDatabase } = require('./mongodb');
+const { connectToDatabase } = require('./utils/db/mongodb');
 const colors = require('./UI/colors/colors');
-const deckManager = require('./utils/deckManager'); // <-- 加上這行！
-const affectionManager = require('./utils/affectionManager'); // 假設你有這個
+const deckManager = require('./utils/entertainment/deckManager'); // <-- 加上這行！
+const affectionManager = require('./utils/entertainment/affectionManager'); // 假設你有這個
 require('dotenv').config();
 
 const client = new Client({
