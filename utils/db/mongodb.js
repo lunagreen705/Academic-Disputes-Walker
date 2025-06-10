@@ -2,7 +2,7 @@
 const { MongoClient } = require('mongodb');
 
 // 引入自定義的 UI 顏色樣式（用於 console 輸出好看）
-const colors = require('./UI/colors/colors');
+const colors = require('../../UI/colors/colors');
 
 // 引入設定檔，這裡的 config.js 預期包含 mongodbUri 等設定
 const config = require("../../config.js");
