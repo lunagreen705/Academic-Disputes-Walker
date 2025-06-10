@@ -1,7 +1,7 @@
 // your-discord-bot/commands/draw.js
 const { EmbedBuilder, ApplicationCommandOptionType } = require('discord.js');
 const config = require("../config.js");
-const deckManager = require('../utils/deckManager'); // 引入牌堆管理模組
+const deckManager = require('../utils/entertainment/deckManager'); // 引入牌堆管理模組
 
 // 不再需要 deckNameMap，因為我們直接顯示原始英文名稱
 
