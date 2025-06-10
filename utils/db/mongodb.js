@@ -1,5 +1,5 @@
 const { MongoClient } = require('mongodb');
-const colors = require('./UI/colors/colors');
+const colors = require('../../UI/colors/colors');
 const config = require("./config.js");
 require('dotenv').config();
 
