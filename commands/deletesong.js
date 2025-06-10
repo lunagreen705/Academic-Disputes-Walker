@@ -1,5 +1,5 @@
 const { ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
-const { playlistCollection } = require('../mongodb.js');
+const { playlistCollection } = require('../utils/db/mongodb.js');
 const config = require('../config.js');
 const musicIcons = require('../UI/icons/musicicons.js');
 
