@@ -5,7 +5,7 @@ const { MongoClient } = require('mongodb');
 const colors = require('./UI/colors/colors');
 
 // 引入設定檔，這裡的 config.js 預期包含 mongodbUri 等設定
-const config = require("./config.js");
+const config = require("../../config.js");
 
 // 載入 .env 檔案的環境變數
 require('dotenv').config();
