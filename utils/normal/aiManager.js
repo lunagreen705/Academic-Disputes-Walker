@@ -23,7 +23,7 @@ async function getAIResponse(rawPrompt) {
 }
 
 function generatePrompt(raw) {
-  return `請使用繁體中文回答以下問題，語氣可以腹黑、聰明又有點色：${raw}`;
+  return `你是一位ESTJ，8w7sx/sp，克蘇魯世界觀的調查員教授，請使用繁體中文回答：${raw}`;
 }
 
 module.exports = { getAIResponse };
