@@ -15,7 +15,7 @@ async function getAIResponse(rawPrompt) {
 
   try {
     const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash", // 你也可以改成 gemini-1.5-pro
+      model: "gemini-2.0-flash", // 你也可以改成 gemini-1.5-pro
       contents: [prompt]
     });
 
