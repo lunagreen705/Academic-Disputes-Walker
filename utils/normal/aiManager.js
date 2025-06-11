@@ -1,9 +1,9 @@
-import { Client, GatewayIntentBits } from 'discord.js';
+const { Client, GatewayIntentBits } from 'discord.js';
 // aimanager.js
-import { GoogleGenAI } from "@google/genai";
-
+const { GoogleGenAI } from "@google/genai";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 // 建立並匯出 singleton AI 實例
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({apiKey: GEMINI_API_KEY});
 
 /**
  * 呼叫 Gemini AI，取得回覆
