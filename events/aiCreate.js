@@ -1,4 +1,4 @@
-import { getAIResponse } from './aimanager.js';
+import { getAIResponse } from '../utils/normal/aiManager.js';
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return; // 忽略機器人自己
