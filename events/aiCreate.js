@@ -1,6 +1,6 @@
-import { getAIResponse } from '../utils/normal/aiManager.js';
+const { getAIResponse } = require('../utils/normal/aiManager.js');
 
-export default (client) => {
+module.exports = (client) => {
   client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
 
@@ -9,8 +9,13 @@ export default (client) => {
       const prompt = message.content.replace(/<@!?(\d+)>/, '').trim();
       if (!prompt) return;
 
-      const reply = await getAIResponse(prompt);
-      message.channel.send(reply);
+      try {
+        const reply = await getAIResponse(prompt);
+        await message.channel.send(reply);
+      } catch (err) {
+        console.error('❌ AI 回覆失敗:', err);
+        await message.channel.send('✨ 改天再來調查？');
+      }
     }
   });
 };
