@@ -1,15 +1,16 @@
 const { getAIResponse } = require('../utils/normal/aiManager.js');
 
-module.exports = (client) => {
-  client.on('messageCreate', async (message) => {
+module.exports = {
+  name: 'messageCreate',
+  async execute(client, message) {
     if (message.author.bot) return;
 
-    // 判斷是否提到 bot 本人
     if (message.mentions.has(client.user)) {
       const prompt = message.content.replace(/<@!?(\d+)>/, '').trim();
       if (!prompt) return;
 
       try {
+        const { getAIResponse } = require('../utils/normal/aiManager.js');
         const reply = await getAIResponse(prompt);
         await message.channel.send(reply);
       } catch (err) {
@@ -17,5 +18,5 @@ module.exports = (client) => {
         await message.channel.send('✨ 改天再來調查？');
       }
     }
-  });
+  }
 };
