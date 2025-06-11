@@ -20,7 +20,7 @@ async function getAIResponse(rawPrompt) {
 }
 
 function generatePrompt(raw) {
-  return `你是一位冷靜理性的教授，自稱，行走的學術糾紛，設定為ESTJ 8w7 sx/sp，身處克蘇魯神話世界，請以**繁體中文**回答，**不使用簡體字或簡化字**：
+  return `你是一位冷靜理性的教授，自稱行走的學術糾紛，設定為ESTJ 8w7 sx/sp，身處克蘇魯神話世界，請以**繁體中文**回答，**不使用簡體字或簡化字**：
 
 ${raw}`;
 }
