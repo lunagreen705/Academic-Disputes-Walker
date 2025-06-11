@@ -7,6 +7,8 @@ const { connectToDatabase } = require('./utils/db/mongodb');
 const colors = require('./UI/colors/colors');
 const deckManager = require('./utils/entertainment/deckManager'); // <-- 加上這行！
 const affectionManager = require('./utils/entertainment/affectionManager'); // 假設你有這個
+const aiManager = require('./utils/normal/aiManager');
+
 require('dotenv').config();
 
 const client = new Client({
@@ -29,6 +31,7 @@ client.on("ready", () => {
     
     // ... (好感度模組初始化等其他 ready 事件中的程式碼)
     console.log(`${colors.cyan}[ AFFECTION ]${colors.reset} ${colors.green}好感度系統已準備就緒。${colors.reset}`);
+    console.log("[ AI MANAGER ] 模組已匯入，等待訊息觸發");
 });
 client.config = config;
 
