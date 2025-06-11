@@ -73,30 +73,25 @@ client.commands = [];
 
 fs.readdir(config.commandsDir, (err, files) => {
   if (err) {
-    console.error(`${colors.red}[ ERROR ] 無法讀取指令資料夾：${err.message}${colors.reset}`);
+    console.error(`${colors.red}[ ERROR ] 指令載入失敗：${err.message}${colors.reset}`);
     return;
   }
 
-  files
-    .filter(f => f.endsWith(".js"))
-    .forEach((f) => {
-      const filePath = path.join(config.commandsDir, f);
-      try {
-        const command = require(filePath);
-        if (!command.name || !command.description) {
-          console.warn(`${colors.cyan}[ COMMAND ]${colors.reset} ${colors.red}格式錯誤，跳過：${colors.yellow}${f}${colors.reset}`);
-          return;
-        }
-        client.commands.push({
-          name: command.name,
-          description: command.description,
-          options: command.options || [],
-        });
-        console.log(`${colors.cyan}[ COMMAND ]${colors.reset} ${colors.green}已載入指令：${colors.yellow}/${command.name}${colors.reset}`);
-      } catch (err) {
-        console.error(`${colors.red}[ ERROR ] 無法載入指令 ${f}：${err.message}${colors.reset}`);
-      }
-    });
+  files.forEach((f) => {
+    if (!f.endsWith(".js")) return;
+
+    try {
+      const props = require(`${config.commandsDir}/${f}`);
+      client.commands.push({
+        name: props.name,
+        description: props.description,
+        options: props.options,
+      });
+      console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${props.name}${colors.reset}`);
+    } catch (err) {
+      console.error(`${colors.red}[ ERROR ] 無法載入指令 ${f}：${err.message}${colors.reset}`);
+    }
+  });
 });
 
 // ========== Voice Raw Packets ==========
