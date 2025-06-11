@@ -1,24 +1,19 @@
-const { Client, GatewayIntentBits } from 'discord.js';
-// aimanager.js
-const { GoogleGenAI } from "@google/genai";
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-// 建立並匯出 singleton AI 實例
-const ai = new GoogleGenAI({apiKey: GEMINI_API_KEY});
+const { GoogleGenAI } = require("@google/genai");
 
-/**
- * 呼叫 Gemini AI，取得回覆
- * @param {string} prompt - 使用者輸入內容
- * @returns {Promise<string>} AI 回覆文字
- */
-export async function getAIResponse(prompt) {
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+
+async function getAIResponse(prompt) {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-pro", // 妳之前用的模型版本
-      contents: prompt,
+      model: "gemini-pro",
+      prompt: [{ text: prompt }],
     });
-    return response.text;
+    return response.candidates?.[0]?.content || "AI 沒有回應任何內容。";
   } catch (error) {
-    console.error("[AIManager] AI 呼叫錯誤：", error);
+    console.error("[AIManager] AI 呼叫錯誤：", error.stack || error);
     return "抱歉，AI 目前無法回應，請稍後再試。";
   }
 }
+
+module.exports = { getAIResponse };
