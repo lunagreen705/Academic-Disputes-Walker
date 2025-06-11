@@ -13,7 +13,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 export async function getAIResponse(prompt) {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash", // 妳之前用的模型版本
+      model: "gemini-pro", // 妳之前用的模型版本
       contents: prompt,
     });
     return response.text;
