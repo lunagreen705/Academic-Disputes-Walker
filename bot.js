@@ -1,15 +1,15 @@
 const { Client, GatewayIntentBits } = require("discord.js");
-const config = require("./config.js");
 const fs = require("fs");
 const path = require("path");
+require("dotenv").config();
+
+const config = require("./config.js");
+const colors = require("./UI/colors/colors");
 const { initializePlayer } = require("./player");
 const { connectToDatabase } = require("./utils/db/mongodb");
-const colors = require("./UI/colors/colors");
 const deckManager = require("./utils/entertainment/deckManager");
 const affectionManager = require("./utils/entertainment/affectionManager");
 const aiManager = require("./utils/normal/aiManager");
-
-require("dotenv").config();
 
 const client = new Client({
   intents: Object.values(GatewayIntentBits),
@@ -29,18 +29,14 @@ client.on("ready", () => {
 
   client.riffy.init(client.user.id);
 
-  // --- 載入牌堆 ---
   deckManager.loadDecks();
   console.log(`${colors.cyan}[ DECKS ]${colors.reset} ${colors.green}卡牌模組已載入 ✅${colors.reset}`);
 
-  // --- 好感度模組 ---
   console.log(`${colors.cyan}[ AFFECTION ]${colors.reset} ${colors.green}好感度系統已準備就緒 ✅${colors.reset}`);
-
-  // --- AI 模組 ---
   console.log(`${colors.cyan}[ AI MANAGER ]${colors.reset} ${colors.green}模組已匯入，等待訊息觸發 ✅${colors.reset}`);
 });
 
-// ========== Event Handlers (Safe Load) ==========
+// ========== Event Loader ==========
 const eventsPath = path.join(__dirname, "events");
 
 fs.readdir(eventsPath, (err, files) => {
@@ -53,43 +49,54 @@ fs.readdir(eventsPath, (err, files) => {
     if (!file.endsWith(".js")) return;
 
     const eventPath = path.join(eventsPath, file);
-    const eventName = path.basename(file, ".js");
+    const event = require(eventPath);
 
     try {
-      const eventHandler = require(eventPath);
-      client.removeAllListeners(eventName); // 防止重複掛載
-      client.on(eventName, (...args) => eventHandler(client, ...args));
-      console.log(`${colors.cyan}[ EVENT ]${colors.reset} 已載入事件：${colors.yellow}${eventName}${colors.reset}`);
+      if (typeof event === "function") {
+        const eventName = file.split(".")[0];
+        client.on(eventName, event.bind(null, client));
+        console.log(`${colors.cyan}[ EVENT ]${colors.reset} 舊式事件載入：${colors.yellow}${eventName}${colors.reset}`);
+      } else if (event.name && typeof event.execute === "function") {
+        client.on(event.name, (...args) => event.execute(client, ...args));
+        console.log(`${colors.cyan}[ EVENT ]${colors.reset} 已載入事件：${colors.yellow}${event.name}${colors.reset}`);
+      } else {
+        console.warn(`${colors.red}[ EVENT ] 格式錯誤，跳過：${file}${colors.reset}`);
+      }
     } catch (err) {
-      console.error(`${colors.red}[ ERROR ] 無法載入事件檔 ${file}：${err.message}${colors.reset}`);
+      console.error(`${colors.red}[ ERROR ] 載入事件 ${file} 時發生錯誤：${err.message}${colors.reset}`);
     }
   });
 });
 
-// ========== Commands ==========
+// ========== Command Loader ==========
 client.commands = [];
 
 fs.readdir(config.commandsDir, (err, files) => {
   if (err) {
-    console.error(`${colors.red}[ ERROR ] 指令載入失敗：${err.message}${colors.reset}`);
+    console.error(`${colors.red}[ ERROR ] 無法讀取指令資料夾：${err.message}${colors.reset}`);
     return;
   }
 
-  files.forEach((f) => {
-    if (!f.endsWith(".js")) return;
-
-    try {
-      const props = require(`${config.commandsDir}/${f}`);
-      client.commands.push({
-        name: props.name,
-        description: props.description,
-        options: props.options,
-      });
-      console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${props.name}${colors.reset}`);
-    } catch (err) {
-      console.error(`${colors.red}[ ERROR ] 無法載入指令 ${f}：${err.message}${colors.reset}`);
-    }
-  });
+  files
+    .filter(f => f.endsWith(".js"))
+    .forEach((f) => {
+      const filePath = path.join(config.commandsDir, f);
+      try {
+        const command = require(filePath);
+        if (!command.name || !command.description) {
+          console.warn(`${colors.cyan}[ COMMAND ]${colors.reset} ${colors.red}格式錯誤，跳過：${colors.yellow}${f}${colors.reset}`);
+          return;
+        }
+        client.commands.push({
+          name: command.name,
+          description: command.description,
+          options: command.options || [],
+        });
+        console.log(`${colors.cyan}[ COMMAND ]${colors.reset} ${colors.green}已載入指令：${colors.yellow}/${command.name}${colors.reset}`);
+      } catch (err) {
+        console.error(`${colors.red}[ ERROR ] 無法載入指令 ${f}：${err.message}${colors.reset}`);
+      }
+    });
 });
 
 // ========== Voice Raw Packets ==========
@@ -122,14 +129,14 @@ connectToDatabase().then(() => {
   console.log(`${colors.gray}Error: ${err.message}${colors.reset}`);
 });
 
-// ========== Web Express Server ==========
+// ========== Express Web Server ==========
 const express = require("express");
 const app = express();
 const port = 3000;
 
-app.get('/', (req, res) => {
-  const imagePath = path.join(__dirname, 'index.html');
-  res.sendFile(imagePath);
+app.get("/", (req, res) => {
+  const filePath = path.join(__dirname, "index.html");
+  res.sendFile(filePath);
 });
 
 app.listen(port, () => {
@@ -139,5 +146,4 @@ app.listen(port, () => {
   console.log(`${colors.cyan}[ SERVER ]${colors.reset} ${colors.green}Online ✅${colors.reset}`);
   console.log(`${colors.cyan}[ PORT ]${colors.reset} ${colors.yellow}http://localhost:${port}${colors.reset}`);
   console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.gray}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
-  console.log(`${colors.cyan}[ USER ]${colors.reset} ${colors.yellow}GlaceYT${colors.reset}`);
 });
