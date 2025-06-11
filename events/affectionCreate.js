@@ -1,7 +1,9 @@
 const affectionManager = require('../utils/entertainment/affectionManager');
 const { EmbedBuilder } = require('discord.js');
 
-module.exports = async (client, message) => {
+module.exports = {
+  name: 'messageCreate',
+  async execute(client, message) {
     if (message.author.bot) return;
 
     const userId = message.author.id;
