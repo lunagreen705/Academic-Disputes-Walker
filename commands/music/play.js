@@ -7,8 +7,8 @@ const requesters = new Map();
 
 
 const spotifyApi = new SpotifyWebApi({
-    clientId: config.spotifyClientId, 
-    clientSecret: config.spotifyClientSecret,
+    clientId: process.env.spotifyClientId, 
+    clientSecret: process.env.spotifyClientSecret,
 });
 
 
