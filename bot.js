@@ -72,38 +72,24 @@ fs.readdir(eventsPath, (err, files) => {
 client.commands = [];
 
 function loadCommands(dir) {
-  // 使用 fs.readdirSync 簡化遞迴加載
-  // 或者處理異步行為，使用 Promise/async-await 搭配 fs.readdir
-  const files = fs.readdirSync(dir);
+  const files = fs.readdirSync(dir, { withFileTypes: true });
 
   for (const file of files) {
-    const fullPath = path.join(dir, file);
-    const stat = fs.statSync(fullPath);
-
-    if (stat.isDirectory()) {
-      // 如果是目錄，遞迴調用 loadCommands
-      loadCommands(fullPath);
-    } else if (file.endsWith(".js")) {
-      // 如果是 .js 文件，嘗試加載它
+    const fullPath = path.join(dir, file.name);
+    if (file.isDirectory()) {
+      loadCommands(fullPath); // 遞迴：處理子資料夾
+    } else if (file.name.endsWith(".js")) {
       try {
-        // 使用 path.resolve 確保 require 獲得絕對路徑
-        const commandModulePath = path.resolve(fullPath);
-        const props = require(commandModulePath);
-
-        // 存儲指令數據
-        client.commands.push({
-          name: props.name,
-          description: props.description,
-          options: props.options || [], // 確保 options 是陣列
-          category: path.basename(path.dirname(fullPath)) // 自動獲取父目錄名稱作為分類
-        });
-        console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${props.name}${colors.reset} (分類: ${path.basename(path.dirname(fullPath))})`);
+        const props = require(fullPath);
+        client.commands.push(props); // 或自訂處理
+        console.log(`[ COMMAND ] 已載入指令：${props.name}`);
       } catch (err) {
-        console.error(`${colors.red}[ ERROR ] 無法載入指令 ${file}：${err.message}${colors.reset}`);
+        console.error(`[ ERROR ] 無法載入 ${file.name}：${err.message}`);
       }
     }
   }
 }
+
 
 loadCommands(config.commandsDir);
 
