@@ -3,7 +3,7 @@
 
 const { Riffy, Player } = require("riffy");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, PermissionsBitField } = require("discord.js");
-const { requesters } = require("./commands/play"); // 確保 play.js 正確導出 requesters
+const { requesters } = require("./commands/music/play"); // 確保 play.js 正確導出 requesters
 const { Dynamic } = require("musicard");
 const config = require("./config.js");
 const musicIcons = require('./UI/icons/musicicons.js');
