@@ -5,7 +5,7 @@ require("dotenv").config();
 
 const config = require("./config.js");
 const colors = require("./UI/colors/colors");
-const { initializePlayer } = require("./player");
+const { initializePlayer } = require("./utils/music/player.js");
 const { connectToDatabase } = require("./utils/db/mongodb");
 const deckManager = require("./utils/entertainment/deckManager");
 const affectionManager = require("./utils/entertainment/affectionManager");
