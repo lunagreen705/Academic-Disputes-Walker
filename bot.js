@@ -72,6 +72,8 @@ fs.readdir(eventsPath, (err, files) => {
 client.commands = [];
 
 function loadCommands(dir) {
+  // 使用 fs.readdirSync 簡化遞迴加載
+  // 或者處理異步行為，使用 Promise/async-await 搭配 fs.readdir
   const files = fs.readdirSync(dir);
 
   for (const file of files) {
@@ -79,21 +81,21 @@ function loadCommands(dir) {
     const stat = fs.statSync(fullPath);
 
     if (stat.isDirectory()) {
-      loadCommands(fullPath); // 遞迴子目錄
+      // 如果是目錄，遞迴調用 loadCommands
+      loadCommands(fullPath);
     } else if (file.endsWith(".js")) {
+      // 如果是 .js 文件，嘗試加載它
       try {
-        // --- 核心修改在這裡 ---
-        // 使用 path.resolve() 將 fullPath 轉換為絕對路徑，
-        // 確保 require() 可以正確找到文件。
+        // 使用 path.resolve 確保 require 獲得絕對路徑
         const commandModulePath = path.resolve(fullPath);
         const props = require(commandModulePath);
-        // --- 核心修改結束 ---
 
+        // 存儲指令數據
         client.commands.push({
           name: props.name,
           description: props.description,
-          options: props.options,
-          category: path.basename(path.dirname(fullPath)) // 自動標記分類，取父資料夾名
+          options: props.options || [], // 確保 options 是陣列
+          category: path.basename(path.dirname(fullPath)) // 自動獲取父目錄名稱作為分類
         });
         console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${props.name}${colors.reset} (分類: ${path.basename(path.dirname(fullPath))})`);
       } catch (err) {
