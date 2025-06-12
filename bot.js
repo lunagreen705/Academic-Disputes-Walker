@@ -71,52 +71,19 @@ fs.readdir(eventsPath, (err, files) => {
 // ========== Command Loader ==========
 client.commands = [];
 
-const commandDir = path.join(__dirname, config.commandsDir);
-
-fs.readdir(commandDir, { withFileTypes: true }, (err, entries) => {
-  if (err) {
-    console.error(`${colors.red}[ ERROR ] 指令載入失敗：${err.message}${colors.reset}`);
-    return;
-  }
-
-  entries.forEach((entry) => {
+function loadCommands(dir) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
     if (entry.isDirectory()) {
-      // 處理分類資料夾
-      const subDir = path.join(commandDir, entry.name);
-      fs.readdirSync(subDir).forEach((file) => {
-        if (!file.endsWith(".js")) return;
-
-        const fullPath = path.join(subDir, file);
-        try {
-          const props = require(fullPath);
-          client.commands.push({
-            name: props.name,
-            description: props.description,
-            options: props.options,
-          });
-          console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${props.name}${colors.reset}`);
-        } catch (err) {
-          console.error(`${colors.red}[ ERROR ] 無法載入指令 ${file}：${err.message}${colors.reset}`);
-        }
-      });
+      loadCommands(path.join(dir, entry.name));
     } else if (entry.name.endsWith(".js")) {
-      // 處理根目錄下的指令
-      const fullPath = path.join(commandDir, entry.name);
-      try {
-        const props = require(fullPath);
-        client.commands.push({
-          name: props.name,
-          description: props.description,
-          options: props.options,
-        });
-        console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${props.name}${colors.reset}`);
-      } catch (err) {
-        console.error(`${colors.red}[ ERROR ] 無法載入指令 ${entry.name}：${err.message}${colors.reset}`);
-      }
+      const command = require(path.join(dir, entry.name));
+      client.commands.push(command);
+      console.log(`已載入指令: ${command.name}`);
     }
-  });
-});
-
+  }
+}
+loadCommands(path.join(__dirname, config.commandsDir));
 
 // ========== Voice Raw Packets ==========
 client.on("raw", (d) => {
