@@ -15,9 +15,9 @@
     "greetCountToday": 1
   },
   "627912547672260629": {
-    "affection": 11,
-    "lastGreetDate": "2025-06-12",
-    "greetCountToday": 3
+    "affection": 12,
+    "lastGreetDate": "2025-06-13",
+    "greetCountToday": 1
   },
   "536441757697703937": {
     "affection": 11,
@@ -98,5 +98,10 @@
     "affection": 2,
     "lastGreetDate": "2025-06-09",
     "greetCountToday": 1
+  },
+  "441470077800546305": {
+    "affection": 0,
+    "lastGreetDate": "2025-06-12",
+    "greetCountToday": 0
   }
 }
