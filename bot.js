@@ -82,7 +82,13 @@ function loadCommands(dir) {
       loadCommands(fullPath); // 遞迴子目錄
     } else if (file.endsWith(".js")) {
       try {
-        const props = require(fullPath);
+        // --- 核心修改在這裡 ---
+        // 使用 path.resolve() 將 fullPath 轉換為絕對路徑，
+        // 確保 require() 可以正確找到文件。
+        const commandModulePath = path.resolve(fullPath);
+        const props = require(commandModulePath);
+        // --- 核心修改結束 ---
+
         client.commands.push({
           name: props.name,
           description: props.description,
