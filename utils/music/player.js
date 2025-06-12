@@ -11,7 +11,7 @@ const colors = require('../../UI/colors/colors.js');
 const fs = require("fs");
 const path = require("path");
 const axios = require('axios');
-const { autoplayCollection } = require('../../db/mongodb.js');
+const { autoplayCollection } = require('../utils/db/mongodb.js');
 const guildTrackMessages = new Map();
 
 async function sendMessageWithPermissionsCheck(channel, embed, attachment, actionRow1, actionRow2) {
