@@ -108,24 +108,24 @@ function initializePlayer(client) {
             const attachment = new AttachmentBuilder(cardPath, { name: 'musicard.png' });
             const embed = new EmbedBuilder()
             .setAuthor({ 
-                name: 'Playing Song..', 
+                name: '正在播放♫..', 
                 iconURL: musicIcons.playerIcon,
                 url: config.SupportServer
             })
-            .setFooter({ text: `Developed by SSRR | Prime Music v1.2`, iconURL: musicIcons.heartIcon })
+            .setFooter({ text: `行走的學術糾紛ver1.0`, iconURL: musicIcons.heartIcon })
             .setTimestamp()
             .setDescription(  
-                `- **Title:** [${track.info.title}](${track.info.uri})\n` +
-                `- **Author:** ${track.info.author || 'Unknown Artist'}\n` +
-                `- **Length:** ${formatDuration(track.info.length)}\n` +
-                `- **Requester:** ${requesterDisplay}\n` + // 使用處理過的 requesterDisplay
-                `- **Source:** ${track.info.sourceName}\n` + '**- Controls :**\n 🔁 `Loop`, 📜 `Queue`, ⏭️ `Skip`, 🎤 `Lyrics`, 🗑️ `Clear`\n ⏹️ `Stop`, ⏸️ `Pause`, ▶️ `Resume`, 🔊 `Vol +`, 🔉 `Vol -`')
+                `- **標題:** [${track.info.title}](${track.info.uri})\n` +
+                `- **作者:** ${track.info.author || 'Unknown Artist'}\n` +
+                `- **長度:** ${formatDuration(track.info.length)}\n` +
+                `- **使用者:** ${requesterDisplay}\n` + // 使用處理過的 requesterDisplay
+                `- **來源:** ${track.info.sourceName}\n` + '**- 功能 :**\n 🔁 `循環`, 📜 `播放歌單`, ⏭️ `跳過`, 🎤 `歌詞`, 🗑️ `清空播放歌單`\n ⏹️ `退出`, ⏸️ `暫停`, ▶️ `恢復播放`, 🔊 `聲量 +`, 🔉 `聲量 -`')
             .setImage('attachment://musicard.png')
             .setColor('#FF7A00');
             
             // --- 顯示佇列 (Up Next) ---
             const queue = player.queue;
-            let upNextString = "Queue is empty."; 
+            let upNextString = "播放清單是空的."; 
 
             if (queue && queue.length > 0) {
                 const displayLimit = 5; 
@@ -151,7 +151,7 @@ function initializePlayer(client) {
                 }
             }
             
-            embed.addFields({ name: '🎶 Up Next', value: upNextString.substring(0, 1020) });
+            embed.addFields({ name: '🎶 下一首是', value: upNextString.substring(0, 1020) });
             // --- 佇列資訊結束 ---
 
 
@@ -208,17 +208,17 @@ function initializePlayer(client) {
                 const nextTrack = await player.autoplay(previousTrack || player); // 傳遞 player 作為備用
             
                 if (!nextTrack) {
-                    if (channel) await channel.send("⚠️ **No more tracks to autoplay. Disconnecting...**").catch(console.error);
+                    if (channel) await channel.send("⚠️ **播放歌單已耗盡，無意義的連線將被中止**").catch(console.error);
                     if (!player.destroyed) player.destroy();
                 }
             } else {
-                if (channel) await channel.send("🎶 **Queue has ended. Autoplay is disabled.**").catch(console.error);
+                if (channel) await channel.send("🎶 **歌單終止，自動播放功能亦隨之熄滅。你準備好面對寂靜了嗎？**").catch(console.error);
                 if (!player.destroyed) player.destroy();
             }
         } catch (error) {
             console.error("Error handling autoplay or queue end:", error);
             if (!player.destroyed) player.destroy();
-            if (channel) await channel.send("👾**Queue Empty! Disconnecting...**").catch(console.error);
+            if (channel) await channel.send("👾**已無曲目可用，自動播放失效。我將撤退至以太之中**").catch(console.error);
         }
     });
 }
@@ -310,7 +310,7 @@ function setupCollector(client, player, channel, message) {
         if (!voiceChannel || voiceChannel.id !== botVoiceChannelId) {
             const vcEmbed = new EmbedBuilder()
                 .setColor(config.embedColor || '#FF7A00')
-                .setDescription('🔒 **You need to be in the same voice channel as the bot to use the controls!**');
+                .setDescription('🔒 **你尚未踏入本研究室，便妄圖干預？**');
             
             // 使用 i.followUp 發送臨時訊息
             await i.followUp({ embeds: [vcEmbed], ephemeral: true }).catch(console.error);
@@ -353,15 +353,15 @@ async function handleInteraction(i, player, channel, client, originalMessage) {
                 if (requesterUserCurrent) {
                      requesterDisplayCurrent = typeof requesterUserCurrent === 'string' ? requesterUserCurrent : (requesterUserCurrent.tag || requesterUserCurrent.username || "User");
                 }
-                description += `**Now Playing:**\n[${currentTrack.info.title.substring(0, 60)}](${currentTrack.info.uri}) [${formatDuration(currentTrack.info.length)}] (by ${requesterDisplayCurrent})\n\n`;
+                description += `**現在播放...:**\n[${currentTrack.info.title.substring(0, 60)}](${currentTrack.info.uri}) [${formatDuration(currentTrack.info.length)}] (by ${requesterDisplayCurrent})\n\n`;
             } else {
-                description += "**Nothing is currently playing.**\n\n";
+                description += "**沒有正在播放的歌曲**\n\n";
             }
 
             if (!queue || queue.length === 0) {
-                description += "🎶 **The queue is currently empty!**";
+                description += "🎶 **歌單空無一物**";
             } else {
-                description += "**Up Next:**\n";
+                description += "**下一首是:**\n";
                 const maxTracksToShow = 10;
                 let queueTracksString = queue.slice(0, maxTracksToShow)
                     .map((track, index) => {
@@ -394,10 +394,10 @@ async function handleInteraction(i, player, channel, client, originalMessage) {
             break;
         case 'skipTrack':
             if (player.queue.length === 0 && player.loop !== "track") {
-                 await sendEmbed(channel, "⏭️ **Queue is empty. Nothing to skip to.**", i); // 傳遞 i
+                 await sendEmbed(channel, "⏭️ **歌單盡失，跳轉無門。請勿妄圖逾越禁忌**", i); // 傳遞 i
             } else {
                 player.stop(); 
-                await sendEmbed(channel, "⏭️ **Skipping to the next song...**", i); // 傳遞 i
+                await sendEmbed(channel, "⏭️ **暗影指引聲波流轉，下一首歌曲呼之欲出。**", i); // 傳遞 i
             }
             break;
         // case 'disableLoop': // 已被取代
@@ -409,7 +409,7 @@ async function handleInteraction(i, player, channel, client, originalMessage) {
         case 'clearQueue':
             if (player.queue.length > 0) {
                 player.queue.clear();
-                await sendEmbed(channel, "🗑️ **Queue has been cleared!**", i); // 傳遞 i
+                await sendEmbed(channel, "🗑️ **播放歌單已被清除，一切歸於虛無**", i); // 傳遞 i
 
                 if (originalMessage && originalMessage.embeds.length > 0 && originalMessage.editable) {
                     try {
@@ -428,27 +428,27 @@ async function handleInteraction(i, player, channel, client, originalMessage) {
                     }
                 }
             } else {
-                await sendEmbed(channel, "🗑️ **Queue is already empty!**", i); // 傳遞 i
+                await sendEmbed(channel, "🗑️ **播放歌單早已空無一物，恍若虛無的深淵**", i); // 傳遞 i
             }
             break;
         case 'stopTrack':
-            await sendEmbed(channel, '⏹️ **Playback has been stopped! Player will disconnect.**', i); // 傳遞 i
+            await sendEmbed(channel, '⏹️ **播放已終止，即將從此界脫離**', i); // 傳遞 i
             if (!player.destroyed) player.destroy(); 
             break;
         case 'pauseTrack':
             if (player.paused) {
-                await sendEmbed(channel, '⏸️ **Playback is already paused!**', i); // 傳遞 i
+                await sendEmbed(channel, '⏸️ **聲音已陷沉寂，請勿重複操作**', i); // 傳遞 i
             } else {
                 player.pause(true);
-                await sendEmbed(channel, '⏸️ **Playback has been paused!**', i); // 傳遞 i
+                await sendEmbed(channel, '⏸️ **播放已被暫停，音流暫歇於深淵之中**', i); // 傳遞 i
             }
             break;
         case 'resumeTrack':
             if (!player.paused) {
-                await sendEmbed(channel, '▶️ **Playback is already resumed!**', i); // 傳遞 i
+                await sendEmbed(channel, '▶️ **播放已恢復，勿再贅述此事**', i); // 傳遞 i
             } else {
                 player.pause(false);
-                await sendEmbed(channel, '▶️ **Playback has been resumed!**', i); // 傳遞 i
+                await sendEmbed(channel, '▶️ **播放已復歸，音律重返混沌深淵**', i); // 傳遞 i
             }
             break;
         case 'volumeUp':
@@ -503,13 +503,13 @@ function toggleLoop(player, channel, interaction = null) { // 接收 interaction
 
     if (player.loop === "none" || !player.loop) { 
         newLoopMode = "track";
-        messageText = "🔁 **Track loop is activated!**";
+        messageText = "🔁 **單曲循環**";
     } else if (player.loop === "track") {
         newLoopMode = "queue";
-        messageText = "🔁 **Queue loop is activated!**";
+        messageText = "🔁 **歌單循環**";
     } else { // player.loop === "queue"
         newLoopMode = "none"; 
-        messageText = "❌ **Loop is disabled!**";
+        messageText = "❌ **關閉循環**";
     }
     player.setLoop(newLoopMode);
     sendEmbed(channel, messageText, interaction);
@@ -563,7 +563,7 @@ async function getLyrics(trackName, artistName, duration) {
         if (error.response && error.response.status === 404) {
             // console.log(`Lyrics not found on Lrclib for: ${trackName} - ${artistName}`);
         } else {
-            console.error("❌ Lyrics fetch error:", error.response?.data?.message || error.message);
+            console.error("❌ 歌詞擷取失敗，迷霧掩藏了真相:", error.response?.data?.message || error.message);
         }
         return null;
     }
@@ -573,14 +573,14 @@ async function getLyrics(trackName, artistName, duration) {
 async function showLyrics(channel, player, client) { 
     if (!player || !player.current || !player.current.info) {
         // 使用 sendEmbed 發送臨時通知，而不是直接用 interaction 回覆，因為 showLyrics 可能不是由按鈕觸發
-        await sendEmbed(channel, "🚫 **No song is currently playing.**"); 
+        await sendEmbed(channel, "🚫 **此刻，聲音之海靜止無波**"); 
         return;
     }
 
     const track = player.current.info;
     
     // 嘗試獲取歌詞前先發送 "Fetching..." 訊息
-    const fetchingMsgObject = await sendEmbed(channel, `🎤 **Fetching lyrics for ${track.title.substring(0,50)}...**`);
+    const fetchingMsgObject = await sendEmbed(channel, `🎤 **正於幽暗深淵中尋覓歌詞痕跡…… ${track.title.substring(0,50)}...**`);
 
     const lyrics = await getLyrics(track.title, track.author, Math.floor(track.length / 1000));
     
@@ -591,7 +591,7 @@ async function showLyrics(channel, player, client) {
 
 
     if (!lyrics) {
-        await sendEmbed(channel, "❌ **Lyrics not found!**");
+        await sendEmbed(channel, "❌ **歌詞遺失於虛空，沉淪於無盡黑暗之中**");
         return;
     }
 
@@ -599,18 +599,18 @@ async function showLyrics(channel, player, client) {
     const songDuration = Math.floor(track.length / 1000); 
 
     const embed = new EmbedBuilder()
-        .setTitle(`🎵 Live Lyrics: ${track.title.substring(0, 250)}`)
-        .setDescription("🔄 Syncing lyrics...")
+        .setTitle(`🎵 即時歌詞: ${track.title.substring(0, 250)}`)
+        .setDescription("🔄 歌詞正與旋律交織，節奏於暗影間律動...")
         .setColor(config.embedColor || '#FF7A00');
 
     const stopButton = new ButtonBuilder()
         .setCustomId("stopLyrics")
-        .setLabel("Stop Lyrics")
+        .setLabel("歌詞之幕已然落下，靜謐隨之降臨")
         .setStyle(ButtonStyle.Danger);
 
     const fullButton = new ButtonBuilder()
         .setCustomId("fullLyrics")
-        .setLabel("Full Lyrics")
+        .setLabel("歌詞全卷，逐字揭示於幽暗之中")
         .setStyle(ButtonStyle.Primary);
 
     const row = new ActionRowBuilder().addComponents(fullButton, stopButton);
@@ -618,7 +618,7 @@ async function showLyrics(channel, player, client) {
     const permissions = channel.permissionsFor(channel.guild.members.me);
     if (!permissions.has(PermissionsBitField.Flags.SendMessages) || !permissions.has(PermissionsBitField.Flags.EmbedLinks)) {
         console.error("Bot lacks permissions for lyrics message in channel:", channel.id);
-        await sendEmbed(channel, "⚠️ Bot lacks permissions to display lyrics here.");
+        await sendEmbed(channel, "⚠️ 權限受限，歌詞顯示受阻，請另尋顯示之所");
         return;
     }
 
@@ -690,7 +690,7 @@ async function showLyrics(channel, player, client) {
         const botVoiceChannelId = client.guilds.cache.get(player.guildId)?.members.me?.voice?.channelId;
         if (!voiceChannel || voiceChannel.id !== botVoiceChannelId) {
             await i.followUp({ 
-                embeds: [new EmbedBuilder().setColor(config.embedColor || '#FF7A00').setDescription('🔒 **You need to be in the same voice channel as the bot to interact with lyrics!**')],
+                embeds: [new EmbedBuilder().setColor(config.embedColor || '#FF7A00').setDescription('🔒 **若欲觸及歌詞之奧秘，必先於同一聲頻共處，方能引靈共鳴**')],
                 ephemeral: true 
             });
             return;
