@@ -17,10 +17,10 @@ module.exports = {
   nodes: [
 {
      name:"musix",
-     password:"wwweasycodero",
-     host:"lavalink-v2.pericsq.ro",
-     port:6677,
-     secure: false
+     password:"https://dsc.gg/ajidevserver",
+     host:"lava-v4.ajieblogs.eu.org",
+     port:443,
+     secure: true
 }
   ]
 }
