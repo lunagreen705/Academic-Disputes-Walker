@@ -69,9 +69,6 @@ fs.readdir(eventsPath, (err, files) => {
 });
 
 // ========== Command Loader ==========
-const fs = require("fs");
-const path = require("path");
-
 client.commands = [];
 
 function loadCommands(dir) {
