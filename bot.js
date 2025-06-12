@@ -77,12 +77,22 @@ function loadCommands(dir) {
     if (entry.isDirectory()) {
       loadCommands(path.join(dir, entry.name));
     } else if (entry.name.endsWith(".js")) {
-      const command = require(path.join(dir, entry.name));
-      client.commands.push(command);
-      console.log(`已載入指令: ${command.name}`);
+      try {
+        const command = require(path.join(dir, entry.name));
+        client.commands.push({
+          name: command.name,
+          description: command.description,
+          options: command.options,
+          run: command.run,  // 妳如果需要執行用的 function
+        });
+        console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${command.name}${colors.reset}`);
+      } catch (err) {
+        console.error(`${colors.red}[ ERROR ] 無法載入指令 ${entry.name}：${err.message}${colors.reset}`);
+      }
     }
   }
 }
+
 loadCommands(path.join(__dirname, config.commandsDir));
 
 // ========== Voice Raw Packets ==========
