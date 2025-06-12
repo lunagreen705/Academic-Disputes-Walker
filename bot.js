@@ -71,27 +71,52 @@ fs.readdir(eventsPath, (err, files) => {
 // ========== Command Loader ==========
 client.commands = [];
 
-function loadCommands(dir) {
-  const files = fs.readdirSync(dir, { withFileTypes: true });
+const commandDir = path.join(__dirname, config.commandsDir);
 
-  for (const file of files) {
-    const fullPath = path.join(dir, file.name);
-    if (file.isDirectory()) {
-      loadCommands(fullPath); // 遞迴：處理子資料夾
-    } else if (file.name.endsWith(".js")) {
+fs.readdir(commandDir, { withFileTypes: true }, (err, entries) => {
+  if (err) {
+    console.error(`${colors.red}[ ERROR ] 指令載入失敗：${err.message}${colors.reset}`);
+    return;
+  }
+
+  entries.forEach((entry) => {
+    if (entry.isDirectory()) {
+      // 處理分類資料夾
+      const subDir = path.join(commandDir, entry.name);
+      fs.readdirSync(subDir).forEach((file) => {
+        if (!file.endsWith(".js")) return;
+
+        const fullPath = path.join(subDir, file);
+        try {
+          const props = require(fullPath);
+          client.commands.push({
+            name: props.name,
+            description: props.description,
+            options: props.options,
+          });
+          console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${props.name}${colors.reset}`);
+        } catch (err) {
+          console.error(`${colors.red}[ ERROR ] 無法載入指令 ${file}：${err.message}${colors.reset}`);
+        }
+      });
+    } else if (entry.name.endsWith(".js")) {
+      // 處理根目錄下的指令
+      const fullPath = path.join(commandDir, entry.name);
       try {
         const props = require(fullPath);
-        client.commands.push(props); // 或自訂處理
-        console.log(`[ COMMAND ] 已載入指令：${props.name}`);
+        client.commands.push({
+          name: props.name,
+          description: props.description,
+          options: props.options,
+        });
+        console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${props.name}${colors.reset}`);
       } catch (err) {
-        console.error(`[ ERROR ] 無法載入 ${file.name}：${err.message}`);
+        console.error(`${colors.red}[ ERROR ] 無法載入指令 ${entry.name}：${err.message}${colors.reset}`);
       }
     }
-  }
-}
+  });
+});
 
-
-loadCommands(config.commandsDir);
 
 // ========== Voice Raw Packets ==========
 client.on("raw", (d) => {
