@@ -1,5 +1,5 @@
 const { EmbedBuilder, ApplicationCommandOptionType } = require('discord.js');
-const config = require("../config.js");
+const config = require("../../config.js");
 
 module.exports = {
     // 這是舊版指令的結構，直接暴露屬性

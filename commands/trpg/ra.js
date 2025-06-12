@@ -1,5 +1,5 @@
 const { EmbedBuilder, ApplicationCommandOptionType } = require('discord.js');
-const config = require("../config.js"); // 假設你需要 config 檔案
+const config = require("../../config.js"); // 假設你需要 config 檔案
 
 module.exports = {
     // 指令的名稱和描述

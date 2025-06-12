@@ -1,8 +1,8 @@
 const { EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const config = require("../config.js");
-const musicIcons = require('../UI/icons/musicicons.js');
+const config = require("../../config.js");
+const musicIcons = require('../../UI/icons/musicicons.js');
 
 module.exports = {
   name: "help",

@@ -69,30 +69,38 @@ fs.readdir(eventsPath, (err, files) => {
 });
 
 // ========== Command Loader ==========
+const fs = require("fs");
+const path = require("path");
+
 client.commands = [];
 
-fs.readdir(config.commandsDir, (err, files) => {
-  if (err) {
-    console.error(`${colors.red}[ ERROR ] 指令載入失敗：${err.message}${colors.reset}`);
-    return;
-  }
+function loadCommands(dir) {
+  const files = fs.readdirSync(dir);
 
-  files.forEach((f) => {
-    if (!f.endsWith(".js")) return;
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    const stat = fs.statSync(fullPath);
 
-    try {
-      const props = require(`${config.commandsDir}/${f}`);
-      client.commands.push({
-        name: props.name,
-        description: props.description,
-        options: props.options,
-      });
-      console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${props.name}${colors.reset}`);
-    } catch (err) {
-      console.error(`${colors.red}[ ERROR ] 無法載入指令 ${f}：${err.message}${colors.reset}`);
+    if (stat.isDirectory()) {
+      loadCommands(fullPath); // 遞迴子目錄
+    } else if (file.endsWith(".js")) {
+      try {
+        const props = require(fullPath);
+        client.commands.push({
+          name: props.name,
+          description: props.description,
+          options: props.options,
+          category: path.basename(path.dirname(fullPath)) // 自動標記分類，取父資料夾名
+        });
+        console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${props.name}${colors.reset} (分類: ${path.basename(path.dirname(fullPath))})`);
+      } catch (err) {
+        console.error(`${colors.red}[ ERROR ] 無法載入指令 ${file}：${err.message}${colors.reset}`);
+      }
     }
-  });
-});
+  }
+}
+
+loadCommands(config.commandsDir);
 
 // ========== Voice Raw Packets ==========
 client.on("raw", (d) => {

@@ -1,7 +1,7 @@
 // your-discord-bot/commands/checkaffection.js
 const { EmbedBuilder, ApplicationCommandOptionType } = require('discord.js');
-const config = require("../config.js");
-const affectionManager = require('../utils/entertainment/affectionManager'); // 確保這個路徑是正確的！
+const config = require("../../config.js");
+const affectionManager = require('../../utils/entertainment/affectionManager.js'); // 確保這個路徑是正確的！
 
 module.exports = {
     // 指令的名稱和描述

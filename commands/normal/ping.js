@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
-const config = require("../config.js");
-const musicIcons = require('../UI/icons/musicicons.js');
+const config = require("../../config.js");
+const musicIcons = require('../../UI/icons/musicicons.js');
 
 module.exports = {
   name: "ping",
