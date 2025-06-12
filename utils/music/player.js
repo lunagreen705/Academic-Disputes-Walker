@@ -151,7 +151,7 @@ function initializePlayer(client) {
                 }
             }
             
-            embed.addFields({ name: '🎶 下一首是', value: upNextString.substring(0, 1020) });
+            embed.addFields({ name: '🎶 下一首是:', value: upNextString.substring(0, 1020) });
             // --- 佇列資訊結束 ---
 
 
@@ -361,7 +361,7 @@ async function handleInteraction(i, player, channel, client, originalMessage) {
             if (!queue || queue.length === 0) {
                 description += "🎶 **歌單空無一物**";
             } else {
-                description += "**下一首是:**\n";
+                description += "**🎶 下一首是**\n";
                 const maxTracksToShow = 10;
                 let queueTracksString = queue.slice(0, maxTracksToShow)
                     .map((track, index) => {
@@ -379,15 +379,15 @@ async function handleInteraction(i, player, channel, client, originalMessage) {
                 description += queueTracksString;
 
                 if (queue.length > maxTracksToShow) {
-                    description += `\n\n...and ${queue.length - maxTracksToShow} more track(s).`;
+                    description += `\n\n...還有 ${queue.length - maxTracksToShow} 首歌.`;
                 }
             }
 
             const queueEmbed = new EmbedBuilder()
                 .setColor(config.embedColor || '#FF7A00')
-                .setTitle('🎶 Music Queue')
+                .setTitle('🎶 播放歌單')
                 .setDescription(description.substring(0, 4090)) // 確保不超過限制
-                .setFooter({ text: `Total tracks in queue: ${queue?.length || 0}` });
+                .setFooter({ text: `歌單曲目總數: ${queue?.length || 0}` });
             
             // 使用 interaction (i) 來回覆臨時訊息
             await i.followUp({ embeds: [queueEmbed], ephemeral: true });
@@ -416,11 +416,11 @@ async function handleInteraction(i, player, channel, client, originalMessage) {
                         const currentEmbed = originalMessage.embeds[0];
                         const newEmbed = EmbedBuilder.from(currentEmbed); 
 
-                        const queueFieldIndex = newEmbed.data.fields?.findIndex(field => field.name === '🎶 Up Next');
+                        const queueFieldIndex = newEmbed.data.fields?.findIndex(field => field.name === '🎶 下一首是:');
                         if (queueFieldIndex !== undefined && queueFieldIndex > -1) {
-                            newEmbed.data.fields[queueFieldIndex].value = "Queue is empty.";
+                            newEmbed.data.fields[queueFieldIndex].value = "歌單空無一物";
                         } else { 
-                            newEmbed.addFields({ name: '🎶 Up Next', value: "Queue is empty." });
+                            newEmbed.addFields({ name: '🎶 下一首是:', value: "歌單空無一物" });
                         }
                         await originalMessage.edit({ embeds: [newEmbed] });
                     } catch(editError) {
