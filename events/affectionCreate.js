@@ -35,11 +35,9 @@ module.exports = {
       if (taskCompletion >= 95) {
         taskGrade = 'S 🌟';
         taskEffectMsg = '他沉默片刻，然後輕笑了一聲，那笑容近乎難得一見。「……你真的值得信任。」他靠近些，聲音低柔，「我會記住這份表現。」';
-        affectionDelta = 2;
       } else if (taskCompletion >= 75) {
         taskGrade = 'A ✅';
         taskEffectMsg = '螢幕閃爍幾下，他傳來：「效率良好，你讓我省了不少麻煩。」語氣帶著些許不易察覺的欣賞。';
-        affectionDelta = 1;
       } else if (taskCompletion >= 60) {
         taskGrade = 'B 📈';
         taskEffectMsg = '他點了點頭，「尚可。」沒有特別情緒，似乎觀察著你是否能再進一步。';
@@ -49,11 +47,9 @@ module.exports = {
       } else if (taskCompletion >= 20) {
         taskGrade = 'D ❌';
         taskEffectMsg = '他靜靜地看著你，片刻後語氣冰冷地說：「基地不容許這種程度的誤差，你的存在將進入觀察清單。」';
-        affectionDelta = -1;
       } else {
         taskGrade = 'F ☠️';
         taskEffectMsg = '空氣沉重得可怕，他的聲音如雷打破寧靜：「……你在挑戰我的耐性？」那眼神裡再無一絲信任，只有深不見底的風險判斷。';
-        affectionDelta = -2;
       }
 
       if (affectionDelta !== 0) {
