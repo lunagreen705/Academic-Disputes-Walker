@@ -47,4 +47,6 @@ function getCollections() {
 module.exports = {
     connectToDatabase,
     getCollections,
+    playlistCollection,
+    autoplayCollection,
 };
