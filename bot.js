@@ -100,7 +100,6 @@ client.once("ready", async () => {
 
     // 牌堆及好感度模組初始化（視具體實作）
     deckManager.loadDecks();
-    affectionManager.init();
     console.log(`${colors.cyan}[ DECKS ]${colors.reset} ${colors.green}牌堆模組已準備就緒 ✅${colors.reset}`);
     console.log(`${colors.cyan}[ AFFECTION ]${colors.reset} ${colors.green}好感度系統已準備就緒 ✅${colors.reset}`);
     console.log(`${colors.cyan}[ AI ]${colors.reset} ${colors.green}AI模組已準備就緒 ✅${colors.reset}`);
