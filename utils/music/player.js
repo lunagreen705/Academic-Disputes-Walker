@@ -194,7 +194,7 @@ function initializePlayer(client) {
         await cleanupTrackMessages(client, player, ['track', 'lyrics']); // 清理所有相關訊息
     });
 
-   client.riffy.on("queueEnd", async (player) => {
+    client.riffy.on("queueEnd", async (player) => {
     const channel = client.channels.cache.get(player.textChannel);
     const guildId = player.guildId;
 
@@ -225,6 +225,7 @@ function initializePlayer(client) {
         if (channel) await channel.send("👾**已無曲目可用，自動播放失效。我將撤退至以太之中**").catch(console.error);
     }
 });
+}
 
 async function cleanupPreviousTrackMessages(channel, guildId) {
     const messages = guildTrackMessages.get(guildId) || [];
