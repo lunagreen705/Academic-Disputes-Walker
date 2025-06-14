@@ -68,7 +68,6 @@ async function getAIResponse(rawPrompt, sessionId) {
   return "抱歉，AI 目前無法回應，請稍後再試。";
 }
   }
-}
 
 // 產生專屬 prompt，讓 AI 以妳想要的身份風格回應
 function generatePrompt(raw) {
