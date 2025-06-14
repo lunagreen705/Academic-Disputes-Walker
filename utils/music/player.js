@@ -201,6 +201,9 @@ function initializePlayer(client) {
         await cleanupTrackMessages(client, player, ['track']); // 清理 "Now Playing" 訊息
 
         try {
+              // --- 核心修正 ---
+        // 在需要使用它的時候，才從資料庫檔案中引入 collection
+            const { autoplayCollection } = require('../db/mongodb.js'); 
             const autoplaySetting = await autoplayCollection.findOne({ guildId });
         
             if (autoplaySetting?.autoplay) {
