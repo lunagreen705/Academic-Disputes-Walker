@@ -12,7 +12,7 @@ const { connectToDatabase } = require("./utils/db/mongodb");
 const deckManager = require("./utils/entertainment/deckManager");
 const affectionManager = require("./utils/entertainment/affectionManager");
 const aiManager = require("./utils/normal/aiManager");
-const botManager = require("./utils\normal\botManager");
+const botManager = require("./utils/normal/botManager");
 
 const express = require("express");
 const app = express();
