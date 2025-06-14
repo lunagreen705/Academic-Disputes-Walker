@@ -7,38 +7,24 @@ const config = require("./config.js");
 const colors = require("./UI/colors/colors");
 const { initializePlayer } = require("./utils/music/player.js");
 const { connectToDatabase } = require("./utils/db/mongodb");
+
 const deckManager = require("./utils/entertainment/deckManager");
 const affectionManager = require("./utils/entertainment/affectionManager");
 const aiManager = require("./utils/normal/aiManager");
 
+const express = require("express");
+const app = express();
+const port = 3000;
+
+// ================== Discord Bot 初始化 ==================
 const client = new Client({
   intents: Object.values(GatewayIntentBits),
 });
-
 client.config = config;
 initializePlayer(client);
 
-// ========== Ready ==========
-client.on("ready", () => {
-  console.log('\n' + '─'.repeat(40));
-  console.log(`${colors.magenta}${colors.bright}🤖 DISCORD BOT STATUS${colors.reset}`);
-  console.log('─'.repeat(40));
-  console.log(`${colors.cyan}[ SYSTEM ]${colors.reset} ${colors.green}Client logged as ${colors.yellow}${client.user.tag}${colors.reset}`);
-  console.log(`${colors.cyan}[ MUSIC ]${colors.reset} ${colors.green}Riffy Music System Ready 🎵${colors.reset}`);
-  console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.gray}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
-
-  client.riffy.init(client.user.id);
-
-  deckManager.loadDecks();
-  console.log(`${colors.cyan}[ DECKS ]${colors.reset} ${colors.green}卡牌模組已載入 ✅${colors.reset}`);
-
-  console.log(`${colors.cyan}[ AFFECTION ]${colors.reset} ${colors.green}好感度系統已準備就緒 ✅${colors.reset}`);
-  console.log(`${colors.cyan}[ AI MANAGER ]${colors.reset} ${colors.green}模組已匯入，等待訊息觸發 ✅${colors.reset}`);
-});
-
-// ========== Event Loader ==========
+// ========== 載入事件 ==========
 const eventsPath = path.join(__dirname, "events");
-
 fs.readdir(eventsPath, (err, files) => {
   if (err) {
     console.error(`${colors.red}[ ERROR ] 無法讀取事件資料夾：${err.message}${colors.reset}`);
@@ -47,7 +33,6 @@ fs.readdir(eventsPath, (err, files) => {
 
   files.forEach((file) => {
     if (!file.endsWith(".js")) return;
-
     const eventPath = path.join(eventsPath, file);
     const event = require(eventPath);
 
@@ -68,9 +53,8 @@ fs.readdir(eventsPath, (err, files) => {
   });
 });
 
-// ========== Command Loader ==========
+// ========== 載入指令 ==========
 client.commands = [];
-
 function loadCommands(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
@@ -83,7 +67,7 @@ function loadCommands(dir) {
           name: command.name,
           description: command.description,
           options: command.options,
-          run: command.run,  // 妳如果需要執行用的 function
+          run: command.run,
         });
         console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${command.name}${colors.reset}`);
       } catch (err) {
@@ -92,17 +76,42 @@ function loadCommands(dir) {
     }
   }
 }
-
 loadCommands(path.join(__dirname, config.commandsDir));
 
-// ========== Voice Raw Packets ==========
+// ========== Discord Ready 事件 ==========
+client.on("ready", async () => {
+  console.log('\n' + '─'.repeat(40));
+  console.log(`${colors.magenta}${colors.bright}🤖 DISCORD BOT STATUS${colors.reset}`);
+  console.log('─'.repeat(40));
+  console.log(`${colors.cyan}[ SYSTEM ]${colors.reset} ${colors.green}Client logged as ${colors.yellow}${client.user.tag}${colors.reset}`);
+  console.log(`${colors.cyan}[ MUSIC ]${colors.reset} ${colors.green}Riffy Music System Ready 🎵${colors.reset}`);
+  console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.gray}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
+
+  client.riffy.init(client.user.id);
+
+  // ========== 嘗試連接 MongoDB 並載入依賴模組 ==========
+  try {
+    await connectToDatabase();
+    console.log(`${colors.cyan}[ DATABASE ]${colors.reset} ${colors.green}MongoDB資料庫已連線 ✅${colors.reset}`);
+
+    deckManager.loadDecks();
+    console.log(`${colors.cyan}[ DECKS ]${colors.reset} ${colors.green}牌堆模組已準備就緒 ✅${colors.reset}`);
+    console.log(`${colors.cyan}[ AFFECTION ]${colors.reset} ${colors.green}好感度系統已準備就緒 ✅${colors.reset}`);
+    console.log(`${colors.cyan}[ AI MANAGER ]${colors.reset} ${colors.green}AI模組已準備就緒 ✅${colors.reset}`);
+  } catch (err) {
+    console.log(`${colors.cyan}[ DATABASE ]${colors.reset} ${colors.red}Connection Failed ❌${colors.reset}`);
+    console.log(`${colors.gray}Error: ${err.message}${colors.reset}`);
+  }
+});
+
+// ========== 處理 Voice Packets ==========
 client.on("raw", (d) => {
   const { GatewayDispatchEvents } = require("discord.js");
   if (![GatewayDispatchEvents.VoiceStateUpdate, GatewayDispatchEvents.VoiceServerUpdate].includes(d.t)) return;
   client.riffy.updateVoiceState(d);
 });
 
-// ========== Bot Login ==========
+// ========== 登入 BOT ==========
 client.login(config.TOKEN || process.env.TOKEN).catch((e) => {
   console.log('\n' + '─'.repeat(40));
   console.log(`${colors.magenta}${colors.bright}🔐 TOKEN VERIFICATION${colors.reset}`);
@@ -111,25 +120,7 @@ client.login(config.TOKEN || process.env.TOKEN).catch((e) => {
   console.log(`${colors.gray}Error: Turn On Intents or Reset New Token${colors.reset}`);
 });
 
-// ========== MongoDB ==========
-connectToDatabase().then(() => {
-  console.log('\n' + '─'.repeat(40));
-  console.log(`${colors.magenta}${colors.bright}🕸️  DATABASE STATUS${colors.reset}`);
-  console.log('─'.repeat(40));
-  console.log(`${colors.cyan}[ DATABASE ]${colors.reset} ${colors.green}MongoDB Online ✅${colors.reset}`);
-}).catch((err) => {
-  console.log('\n' + '─'.repeat(40));
-  console.log(`${colors.magenta}${colors.bright}🕸️  DATABASE STATUS${colors.reset}`);
-  console.log('─'.repeat(40));
-  console.log(`${colors.cyan}[ DATABASE ]${colors.reset} ${colors.red}Connection Failed ❌${colors.reset}`);
-  console.log(`${colors.gray}Error: ${err.message}${colors.reset}`);
-});
-
-// ========== Express Web Server ==========
-const express = require("express");
-const app = express();
-const port = 3000;
-
+// ========== Express 本地伺服器 ==========
 app.get("/", (req, res) => {
   const filePath = path.join(__dirname, "index.html");
   res.sendFile(filePath);
