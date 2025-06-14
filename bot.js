@@ -69,6 +69,7 @@ function loadCommands(dir) {
           name: command.name,
           description: command.description,
           options: command.options,
+          autocomplete: command.autocomplete || null,  
           run: command.run,
         });
         console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${command.name}${colors.reset}`);
