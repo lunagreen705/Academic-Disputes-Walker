@@ -11,7 +11,7 @@ const colors = require('../../UI/colors/colors.js');
 const fs = require("fs");
 const path = require("path");
 const axios = require('axios');
-const { autoplayCollection } = require('../db/mongodb.js');
+const { getCollections } = require('../db/mongodb.js');
 const guildTrackMessages = new Map();
 
 async function sendMessageWithPermissionsCheck(channel, embed, attachment, actionRow1, actionRow2) {
@@ -194,35 +194,37 @@ function initializePlayer(client) {
         await cleanupTrackMessages(client, player, ['track', 'lyrics']); // 清理所有相關訊息
     });
 
-    client.riffy.on("queueEnd", async (player) => {
-        const channel = client.channels.cache.get(player.textChannel);
-        const guildId = player.guildId;
-        
-        await cleanupTrackMessages(client, player, ['track']); // 清理 "Now Playing" 訊息
+   client.riffy.on("queueEnd", async (player) => {
+    const channel = client.channels.cache.get(player.textChannel);
+    const guildId = player.guildId;
 
-        try {
-   
-            const autoplaySetting = await autoplayCollection.findOne({ guildId });
-        
-            if (autoplaySetting?.autoplay) {
-                const previousTrack = player.current; // Riffy 的 autoplay 可能需要前一首歌
-                const nextTrack = await player.autoplay(previousTrack || player); // 傳遞 player 作為備用
-            
-                if (!nextTrack) {
-                    if (channel) await channel.send("⚠️ **播放歌單已耗盡，無意義的連線將被中止**").catch(console.error);
-                    if (!player.destroyed) player.destroy();
-                }
-            } else {
-                if (channel) await channel.send("🎶 **歌單終止，自動播放功能亦隨之熄滅。你準備好面對寂靜了嗎？**").catch(console.error);
+    await cleanupTrackMessages(client, player, ['track']);
+
+    try {
+        // 這裡先取得最新 collection
+        const { autoplayCollection } = getCollections();
+
+        const autoplaySetting = await autoplayCollection.findOne({ guildId });
+
+        if (autoplaySetting?.autoplay) {
+            // 你的自動播放邏輯
+            const previousTrack = player.current;
+            const nextTrack = await player.autoplay(previousTrack || player);
+
+            if (!nextTrack) {
+                if (channel) await channel.send("⚠️ **播放歌單已耗盡，無意義的連線將被中止**").catch(console.error);
                 if (!player.destroyed) player.destroy();
             }
-        } catch (error) {
-            console.error("Error handling autoplay or queue end:", error);
+        } else {
+            if (channel) await channel.send("🎶 **歌單終止，自動播放功能亦隨之熄滅。你準備好面對寂靜了嗎？**").catch(console.error);
             if (!player.destroyed) player.destroy();
-            if (channel) await channel.send("👾**已無曲目可用，自動播放失效。我將撤退至以太之中**").catch(console.error);
         }
-    });
-}
+    } catch (error) {
+        console.error("Error handling autoplay or queue end:", error);
+        if (!player.destroyed) player.destroy();
+        if (channel) await channel.send("👾**已無曲目可用，自動播放失效。我將撤退至以太之中**").catch(console.error);
+    }
+});
 
 async function cleanupPreviousTrackMessages(channel, guildId) {
     const messages = guildTrackMessages.get(guildId) || [];

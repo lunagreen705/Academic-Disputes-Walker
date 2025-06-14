@@ -1,3 +1,4 @@
+// bot.js
 const { Client, GatewayIntentBits } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
@@ -16,7 +17,6 @@ const express = require("express");
 const app = express();
 const port = 3000;
 
-// ================== Discord Bot 初始化 ==================
 const client = new Client({
   intents: Object.values(GatewayIntentBits),
 });
@@ -24,6 +24,7 @@ client.config = config;
 initializePlayer(client);
 
 // ========== 載入事件 ==========
+
 const eventsPath = path.join(__dirname, "events");
 fs.readdir(eventsPath, (err, files) => {
   if (err) {
@@ -54,6 +55,7 @@ fs.readdir(eventsPath, (err, files) => {
 });
 
 // ========== 載入指令 ==========
+
 client.commands = [];
 function loadCommands(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -78,8 +80,9 @@ function loadCommands(dir) {
 }
 loadCommands(path.join(__dirname, config.commandsDir));
 
-// ========== Discord Ready 事件 ==========
-client.on("ready", async () => {
+// ========== Bot Ready  ==========
+
+client.once("ready", async () => {
   console.log('\n' + '─'.repeat(40));
   console.log(`${colors.magenta}${colors.bright}🤖 DISCORD BOT STATUS${colors.reset}`);
   console.log('─'.repeat(40));
@@ -89,22 +92,25 @@ client.on("ready", async () => {
 
   client.riffy.init(client.user.id);
 
-  // ========== 嘗試連接 MongoDB 並載入依賴模組 ==========
   try {
+    // 連接資料庫
     await connectToDatabase();
     console.log(`${colors.cyan}[ DATABASE ]${colors.reset} ${colors.green}MongoDB資料庫已連線 ✅${colors.reset}`);
 
+
+    // 牌堆及好感度模組初始化（視具體實作）
     deckManager.loadDecks();
+    affectionManager.init();
     console.log(`${colors.cyan}[ DECKS ]${colors.reset} ${colors.green}牌堆模組已準備就緒 ✅${colors.reset}`);
     console.log(`${colors.cyan}[ AFFECTION ]${colors.reset} ${colors.green}好感度系統已準備就緒 ✅${colors.reset}`);
-    console.log(`${colors.cyan}[ AI MANAGER ]${colors.reset} ${colors.green}AI模組已準備就緒 ✅${colors.reset}`);
+    console.log(`${colors.cyan}[ AI ]${colors.reset} ${colors.green}AI模組已準備就緒 ✅${colors.reset}`);
   } catch (err) {
-    console.log(`${colors.cyan}[ DATABASE ]${colors.reset} ${colors.red}Connection Failed ❌${colors.reset}`);
-    console.log(`${colors.gray}Error: ${err.message}${colors.reset}`);
+    console.error(`${colors.red}[ DATABASE ] MongoDB連線失敗，可能影響部分功能：${err.message}${colors.reset}`);
   }
 });
 
-// ========== 處理 Voice Packets ==========
+// ==========  Voice Packets ==========
+
 client.on("raw", (d) => {
   const { GatewayDispatchEvents } = require("discord.js");
   if (![GatewayDispatchEvents.VoiceStateUpdate, GatewayDispatchEvents.VoiceServerUpdate].includes(d.t)) return;
@@ -112,6 +118,7 @@ client.on("raw", (d) => {
 });
 
 // ========== 登入 BOT ==========
+
 client.login(config.TOKEN || process.env.TOKEN).catch((e) => {
   console.log('\n' + '─'.repeat(40));
   console.log(`${colors.magenta}${colors.bright}🔐 TOKEN VERIFICATION${colors.reset}`);
@@ -121,6 +128,7 @@ client.login(config.TOKEN || process.env.TOKEN).catch((e) => {
 });
 
 // ========== Express 本地伺服器 ==========
+
 app.get("/", (req, res) => {
   const filePath = path.join(__dirname, "index.html");
   res.sendFile(filePath);

@@ -1,4 +1,3 @@
-// db.js
 const { MongoClient } = require('mongodb');
 require('dotenv').config();
 const config = require("../../config.js");
@@ -41,12 +40,13 @@ function getCollections() {
     if (!playlistCollection || !autoplayCollection) {
         throw new Error("❌ Collection not initialized. Did you forget to call connectToDatabase()?");
     }
-    return { playlistCollection, autoplayCollection };
+    return {
+        playlistCollection,
+        autoplayCollection,
+    };
 }
 
 module.exports = {
     connectToDatabase,
-    getCollections,
-    playlistCollection,
-    autoplayCollection,
+    getCollections, // ✅ 只匯出安全函式
 };

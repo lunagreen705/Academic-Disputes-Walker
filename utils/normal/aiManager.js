@@ -14,7 +14,7 @@ async function getAIResponse(rawPrompt) {
 
     return response.text || "🤖 沒收到內容，AI 發呆了。";
   } catch (error) {
-    console.error("[AIManager] AI 呼叫錯誤：", error.stack || error);
+    console.error("[AI Manager] AI 呼叫錯誤：", error.stack || error);
     return "抱歉，AI 目前無法回應，請稍後再試。";
   }
 }
