@@ -42,19 +42,31 @@ async function getAIResponse(rawPrompt, sessionId) {
   // 更新該 session 最後使用時間
   chat.lastUsed = Date.now();
 
-  try {
-    // 呼叫 Gemini API 送出 prompt 並限制最大輸出長度（tokens）
-    const result = await chat.sendMessage({
-      message: prompt,
-      maxOutputTokens: 3000, // 控制回答長度，約 2300 中文字
-    });
+ try {
+  const result = await chat.sendMessage({
+    message: prompt,
+    maxOutputTokens: 3000,
+  });
 
-    // 回傳 AI 回應文字，若無內容則回傳備用訊息
-    return result.response.text || "🤖 沒收到內容，AI 發呆了。";
-  } catch (error) {
-    // 發生錯誤時，紀錄並回傳錯誤提示
-    console.error("[AI Manager] AI 呼叫錯誤：", error);
-    return "抱歉，AI 目前無法回應，請稍後再試。";
+  console.log("[AI Manager] API 回傳結果:", result);
+
+  if (result && typeof result === "object") {
+    // 嘗試各種路徑抓文字
+    if (result.response && result.response.text) {
+      return result.response.text;
+    } else if (result.text) {
+      return result.text;
+    } else if (result.choices && result.choices[0]?.message?.content) {
+      return result.choices[0].message.content;
+    }
+  }
+
+  return "🤖 沒收到內容，AI 發呆了。";
+
+} catch (error) {
+  console.error("[AI Manager] AI 呼叫錯誤：", error);
+  return "抱歉，AI 目前無法回應，請稍後再試。";
+}
   }
 }
 
