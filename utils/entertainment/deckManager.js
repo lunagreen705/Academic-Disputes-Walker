@@ -7,7 +7,7 @@ const availableDeckNames = []; // 新增：儲存所有已載入牌堆的名稱
 
 // 硬編碼牌堆資料夾路徑
 const BASE_DATA_DIR = path.join(__dirname, '../../data'); // 項目根目錄下的 data 資料夾
-const DECK_SUBFOLDER = 'desk'; // 牌堆所在的子資料夾
+const DECK_SUBFOLDER = 'deck'; // 牌堆所在的子資料夾
 const DECK_FOLDER_PATH = path.join(BASE_DATA_DIR, DECK_SUBFOLDER); // 完整的牌堆資料夾路徑
 
 /**
