@@ -1,9 +1,6 @@
-// utils/trpgManager/cocManager/dice.js
-
 // 只需要引入與擲骰邏輯相關的模組
 const { EmbedBuilder } = require('discord.js');
-const config = require("../../../config.js"); // 注意這裡 config 路徑的變化：退三層到 utils/trpgManager/cocManager/ -> utils/trpgManager/ -> utils/ -> config.js
-
+const config = require("../../../config.js"); 
 // --- 擲骰功能：/rd 指令的核心邏輯 ---
 async function rollDiceRd(interaction, numSidesString) {
     const numSides = parseInt(numSidesString, 10);
