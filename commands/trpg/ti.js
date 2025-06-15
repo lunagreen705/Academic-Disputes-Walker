@@ -1,5 +1,4 @@
 const sc = require('../../utils/trpgManager/cocManager/sc.js');
-const { EmbedBuilder } = require('discord.js');
 const config = require('../../config.js');
 module.exports = {
     name: "ti",
@@ -9,22 +8,18 @@ module.exports = {
 
     run: async (client, interaction, lang) => {
         try {
-            const result = sc.handleTICommand();
-
-            const embed = new EmbedBuilder()
-                .setColor(config.embedColor || '#7289DA')
-                .setTitle('🎭 即時症狀')
-                .setDescription(result)
-                .setFooter({ text: '請於 1D10 輪內進行角色描寫與影響。' });
-
+            const embed = sc.handleTICommand(); // 直接取得 EmbedBuilder
             await interaction.reply({ embeds: [embed] });
         } catch (err) {
             console.error('執行 /ti 指令錯誤：', err);
-            const errorEmbed = new EmbedBuilder()
-                .setColor('#ff0000')
-                .setTitle('❌ 系統錯誤')
-                .setDescription('無法抽取即時症狀，請稍後再試。');
-            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            await interaction.reply({
+                embeds: [{
+                    color: 0xff0000,
+                    title: '❌ 系統錯誤',
+                    description: '無法抽取即時症狀，請稍後再試。'
+                }],
+                ephemeral: true
+            });
         }
     },
 };
