@@ -100,7 +100,7 @@ module.exports = {
     help: {
       embed: {
           title: "教戰手冊",
-          author: "如何應付 {botName} ",
+          author: "如何應付行走的學術糾紛 ",
           description: `
           **也許你做什麼他都不會滿意ˊˋ**
 

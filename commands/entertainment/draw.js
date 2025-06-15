@@ -57,7 +57,7 @@ module.exports = {
             }
 
             // 標題也直接使用原始英文名稱
-            const embedTitle = `✨ 抽取結果：${deckName} 牌堆`;
+            const embedTitle = `✨ ${deckName} 牌堆，經過深淵的探索`;
             const embedDescription = `你抽到了：**${drawnItem}**`;
 
             const embed = new EmbedBuilder()
