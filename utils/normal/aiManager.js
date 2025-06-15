@@ -13,7 +13,7 @@ function getOrCreateSession(id) {
   let session = sessions.get(id);
   if (!session) {
     // 沒有的話就新建一個 chat session，並存起來
-    session = ai.chats.create({ model: "gemini-2.0-flash" });
+    session = ai.chats.create({ model: "gemini-2.5-flash-preview-05-20" });
     sessions.set(id, session);
   }
   return session;
@@ -45,7 +45,7 @@ async function getAIResponse(rawPrompt, sessionId) {
  try {
   const result = await chat.sendMessage({
     message: prompt,
-    maxOutputTokens: 3000,
+    maxOutputTokens: 2000,
   });
 
   console.log("[AI Manager] API 回傳結果:", result);
