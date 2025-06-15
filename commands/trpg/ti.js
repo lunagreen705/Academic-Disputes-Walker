@@ -1,5 +1,5 @@
 const sc = require('../../utils/trpgManager/cocManager/sc.js');
-
+const { EmbedBuilder } = require('discord.js');
 module.exports = {
     name: "ti",
     description: "抽一個即時症狀，用於角色臨場反應與精神狀態描寫。",
