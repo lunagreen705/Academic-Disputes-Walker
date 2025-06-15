@@ -1,5 +1,6 @@
 const sc = require('../../utils/trpgManager/cocManager/sc.js');
 const { EmbedBuilder } = require('discord.js');
+const config = require('../../config.js');
 module.exports = {
     name: "li",
     description: "抽一個總結症狀，用於角色事件結束時的精神狀態總結。",

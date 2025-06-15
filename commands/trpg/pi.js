@@ -1,5 +1,6 @@
 const sc = require('../../utils/trpgManager/cocManager/sc.js');
 const { EmbedBuilder } = require('discord.js');
+const config = require('../../config.js');
 module.exports = {
     name: "pi",
     description: "抽一個恐懼症狀，用於角色恐懼與驚嚇時的描寫。",

@@ -1,5 +1,6 @@
 const sc = require('../../utils/trpgManager/cocManager/sc.js');
 const { EmbedBuilder } = require('discord.js');
+const config = require('../../config.js');
 module.exports = {
     name: "mi",
     description: "抽一個狂躁症狀，用於角色精神亢奮時的描寫。",
