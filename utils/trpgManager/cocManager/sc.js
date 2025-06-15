@@ -3,7 +3,7 @@ const path = require('path');
 const { EmbedBuilder } = require('discord.js');
 
 // 載入症狀資料
-const dataPath = path.join(__dirname, '../../data/症狀.json');
+const dataPath = path.join(__dirname, '../../data/trpg/coc/症狀.json');
 const symptomData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
 
 // 取得隨機項目
