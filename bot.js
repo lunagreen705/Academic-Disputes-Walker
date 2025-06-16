@@ -13,6 +13,7 @@ const deckManager = require("./utils/entertainment/deckManager");
 const affectionManager = require("./utils/entertainment/affectionManager");
 const aiManager = require("./utils/normal/aiManager");
 const botManager = require("./utils/normal/botManager");
+const libraryManager = require('../../utils/normal/libraryManager');
 
 const express = require("express");
 const app = express();
@@ -106,6 +107,7 @@ client.once("ready", async () => {
     console.log(`${colors.cyan}[ AFFECTION ]${colors.reset} ${colors.green}好感度系統已準備就緒 ✅${colors.reset}`);
     console.log(`${colors.cyan}[ AI ]${colors.reset} ${colors.green}AI模組已準備就緒 ✅${colors.reset}`);
     console.log(`${colors.cyan}[ MANAGER ]${colors.reset} ${colors.green}管理模組已準備就緒 ✅${colors.reset}`);
+    console.log(`${colors.cyan}[ LIBRARY ]${colors.reset} ${colors.green}圖書模組已準備就緒 ✅${colors.reset}`);
   } catch (err) {
     console.error(`${colors.red}[ DATABASE ] MongoDB連線失敗，可能影響部分功能：${err.message}${colors.reset}`);
   }
