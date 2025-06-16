@@ -85,7 +85,7 @@ module.exports = {
   },
 
   // 🧠 核心指令執行邏輯（主體功能）
-  async run(interaction) {
+  async run(client, interaction, lang) {
     const subcommand = interaction.options.getSubcommand();
 
     if (subcommand === 'categories') {
