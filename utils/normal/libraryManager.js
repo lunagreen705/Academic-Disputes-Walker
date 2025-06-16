@@ -1,9 +1,8 @@
 const { google } = require('googleapis');
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const fs = require('fs');
 const data = fs.readFileSync('/etc/secrets/GOOGLE_SERVICE_ACCOUNT_JSON', 'utf8');
-credentials = JSON.parse(data);
-
+const credentials = JSON.parse(data);
 
 const auth = new google.auth.GoogleAuth({
   credentials,
@@ -13,18 +12,9 @@ const auth = new google.auth.GoogleAuth({
 const drive = google.drive({ version: 'v3', auth });
 
 const LIBRARY_FOLDER_ID = '1NNbsjeQZrG8MQABXwf8nqaIHgRtO4_sY';
-
-// 統一使用這個常數控制每頁顯示數量
 const BOOKSPAGE = 5;
-
-// 支援的副檔名（電子書常見格式）
 const SUPPORTED_EXTENSIONS = ['pdf', 'epub', 'mobi', 'azw3', 'txt', 'doc', 'docx', 'odt', 'rtf', 'html', 'md'];
 
-/**
- * 判斷檔案是否為支援的電子書格式
- * @param {string} fileName 
- * @returns {boolean}
- */
 function isSupportedFile(fileName) {
   const ext = fileName.split('.').pop().toLowerCase();
   return SUPPORTED_EXTENSIONS.includes(ext);
@@ -43,21 +33,26 @@ async function listBooksInFolder(folderId) {
     q: `'${folderId}' in parents and trashed = false`,
     fields: 'files(id, name, webViewLink, webContentLink, mimeType)',
   });
+
   const files = res.data.files || [];
-  // 過濾支援的電子書格式
-  const filteredFiles = files.filter(file => isSupportedFile(file.name));
-  
-  // 加入下載連結欄位
-  return filteredFiles.map(file => {
-    // Google Drive 文件類型 mime 會有特別情況，webContentLink 有時不存在，要用 webViewLink
-    // 一般文件直接用 webContentLink 可下載
-    // 有些 google docs 類型不能直接下載，這裡只做簡單判斷
-    const downloadLink = file.webContentLink || file.webViewLink || null;
-    return {
-      ...file,
-      downloadLink,
-    };
-  });
+  let books = [];
+
+  for (const file of files) {
+    if (file.mimeType === 'application/vnd.google-apps.folder') {
+      // 若為子資料夾，遞迴進去
+      const subBooks = await listBooksInFolder(file.id);
+      books.push(...subBooks);
+    } else if (isSupportedFile(file.name)) {
+      // 加入可用的電子書檔案
+      const downloadLink = file.webContentLink || file.webViewLink || null;
+      books.push({
+        ...file,
+        downloadLink,
+      });
+    }
+  }
+
+  return books;
 }
 
 async function searchBooks(keyword) {
@@ -72,16 +67,12 @@ async function searchBooks(keyword) {
 
 async function getRandomBook() {
   const folders = await listSubfolders();
-  if (!folders.length) return null;
-
-  // 挑選有書籍的資料夾
   const foldersWithBooks = [];
   for (const folder of folders) {
     const books = await listBooksInFolder(folder.id);
     if (books.length) foldersWithBooks.push({ folder, books });
   }
   if (!foldersWithBooks.length) return null;
-
   const randomIndex = Math.floor(Math.random() * foldersWithBooks.length);
   const { books } = foldersWithBooks[randomIndex];
   return books[Math.floor(Math.random() * books.length)];
@@ -91,13 +82,11 @@ async function getLibraryStat() {
   const folders = await listSubfolders();
   let total = 0;
   const breakdown = {};
-
   for (const folder of folders) {
     const books = await listBooksInFolder(folder.id);
     breakdown[folder.name] = books.length;
     total += books.length;
   }
-
   return {
     totalCategories: folders.length,
     totalBooks: total,
@@ -127,14 +116,26 @@ function createPaginatedEmbed(categoryName, files, page = 0) {
   if (!pageFiles.length) {
     embed.setDescription('此分類目前沒有書籍。');
   } else {
-    // 顯示書名 + 瀏覽連結 + 下載連結
-    const desc = pageFiles.map(f => 
-      `📘 [${f.name}](${f.webViewLink}) | [下載](${f.downloadLink})`
-    ).join('\n');
+    const desc = pageFiles.map(f => `📘 [${f.name}](${f.webViewLink}) | [下載](${f.downloadLink})`).join('\n');
     embed.setDescription(desc);
   }
 
   return embed;
+}
+
+function createPaginationRow(currentPage, totalPage, customIdPrefix) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${customIdPrefix}_prev_${currentPage}`)
+      .setLabel('⬅️ 上一頁')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(currentPage === 0),
+    new ButtonBuilder()
+      .setCustomId(`${customIdPrefix}_next_${currentPage}`)
+      .setLabel('➡️ 下一頁')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(currentPage >= totalPage - 1),
+  );
 }
 
 function createCategoryListEmbed(folders) {
@@ -146,11 +147,10 @@ function createCategoryListEmbed(folders) {
 
   if (!folders.length) {
     embed.setDescription('目前圖書館中沒有分類資料夾。');
-    return embed;
+  } else {
+    const desc = folders.map(f => `📁 ${f.name}`).join('\n');
+    embed.setDescription(desc);
   }
-
-  const desc = folders.map(f => `📁 ${f.name}`).join('\n');
-  embed.setDescription(desc);
   return embed;
 }
 
@@ -169,9 +169,7 @@ function createSearchResultEmbed(keyword, results, page = 0) {
   if (!pageResults.length) {
     embed.setDescription('沒有找到相關的書籍。');
   } else {
-    const desc = pageResults.map(f => 
-      `📖 [${f.name}](${f.webViewLink}) | [下載](${f.downloadLink})`
-    ).join('\n');
+    const desc = pageResults.map(f => `📖 [${f.name}](${f.webViewLink}) | [下載](${f.downloadLink})`).join('\n');
     embed.setDescription(desc);
   }
 
@@ -207,10 +205,10 @@ function createRandomBookEmbed(book) {
 
   if (!book) {
     embed.setDescription('圖書館目前沒有任何書籍可以推薦。');
-    return embed;
+  } else {
+    embed.setDescription(`📖 [${book.name}](${book.webViewLink}) | [下載](${book.downloadLink})`);
   }
 
-  embed.setDescription(`📖 [${book.name}](${book.webViewLink}) | [下載](${book.downloadLink})`);
   return embed;
 }
 
@@ -222,6 +220,7 @@ module.exports = {
   getLibraryStat,
   autocompleteCategory,
   createPaginatedEmbed,
+  createPaginationRow,
   createCategoryListEmbed,
   createSearchResultEmbed,
   createStatEmbed,
