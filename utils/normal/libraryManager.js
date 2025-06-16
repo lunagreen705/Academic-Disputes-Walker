@@ -1,8 +1,9 @@
 const { google } = require('googleapis');
 const { EmbedBuilder } = require('discord.js');
+const fs = require('fs');
 const data = fs.readFileSync('/etc/secrets/GOOGLE_SERVICE_ACCOUNT_JSON', 'utf8');
 credentials = JSON.parse(data);
-const fs = require('fs');
+
 
 const auth = new google.auth.GoogleAuth({
   credentials,
