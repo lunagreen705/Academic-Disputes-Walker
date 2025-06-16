@@ -39,15 +39,13 @@ async function listBooksInFolder(folderId) {
 
   for (const file of files) {
     if (file.mimeType === 'application/vnd.google-apps.folder') {
-      // 若為子資料夾，遞迴進去
+      // 遞迴進子資料夾
       const subBooks = await listBooksInFolder(file.id);
       books.push(...subBooks);
     } else if (isSupportedFile(file.name)) {
-      // 加入可用的電子書檔案
-      const downloadLink = file.webContentLink || file.webViewLink || null;
       books.push({
         ...file,
-        downloadLink,
+        downloadLink: file.webContentLink || file.webViewLink || null,
       });
     }
   }
@@ -212,6 +210,98 @@ function createRandomBookEmbed(book) {
   return embed;
 }
 
+// 這是你要的：顯示資料夾內容（子資料夾＋書籍）並搭配分頁、按鈕
+async function showFolderContents(folderId, interaction, page = 0) {
+  // 取得子資料夾
+  const subfoldersRes = await drive.files.list({
+    q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed = false`,
+    fields: 'files(id, name)',
+  });
+  const subfolders = subfoldersRes.data.files || [];
+
+  // 取得該層電子書（非資料夾）
+  const filesRes = await drive.files.list({
+    q: `'${folderId}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'`,
+    fields: 'files(id, name, webViewLink, webContentLink, mimeType)',
+  });
+  const allFiles = filesRes.data.files || [];
+
+  // 篩選支援的電子書
+  const books = allFiles
+    .filter(f => isSupportedFile(f.name))
+    .map(file => ({
+      ...file,
+      downloadLink: file.webContentLink || file.webViewLink || null,
+    }));
+
+  // 建立 embed
+  const embed = new EmbedBuilder()
+    .setTitle(`📂 資料夾內容 - 第 ${page + 1} 頁`)
+    .setColor('#FFA500')
+    .setTimestamp()
+    .setFooter({ text: '圖書館' });
+
+  // 描述子資料夾列表
+  if (subfolders.length) {
+    const folderList = subfolders
+      .map(f => `📁 [${f.name}](command-to-open-folder:${f.id})`)
+      .join('\n');
+    embed.addFields({ name: '📁 子資料夾', value: folderList });
+  } else {
+    embed.addFields({ name: '📁 子資料夾', value: '沒有子資料夾' });
+  }
+
+  // 當頁電子書列表（分頁）
+  const start = page * BOOKSPAGE;
+  const end = start + BOOKSPAGE;
+  const pageBooks = books.slice(start, end);
+
+  if (pageBooks.length) {
+    const bookList = pageBooks
+      .map(f => `📘 [${f.name}](${f.webViewLink}) | [下載](${f.downloadLink})`)
+      .join('\n');
+    embed.addFields({
+      name: `📚 書籍（第 ${page + 1} 頁 / 共 ${Math.ceil(books.length / BOOKSPAGE)} 頁）`,
+      value: bookList,
+    });
+  } else {
+    embed.addFields({ name: '📚 書籍', value: '此層沒有書籍' });
+  }
+
+  // 子資料夾按鈕，最多 5 個
+  const folderButtons = new ActionRowBuilder();
+  subfolders.slice(0, 5).forEach(folder => {
+    folderButtons.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`openFolder_${folder.id}_page0`)
+        .setLabel(folder.name.length > 15 ? folder.name.slice(0, 12) + '...' : folder.name)
+        .setStyle(ButtonStyle.Primary)
+    );
+  });
+
+  // 分頁按鈕
+  const totalPages = Math.ceil(books.length / BOOKSPAGE);
+  const paginationButtons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`pagePrev_${folderId}_${page}`)
+      .setLabel('⬅️ 上一頁')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page === 0),
+    new ButtonBuilder()
+      .setCustomId(`pageNext_${folderId}_${page}`)
+      .setLabel('➡️ 下一頁')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page >= totalPages - 1),
+  );
+
+  // 回覆
+  await interaction.reply({
+    embeds: [embed],
+    components: [folderButtons, paginationButtons],
+    ephemeral: false,
+  });
+}
+
 module.exports = {
   listSubfolders,
   listBooksInFolder,
@@ -225,5 +315,6 @@ module.exports = {
   createSearchResultEmbed,
   createStatEmbed,
   createRandomBookEmbed,
+  showFolderContents,
   BOOKSPAGE,
 };
