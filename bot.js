@@ -13,7 +13,7 @@ const deckManager = require("./utils/entertainment/deckManager");
 const affectionManager = require("./utils/entertainment/affectionManager");
 const aiManager = require("./utils/normal/aiManager");
 const botManager = require("./utils/normal/botManager");
-const libraryManager = require('../../utils/normal/libraryManager');
+const libraryManager = require('./utils/normal/libraryManager');
 
 const express = require("express");
 const app = express();
