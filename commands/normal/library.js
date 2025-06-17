@@ -221,30 +221,20 @@ module.exports = {
   },
 
 async handleButton(interaction) {
-    // 【偵錯日誌 1】記錄函式被觸發的時間和 customId
-    console.log(`[DEBUG] ${new Date().toISOString()} - handleButton 觸發 - customId: ${interaction.customId}`);
+    // 【最終修正】將 deferUpdate 移至 try...catch 區塊之外，作為函式的第一行！
+    // 這確保了我們在執行任何可能耗時的邏輯（即使是微小的字串操作）之前，就立刻回應 Discord。
+    await interaction.deferUpdate();
 
     try {
-        // 【偵錯日誌 2】記錄即將執行的關鍵操作
-        console.log(`[DEBUG] ${new Date().toISOString()} - 準備執行 deferUpdate...`);
-        await interaction.deferUpdate();
-        console.log(`[DEBUG] ${new Date().toISOString()} - deferUpdate 已成功執行！`);
-
         const [prefix, type, identifierRaw, pageStr, action] = interaction.customId.split('_');
-        if (prefix !== 'library') {
-            console.log(`[DEBUG] Prefix 不符，結束處理。`);
-            return;
-        }
-
-        console.log(`[DEBUG] 正在處理 Type: ${type}, Identifier: ${identifierRaw}, Action: ${action}`);
+        
+        if (prefix !== 'library') return;
 
         const identifier = decodeURIComponent(identifierRaw);
         let pageIndex = parseInt(pageStr, 10) || 0;
 
         if (type === 'folder-nav') {
-            console.log(`[DEBUG] 進入 folder-nav 邏輯，ID: ${identifier}`);
             await showFolderContents(interaction, identifier, 1);
-            console.log(`[DEBUG] folder-nav 邏輯處理完畢。`);
             return;
         }
         
@@ -253,7 +243,6 @@ async handleButton(interaction) {
             else if (action === 'prev') pageIndex--;
             
             const keyword = identifier;
-            console.log(`[DEBUG] 進入 search 翻頁邏輯，目標頁碼索引: ${pageIndex}`);
             const results = await getCachedSearchResults(keyword);
             if (!results.length) {
                 return interaction.editReply({ content: '🔍 搜尋結果已過期或不存在', components: [] });
@@ -263,7 +252,6 @@ async handleButton(interaction) {
             const embed = createSearchResultEmbed(keyword, results, pageIndex);
             const row = createPaginationRow('search', encodeURIComponent(keyword), pageIndex, maxPage);
             await interaction.editReply({ embeds: [embed], components: [row] });
-            console.log(`[DEBUG] search 翻頁邏輯處理完畢。`);
             return;
         }
         
@@ -274,18 +262,14 @@ async handleButton(interaction) {
             const folderId = identifier === 'root' ? null : identifier;
             const page = pageIndex + 1;
             
-            console.log(`[DEBUG] 進入 folder 翻頁邏輯，目標頁碼: ${page}`);
             await showFolderContents(interaction, folderId, page);
-            console.log(`[DEBUG] folder 翻頁邏輯處理完畢。`);
             return;
         }
 
     } catch (error) {
-        // 【偵錯日誌 4】如果 try 區塊中發生任何錯誤，都會在這裡被捕捉
-        console.error(`[DEBUG] --- CATCH 區塊捕捉到嚴重錯誤 ---`, error);
-        if (interaction.replied || interaction.deferred) {
-            await interaction.editReply({ content: '❌ 操作時發生錯誤，請查看主控台日誌。', embeds: [], components: [] });
-        }
+        console.error('library handleButton error:', error);
+        // 因為已經 deferUpdate，所以這裡的錯誤處理只需要 editReply
+        await interaction.editReply({ content: '❌ 操作時發生錯誤，請查看主控台日誌。', embeds: [], components: [] });
     }
-}, // <--- 注意 handleButton 函式到此結束
+},
 };
