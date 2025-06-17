@@ -173,7 +173,7 @@ function createPaginatedEmbed(categoryName, files, page = 0) {
     .setTitle(`📂 分類：${categoryName} 的書籍（第 ${page + 1} 頁 / 共 ${Math.ceil(files.length / BOOKSPAGE)} 頁）`)
     .setColor('#FFA500')
     .setTimestamp()
-    .setFooter({ text: '圖書館' });
+    .setFooter({ text: '圖書館系統' });
 
   if (!pageFiles.length) {
     embed.setDescription('此分類目前沒有書籍。');
@@ -204,7 +204,7 @@ function createCategoryListEmbed(folders) {
     .setTitle('📚 圖書館分類列表')
     .setColor('#00BFFF')
     .setTimestamp()
-    .setFooter({ text: '圖書館' });
+    .setFooter({ text: '圖書館系統' });
 
   if (!folders.length) {
     embed.setDescription('目前圖書館中沒有分類資料夾。');
@@ -225,7 +225,7 @@ function createSearchResultEmbed(keyword, results, page = 0) {
     .setTitle(`🔍 搜尋結果：${keyword}（第 ${page + 1} 頁 / 共 ${Math.ceil(results.length / BOOKSPAGE_SEARCH)} 頁）`)
     .setColor('#32CD32')
     .setTimestamp()
-    .setFooter({ text: '圖書館' });
+    .setFooter({ text: '圖書館系統' });
 
   if (!pageResults.length) {
     embed.setDescription('沒有找到相關的書籍。');
@@ -241,7 +241,7 @@ function createStatEmbed(stat) {
     .setTitle('📊 圖書館統計資訊')
     .setColor('#9370DB')
     .setTimestamp()
-    .setFooter({ text: '圖書館' })
+    .setFooter({ text: '圖書館系統' })
     .addFields(
       { name: '分類數', value: `${stat.totalCategories}`, inline: true },
       { name: '總書數', value: `${stat.totalBooks}`, inline: true }
@@ -261,7 +261,7 @@ function createRandomBookEmbed(book) {
     .setTitle('🎲 隨機推薦書籍')
     .setColor('#FF69B4')
     .setTimestamp()
-    .setFooter({ text: '圖書館' });
+    .setFooter({ text: '圖書館系統' });
 
   if (!book) {
     embed.setDescription('圖書館目前沒有任何書籍可以推薦。');

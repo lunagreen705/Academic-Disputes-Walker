@@ -224,7 +224,7 @@ module.exports = {
 
   async run(client, interaction) {
     try {
-      await interaction.deferReply();
+   await interaction.deferReply({ ephemeral: true });
       const subcommand = interaction.options.getSubcommand();
 
       switch (subcommand) {
