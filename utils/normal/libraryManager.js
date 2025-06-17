@@ -111,8 +111,7 @@ async function searchBooks(keyword) {
     }
 
     const safeKeyword = keyword.trim().replace(/'/g, "\\'").replace(/"/g, '\\"');
-    console.log(`[DEBUG] Executing searchBooks with keyword: ${safeKeyword}`);
-
+    
     const res = await drive.files.list({
       q: `name contains '${safeKeyword}' and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
       fields: 'files(id, name, webViewLink, webContentLink, mimeType, parents)',
@@ -164,8 +163,7 @@ async function searchBooks(keyword) {
         });
       }
     }
-
-    console.log(`[DEBUG] searchBooks found ${validFiles.length} files for keyword: ${safeKeyword}`);
+    
     return validFiles;
   } catch (error) {
     console.error(`[ERROR] searchBooks failed: ${error.message}, keyword: ${keyword ?? 'undefined'}`);
@@ -293,8 +291,7 @@ function createSearchResultEmbed(keyword, results, pageIndex, maxPage, BOOKSPAGE
       });
     });
   }
-
-  console.log(`[DEBUG] Created search embed: keyword=${keyword}, page=${pageIndex + 1}, maxPage=${maxPage}, results=${results.length}`);
+  
   return embed;
 }
 
