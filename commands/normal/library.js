@@ -10,10 +10,11 @@ const {
   createStatEmbed,
   createRandomBookEmbed,
   autocompleteCategory,
+  showFolderContents,
   BOOKSPAGE,
 } = require('../../utils/normal/libraryManager');
 
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
 const cache = {
   folders: null,
@@ -33,7 +34,6 @@ function isCacheValid(lastFetched) {
 }
 
 async function getCachedFolders(parentId = null) {
-  // parentId null 表示根資料夾
   if (cache.folders && isCacheValid(cache.foldersLastFetched) && !parentId) return cache.folders;
   const folders = await listSubfolders(parentId);
   if (!parentId) {
@@ -84,6 +84,55 @@ function createPaginationRow(type, identifier, page, maxPage) {
   );
 }
 
+// 新增：顯示資料夾內容（子資料夾 + 書籍）
+async function showFolderContents(interaction, folderId, page = 1) {
+  const subfolders = await getCachedFolders(folderId);
+  const books = await getCachedBooksInFolder(folderId);
+
+  const totalItems = subfolders.length + books.length;
+  const maxPage = Math.max(1, Math.ceil(totalItems / BOOKSPAGE));
+  if (page > maxPage) page = maxPage;
+  if (page < 1) page = 1;
+  const pageIndex = page - 1;
+
+  // 合併子資料夾與書籍，資料夾優先
+  const combinedItems = [
+    ...subfolders.map(f => ({ type: 'folder', data: f })),
+    ...books.map(b => ({ type: 'book', data: b })),
+  ];
+
+  const pageItems = combinedItems.slice(pageIndex * BOOKSPAGE, (pageIndex + 1) * BOOKSPAGE);
+
+  const embed = new EmbedBuilder()
+    .setTitle(folderId ? `資料夾內容（ID: ${folderId}）` : '根目錄')
+    .setDescription(`共 ${subfolders.length} 個子資料夾，${books.length} 本書籍，顯示第 ${page} 頁 / 共 ${maxPage} 頁`)
+    .setColor('#5865F2');
+
+  for (const item of pageItems) {
+    if (item.type === 'folder') {
+      embed.addFields({
+        name: `📁 資料夾：${item.data.name}`,
+        value: `ID: ${item.data.id}`,
+        inline: false,
+      });
+    } else if (item.type === 'book') {
+      embed.addFields({
+        name: `📖 書籍：${item.data.title}`,
+        value: `作者：${item.data.author || '未知'}`,
+        inline: false,
+      });
+    }
+  }
+
+  const row = createPaginationRow('folder', encodeURIComponent(folderId ?? 'root'), pageIndex, maxPage);
+
+  if (interaction.replied || interaction.deferred) {
+    await interaction.editReply({ embeds: [embed], components: [row] });
+  } else {
+    await interaction.reply({ embeds: [embed], components: [row] });
+  }
+}
+
 module.exports = {
   name: 'library',
   description: '圖書館相關功能指令',
@@ -108,7 +157,7 @@ module.exports = {
           required: false,
         },
         {
-          name: 'parent_id', // 新增選項：指定父資料夾ID來支援多層
+          name: 'parent_id',
           description: '父資料夾ID（用於多層瀏覽）',
           type: 3,
           required: false,
@@ -162,33 +211,17 @@ module.exports = {
 
       const parentId = interaction.options.getString('parent_id') || null;
 
-      // 先取得指定父資料夾下的子資料夾
+      // 找該父資料夾下的所有子資料夾
       const folders = await getCachedFolders(parentId);
 
-      // 先嘗試在該父資料夾中找分類名稱對應的資料夾
+      // 找名稱符合的子資料夾
       const folder = folders.find(f => f.name.toLowerCase() === categoryName.toLowerCase());
-
       if (!folder) {
         return interaction.reply({ content: `❌ 找不到分類「${categoryName}」`, ephemeral: true });
       }
 
-      // 取得此分類資料夾下的書籍
-      const books = await getCachedBooksInFolder(folder.id);
-
-      if (books.length === 0) {
-        return interaction.reply({ content: `📂 分類「${categoryName}」目前沒有書籍`, ephemeral: true });
-      }
-
-      const maxPage = Math.ceil(books.length / BOOKSPAGE);
-      if (page > maxPage) page = maxPage;
-
-      const pageIndex = page - 1;
-
-      const embed = createPaginatedEmbed(categoryName, books, pageIndex);
-
-      const row = createPaginationRow('list', folder.id, pageIndex, maxPage);
-
-      return interaction.reply({ embeds: [embed], components: [row] });
+      // 顯示該資料夾內容（多層資料夾＋書籍）
+      return await showFolderContents(interaction, folder.id, page);
     }
 
     if (subcommand === 'search') {
@@ -246,9 +279,8 @@ module.exports = {
       page = page < 0 ? 0 : page;
 
       if (type === 'list') {
-        // 這邊你可以改成支援 parentId，方便支援子資料夾更多層
-        const folders = await getCachedFolders(null); // 根資料夾快取
-        // 直接用 id 找 folder（有需要可以改成支援多層快取）
+        // 這裡仍維持用 root 資料夾快取，不支援多層資料夾
+        const folders = await getCachedFolders(null);
         const folder = folders.find(f => f.id === identifier);
         if (!folder) return interaction.reply({ content: '❌ 找不到該分類', ephemeral: true });
 
@@ -275,6 +307,12 @@ module.exports = {
         const row = createPaginationRow('search', encodeURIComponent(identifier), page, maxPage);
 
         return interaction.update({ embeds: [embed], components: [row] });
+      }
+
+      if (type === 'folder') {
+        // 多層資料夾分頁支援
+        const folderId = identifier === 'root' ? null : identifier;
+        return showFolderContents(interaction, folderId, page);
       }
     } catch (error) {
       console.error('library handleButton error:', error);
