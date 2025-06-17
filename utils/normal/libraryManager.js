@@ -12,7 +12,7 @@ const auth = new google.auth.GoogleAuth({
 const drive = google.drive({ version: 'v3', auth });
 
 const LIBRARY_FOLDER_ID = '1NNbsjeQZrG8MQABXwf8nqaIHgRtO4_sY';
-const BOOKSPAGE = 10;
+const BOOKSPAGE = 5;
 const SUPPORTED_EXTENSIONS = ['pdf', 'epub', 'mobi', 'azw3', 'txt', 'doc', 'docx', 'odt', 'rtf', 'html', 'md','xlsx','jpg'];
 
 function isSupportedFile(fileName) {
@@ -175,7 +175,7 @@ function createCategoryListEmbed(folders) {
 }
 
 function createSearchResultEmbed(keyword, results, page = 0) {
-    const BOOKSPAGE_SEARCH = 10;
+    const BOOKSPAGE_SEARCH = 5;
     const start = page * BOOKSPAGE_SEARCH;
     const end = start + BOOKSPAGE_SEARCH;
     const pageResults = results.slice(start, end);
