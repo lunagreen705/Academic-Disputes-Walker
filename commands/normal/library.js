@@ -1,8 +1,7 @@
-// 檔案：/commands/library.js
-
 const {
   listSubfolders,
-  listBooksInFolder,
+  listBooksAtLevel, // <--- 引入正確的、高效的函式
+  listAllBooksRecursively, // 引入遞迴函式，供 stats 等功能使用
   searchBooks,
   getRandomBook,
   getLibraryStat,
@@ -15,26 +14,21 @@ const {
 
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
-// --- 快取機制 (已優化) ---
+// --- 快取機制 ---
 const cache = {
-  // 【優化1】將 cache.folders 和 lastFetched 改為 Map，使其可以快取子資料夾
   folders: new Map(),
   foldersLastFetched: new Map(),
-
   folderBooks: new Map(),
   folderBooksLastFetched: new Map(),
-
   searchResults: new Map(),
   searchResultsLastFetched: new Map(),
-
-  cacheTTL: 1000 * 60 * 5, // 5分鐘快取
+  cacheTTL: 1000 * 60 * 5,
 };
 
 function isCacheValid(lastFetched) {
   return (Date.now() - lastFetched) < cache.cacheTTL;
 }
 
-// 【優化1】重寫 getCachedFolders 以支援子資料夾快取
 async function getCachedFolders(parentId = null) {
   const cacheKey = parentId || 'root';
   if (cache.folders.has(cacheKey) && isCacheValid(cache.foldersLastFetched.get(cacheKey) ?? 0)) {
@@ -46,12 +40,14 @@ async function getCachedFolders(parentId = null) {
   return folders;
 }
 
+// 【修正1】讓快取函式呼叫正確的、高效的 API
 async function getCachedBooksInFolder(folderId) {
-  const cacheKey = folderId || 'root'; // 根目錄的書也要有key
+  const cacheKey = folderId || 'root';
   if (cache.folderBooks.has(cacheKey) && isCacheValid(cache.folderBooksLastFetched.get(cacheKey) ?? 0)) {
     return cache.folderBooks.get(cacheKey);
   }
-  const books = await listBooksInFolder(folderId);
+  // 呼叫新的 listBooksAtLevel，這將使瀏覽速度變得飛快
+  const books = await listBooksAtLevel(folderId);
   cache.folderBooks.set(cacheKey, books);
   cache.folderBooksLastFetched.set(cacheKey, Date.now());
   return books;
@@ -67,7 +63,8 @@ async function getCachedSearchResults(keyword) {
   return results;
 }
 
-// --- 核心顯示函式 (已修正) ---
+// --- 核心顯示函式 ---
+// (此函式在指令檔中定義，邏輯正確，無需修改)
 async function showFolderContents(interaction, folderId, page = 1) {
   const subfolders = await getCachedFolders(folderId);
   const books = await getCachedBooksInFolder(folderId);
@@ -96,27 +93,16 @@ async function showFolderContents(interaction, folderId, page = 1) {
   } else {
     for (const item of pageItems) {
       if (item.type === 'folder') {
-        embed.addFields({
-          name: `📁 資料夾：${item.data.name}`,
-          value: `點擊下方同名按鈕進入此資料夾。`,
-          inline: false,
-        });
+        embed.addFields({ name: `📁 ${item.data.name}`, value: `點擊下方同名按鈕進入此資料夾。`, inline: false });
       } else if (item.type === 'book') {
-        // 【修正1】修正顯示書籍的資料欄位不正確的問題
         const bookData = item.data;
         const downloadLink = bookData.webContentLink || bookData.webViewLink;
-        embed.addFields({
-          name: `📖 書籍：${bookData.name}`,
-          value: `[在瀏覽器中開啟](${bookData.webViewLink}) | [下載](${downloadLink})`,
-          inline: false,
-        });
+        embed.addFields({ name: `📖 ${bookData.name}`, value: `[在瀏覽器中開啟](${bookData.webViewLink}) | [下載](${downloadLink})`, inline: false });
       }
     }
   }
 
   const components = [];
-
-  // 【優化2】第一排按鈕：子資料夾導航
   const folderButtons = new ActionRowBuilder();
   subfolders.slice(0, 5).forEach(folder => {
     folderButtons.addComponents(
@@ -131,7 +117,6 @@ async function showFolderContents(interaction, folderId, page = 1) {
     components.push(folderButtons);
   }
   
-  // 【優化2】第二排按鈕：分頁
   if (totalItems > BOOKSPAGE) {
     const paginationRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -148,7 +133,6 @@ async function showFolderContents(interaction, folderId, page = 1) {
     components.push(paginationRow);
   }
 
-  // 統一回覆或編輯
   if (interaction.replied || interaction.deferred) {
     await interaction.editReply({ embeds: [embed], components });
   } else {
@@ -163,18 +147,8 @@ module.exports = {
   description: '圖書館相關功能指令',
   options: [
     { name: 'browse', description: '瀏覽圖書館', type: 1 },
-    {
-      name: 'list',
-      description: '直接跳至指定分類',
-      type: 1,
-      options: [{ name: 'category', description: '分類名稱', type: 3, required: true, autocomplete: true }],
-    },
-    {
-      name: 'search',
-      description: '搜尋書籍',
-      type: 1,
-      options: [{ name: 'keyword', description: '關鍵字', type: 3, required: true }],
-    },
+    { name: 'list', description: '直接跳至指定分類', type: 1, options: [{ name: 'category', description: '分類名稱', type: 3, required: true, autocomplete: true }] },
+    { name: 'search', description: '搜尋書籍', type: 1, options: [{ name: 'keyword', description: '關鍵字', type: 3, required: true }] },
     { name: 'random', description: '隨機推薦一本書', type: 1 },
     { name: 'stats', description: '查看圖書館統計', type: 1 },
   ],
@@ -188,7 +162,6 @@ module.exports = {
   },
 
   async run(client, interaction) {
-    // 【優化3】統一使用 deferReply 提升體驗
     await interaction.deferReply();
     const subcommand = interaction.options.getSubcommand();
 
@@ -215,8 +188,18 @@ module.exports = {
           return interaction.editReply({ content: `🔍 沒有找到符合「${keyword}」的書籍` });
         }
         const embed = createSearchResultEmbed(keyword, results, 0);
-        // ... (搜尋的分頁邏輯可仿照 handleButton 中的寫法)
-        return interaction.editReply({ embeds: [embed] });
+        
+        // 補充分頁按鈕的建立
+        const maxPage = Math.ceil(results.length / 10);
+        const components = [];
+        if (maxPage > 1) {
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`library_search_${encodeURIComponent(keyword)}_0_prev`).setLabel('上一頁').setStyle(ButtonStyle.Primary).setDisabled(true),
+                new ButtonBuilder().setCustomId(`library_search_${encodeURIComponent(keyword)}_0_next`).setLabel('下一頁').setStyle(ButtonStyle.Primary).setDisabled(false)
+            );
+            components.push(row);
+        }
+        return interaction.editReply({ embeds: [embed], components });
       }
 
       case 'random': {
@@ -226,15 +209,16 @@ module.exports = {
       }
 
       case 'stats': {
+        // 統計函式可能較慢，可以加上提示
+        await interaction.editReply({ content: '📊 正在統計整個圖書館，請稍候...' });
         const stat = await getLibraryStat();
         const embed = createStatEmbed(stat);
-        return interaction.editReply({ embeds: [embed] });
+        return interaction.editReply({ content: null, embeds: [embed] });
       }
     }
   },
 
   async handleButton(interaction) {
-    // 【優化3】統一使用 deferUpdate 提升體驗
     await interaction.deferUpdate();
     try {
       const [prefix, type, identifierRaw, pageStr, action] = interaction.customId.split('_');
@@ -247,16 +231,33 @@ module.exports = {
         return await showFolderContents(interaction, identifier, 1);
       }
       
+      // 【新增2】補全 search 的按鈕處理邏輯
+      if (type === 'search') {
+        if (action === 'next') pageIndex++;
+        else if (action === 'prev') pageIndex--;
+        
+        const keyword = identifier;
+        const results = await getCachedSearchResults(keyword);
+        if (!results.length) return interaction.editReply({ content: '🔍 搜尋結果已過期或不存在', components: [] });
+
+        const maxPage = Math.ceil(results.length / 10);
+        pageIndex = Math.max(0, Math.min(pageIndex, maxPage - 1));
+
+        const embed = createSearchResultEmbed(keyword, results, pageIndex);
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`library_search_${encodeURIComponent(keyword)}_${pageIndex}_prev`).setLabel('上一頁').setStyle(ButtonStyle.Primary).setDisabled(pageIndex <= 0),
+            new ButtonBuilder().setCustomId(`library_search_${encodeURIComponent(keyword)}_${pageIndex}_next`).setLabel('下一頁').setStyle(ButtonStyle.Primary).setDisabled(pageIndex >= maxPage - 1)
+        );
+        return interaction.editReply({ embeds: [embed], components: [row] });
+      }
+      
       if (type === 'folder') {
         if (action === 'next') pageIndex++;
         else if (action === 'prev') pageIndex--;
         
         const folderId = identifier === 'root' ? null : identifier;
-        // 【修正2】將 0-based 索引轉換為 1-based 頁碼
         return await showFolderContents(interaction, folderId, pageIndex + 1);
       }
-
-      // 【清理】移除了過時的 'list' type 邏輯
       
     } catch (error) {
       console.error('library handleButton error:', error);
