@@ -96,24 +96,29 @@ async function listBooksAtLevel(folderId) {
 }
 
 /**
- * 使用 Google Drive 的全文搜尋功能來尋找書籍，極大提升效率。
+ * 使用 Google Drive 的全文搜尋功能來尋找書籍，涵蓋整個資料夾結構。
  * @param {string} keyword - 搜尋的關鍵字。
  * @returns {Promise<Array<Object>>} 搜尋結果的書籍列表。
  */
 async function searchBooks(keyword) {
-  const res = await drive.files.list({
-    // 在圖書館根目錄下進行全文搜尋，並過濾掉已刪除的檔案
-    q: `'${LIBRARY_FOLDER_ID}' in parents and fullText contains '${keyword.replace(/'/g, "\\'")}' and trashed = false`,
-    fields: 'files(id, name, webViewLink, webContentLink, mimeType)',
-    corpora: 'user', // 指定在使用者擁有的檔案中搜尋
-  });
+  try {
+    const safeKeyword = keyword.replace(/'/g, "\\'"); // 防止 SQL 注入風格的查詢錯誤
+    const res = await drive.files.list({
+      q: `from '${LIBRARY_FOLDER_ID}' '${safeKeyword}' and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
+      fields: 'files(id, name, webViewLink, webContentLink, mimeType)',
+      corpora: 'user',
+    });
 
-  return (res.data.files || [])
-    .filter(f => isSupportedFile(f.name))
-    .map(file => ({
-      ...file,
-      downloadLink: file.webContentLink || file.webViewLink || null,
-    }));
+    return (res.data.files || [])
+      .filter(f => isSupportedFile(f.name))
+      .map(file => ({
+        ...file,
+        downloadLink: file.webContentLink || file.webViewLink || null,
+      }));
+  } catch (error) {
+    console.error(`[ERROR] searchBooks failed: ${error.message}`);
+    throw new Error(`搜尋書籍失敗: ${error.message}`);
+  }
 }
 
 /**
