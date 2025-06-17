@@ -324,23 +324,26 @@ module.exports = {
         return;
       }
 
-      if (type === 'search') {
-        if (action === 'next') pageIndex++;
-        else if (action === 'prev') pageIndex--;
-        pageIndex = Math.max(0, pageIndex);
+  if (type === 'search') {
+  if (action === 'next') pageIndex++;
+  else if (action === 'prev') pageIndex--;
+  pageIndex = Math.max(0, pageIndex);
 
-        const keyword = identifier;
-        const results = await getCachedSearchResults(keyword);
-        if (!results.length) {
-          return safeInteractionReply(interaction, '🔍 搜尋結果已過期或不存在', { components: [] });
-        }
-        const maxPage = Math.ceil(results.length / 10);
-        pageIndex = Math.max(0, Math.min(pageIndex, maxPage - 1));
-        const embed = createSearchResultEmbed(keyword, results, pageIndex);
-        const row = createPaginationRow('search', encodeURIComponent(keyword), pageIndex, maxPage);
-        await safeInteractionReply(interaction, null, { embeds: [embed], components: [row] });
-        return;
-      }
+  const keyword = identifier;
+  console.log(`[DEBUG] Handling search pagination: keyword=${keyword}, pageIndex=${pageIndex}`);
+  const results = await getCachedSearchResults(keyword);
+  if (!results.length) {
+    console.log(`[DEBUG] No search results for keyword: ${keyword}`);
+    return safeInteractionReply(interaction, '🔍 搜尋結果已過期或不存在', { components: [] });
+  }
+  const maxPage = Math.ceil(results.length / BOOKSPAGE);
+  pageIndex = Math.max(0, Math.min(pageIndex, maxPage - 1));
+  console.log(`[DEBUG] Search pagination: maxPage=${maxPage}, adjusted pageIndex=${pageIndex}`);
+  const embed = createSearchResultEmbed(keyword, results, pageIndex, maxPage, BOOKSPAGE);
+  const row = createPaginationRow('search', encodeURIComponent(keyword), pageIndex, maxPage);
+  await safeInteractionReply(interaction, null, { embeds: [embed], components: [row] });
+  return;
+}
 
       if (type === 'folder') {
         if (action === 'next') pageIndex++;

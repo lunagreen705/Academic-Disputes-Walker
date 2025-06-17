@@ -271,24 +271,30 @@ function createCategoryListEmbed(folders) {
   return embed;
 }
 
-function createSearchResultEmbed(keyword, results, page = 0) {
-  const BOOKSPAGE_SEARCH = 5; // 搜尋結果每頁顯示數量
-  const start = page * BOOKSPAGE_SEARCH;
-  const end = start + BOOKSPAGE_SEARCH;
-  const pageResults = results.slice(start, end);
-
+function createSearchResultEmbed(keyword, results, pageIndex, maxPage, BOOKSPAGE = 10) {
   const embed = new EmbedBuilder()
-    .setTitle(`🔍 搜尋結果：${keyword}（第 ${page + 1} 頁 / 共 ${Math.ceil(results.length / BOOKSPAGE_SEARCH)} 頁）`)
-    .setColor('#32CD32')
-    .setTimestamp()
+    .setTitle(`🔍 搜尋結果：${keyword}`)
+    .setColor('#5865F2')
     .setFooter({ text: '圖書館系統' });
 
-  if (!pageResults.length) {
-    embed.setDescription('沒有找到相關的書籍。');
+  const start = pageIndex * BOOKSPAGE;
+  const end = Math.min(start + BOOKSPAGE, results.length);
+  const pageResults = results.slice(start, end);
+
+  if (pageResults.length === 0) {
+    embed.setDescription('沒有找到任何書籍。');
   } else {
-    const desc = pageResults.map(f => `📖 [${f.name}](${f.webViewLink}) | [下載](${f.downloadLink})`).join('\n');
-    embed.setDescription(desc);
+    embed.setDescription(`共找到 ${results.length} 本書籍，第 ${pageIndex + 1} / ${maxPage} 頁`);
+    pageResults.forEach((book, index) => {
+      embed.addFields({
+        name: `${start + index + 1}. ${book.name}`,
+        value: `[開啟](${book.webViewLink}) | [下載](${book.downloadLink || book.webViewLink})`,
+        inline: false,
+      });
+    });
   }
+
+  console.log(`[DEBUG] Created search embed: keyword=${keyword}, page=${pageIndex + 1}, maxPage=${maxPage}, results=${results.length}`);
   return embed;
 }
 
