@@ -96,15 +96,24 @@ async function listBooksAtLevel(folderId) {
 }
 
 /**
- * 使用 Google Drive 的全文搜尋功能來尋找書籍，涵蓋整個資料夾結構。
+ * 使用 Google Drive 的搜尋功能來尋找書籍，涵蓋整個資料夾結構。
  * @param {string} keyword - 搜尋的關鍵字。
  * @returns {Promise<Array<Object>>} 搜尋結果的書籍列表。
  */
 async function searchBooks(keyword) {
   try {
-    const safeKeyword = keyword.replace(/'/g, "\\'").replace(/"/g, '\\"'); // 轉義單引號和雙引號
+    // 轉義關鍵字中的特殊字符
+    const safeKeyword = keyword.replace(/'/g, "\\'").replace(/"/g, '\\"').trim();
+    if (!safeKeyword) {
+      console.warn(`[WARN] Empty keyword provided for searchBooks`);
+      return [];
+    }
+
+    console.log(`[DEBUG] Executing searchBooks with keyword: ${safeKeyword}`);
+
+    // 使用 name contains 搜尋檔案名稱
     const res = await drive.files.list({
-      q: `'${safeKeyword}' and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
+      q: `name contains '${safeKeyword}' and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
       fields: 'files(id, name, webViewLink, webContentLink, mimeType, parents)',
       corpora: 'user',
     });
@@ -112,18 +121,30 @@ async function searchBooks(keyword) {
     const files = res.data.files || [];
     const validFiles = [];
 
-    // 檢查檔案是否屬於圖書館資料夾結構
+    // 快取父資料夾檢查結果
     async function isInLibraryFolder(fileId) {
+      const cacheKey = fileId;
+      if (parentCache.has(cacheKey) && (Date.now() - parentCache.get(cacheKey).timestamp) < PARENT_CACHE_TTL) {
+        return parentCache.get(cacheKey).isInLibrary;
+      }
+
       try {
         const fileRes = await drive.files.get({
           fileId,
           fields: 'parents',
         });
         const parents = fileRes.data.parents || [];
-        if (parents.includes(LIBRARY_FOLDER_ID)) return true;
-        for (const parentId of parents) {
-          if (await isInLibraryFolder(parentId)) return true;
+        if (parents.includes(LIBRARY_FOLDER_ID)) {
+          parentCache.set(cacheKey, { isInLibrary: true, timestamp: Date.now() });
+          return true;
         }
+        for (const parentId of parents) {
+          if (await isInLibraryFolder(parentId)) {
+            parentCache.set(cacheKey, { isInLibrary: true, timestamp: Date.now() });
+            return true;
+          }
+        }
+        parentCache.set(cacheKey, { isInLibrary: false, timestamp: Date.now() });
         return false;
       } catch (err) {
         console.error(`[ERROR] Failed to check parent for file ${fileId}: ${err.message}`);
@@ -131,6 +152,7 @@ async function searchBooks(keyword) {
       }
     }
 
+    // 過濾檔案
     for (const file of files) {
       if (isSupportedFile(file.name) && await isInLibraryFolder(file.id)) {
         validFiles.push({
@@ -140,10 +162,10 @@ async function searchBooks(keyword) {
       }
     }
 
-    console.log(`[DEBUG] searchBooks found ${validFiles.length} files for keyword: ${keyword}`);
+    console.log(`[DEBUG] searchBooks found ${validFiles.length} files for keyword: ${safeKeyword}`);
     return validFiles;
   } catch (error) {
-    console.error(`[ERROR] searchBooks failed: ${error.message}, keyword: ${keyword}`);
+    console.error(`[ERROR] searchBooks failed: ${error.message}, keyword: ${safeKeyword}`);
     throw new Error(`搜尋書籍失敗: ${error.message}`);
   }
 }
