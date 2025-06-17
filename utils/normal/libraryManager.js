@@ -102,21 +102,48 @@ async function listBooksAtLevel(folderId) {
  */
 async function searchBooks(keyword) {
   try {
-    const safeKeyword = keyword.replace(/'/g, "\\'"); // 防止 SQL 注入風格的查詢錯誤
+    const safeKeyword = keyword.replace(/'/g, "\\'").replace(/"/g, '\\"'); // 轉義單引號和雙引號
     const res = await drive.files.list({
-      q: `from '${LIBRARY_FOLDER_ID}' '${safeKeyword}' and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
-      fields: 'files(id, name, webViewLink, webContentLink, mimeType)',
+      q: `'${safeKeyword}' and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
+      fields: 'files(id, name, webViewLink, webContentLink, mimeType, parents)',
       corpora: 'user',
     });
 
-    return (res.data.files || [])
-      .filter(f => isSupportedFile(f.name))
-      .map(file => ({
-        ...file,
-        downloadLink: file.webContentLink || file.webViewLink || null,
-      }));
+    const files = res.data.files || [];
+    const validFiles = [];
+
+    // 檢查檔案是否屬於圖書館資料夾結構
+    async function isInLibraryFolder(fileId) {
+      try {
+        const fileRes = await drive.files.get({
+          fileId,
+          fields: 'parents',
+        });
+        const parents = fileRes.data.parents || [];
+        if (parents.includes(LIBRARY_FOLDER_ID)) return true;
+        for (const parentId of parents) {
+          if (await isInLibraryFolder(parentId)) return true;
+        }
+        return false;
+      } catch (err) {
+        console.error(`[ERROR] Failed to check parent for file ${fileId}: ${err.message}`);
+        return false;
+      }
+    }
+
+    for (const file of files) {
+      if (isSupportedFile(file.name) && await isInLibraryFolder(file.id)) {
+        validFiles.push({
+          ...file,
+          downloadLink: file.webContentLink || file.webViewLink || null,
+        });
+      }
+    }
+
+    console.log(`[DEBUG] searchBooks found ${validFiles.length} files for keyword: ${keyword}`);
+    return validFiles;
   } catch (error) {
-    console.error(`[ERROR] searchBooks failed: ${error.message}`);
+    console.error(`[ERROR] searchBooks failed: ${error.message}, keyword: ${keyword}`);
     throw new Error(`搜尋書籍失敗: ${error.message}`);
   }
 }
