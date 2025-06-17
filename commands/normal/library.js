@@ -40,21 +40,13 @@ async function safeInteractionReply(interaction, content, options = {}) {
       await interaction.editReply(replyOptions);
     }
   } catch (error) {
-    console.error(`[ERROR] safeInteractionReply failed: ${error.message}`);
-    if (!interaction.replied && !interaction.deferred) {
-      try {
-        await interaction.reply({ content: `❌ 回應失敗：${error.message}`, ephemeral: true });
-      } catch (err) {
-        console.error(`[ERROR] Fallback reply failed: ${err.message}`);
-      }
-    }
+    // 避免在已有錯誤處理的情況下重複回應
   }
 }
 
 // 快取函式
 async function getCachedFolders(parentId = null) {
   const cacheKey = parentId || 'root';
-  console.log(`[DEBUG] getCachedFolders called with cacheKey: ${cacheKey}`);
   if (cache.folders.has(cacheKey) && isCacheValid(cache.foldersLastFetched.get(cacheKey) ?? 0)) {
     return cache.folders.get(cacheKey);
   }
@@ -64,14 +56,12 @@ async function getCachedFolders(parentId = null) {
     cache.foldersLastFetched.set(cacheKey, Date.now());
     return folders;
   } catch (error) {
-    console.error(`[ERROR] getCachedFolders failed: ${error.message}`);
     throw new Error(`無法獲取資料夾: ${error.message}`);
   }
 }
 
 async function getCachedBooksInFolder(folderId) {
   const cacheKey = folderId || 'root';
-  console.log(`[DEBUG] getCachedBooksInFolder called with cacheKey: ${cacheKey}`);
   if (cache.folderBooks.has(cacheKey) && isCacheValid(cache.folderBooksLastFetched.get(cacheKey) ?? 0)) {
     return cache.folderBooks.get(cacheKey);
   }
@@ -81,13 +71,11 @@ async function getCachedBooksInFolder(folderId) {
     cache.folderBooksLastFetched.set(cacheKey, Date.now());
     return books;
   } catch (error) {
-    console.error(`[ERROR] getCachedBooksInFolder failed: ${error.message}`);
     throw new Error(`無法獲取書籍: ${error.message}`);
   }
 }
 
 async function getCachedSearchResults(keyword) {
-  console.log(`[DEBUG] getCachedSearchResults called with keyword: ${keyword}`);
   if (cache.searchResults.has(keyword) && isCacheValid(cache.searchResultsLastFetched.get(keyword) ?? 0)) {
     return cache.searchResults.get(keyword);
   }
@@ -97,14 +85,12 @@ async function getCachedSearchResults(keyword) {
     cache.searchResultsLastFetched.set(keyword, Date.now());
     return results;
   } catch (error) {
-    console.error(`[ERROR] getCachedSearchResults failed: ${error.message}`);
     throw new Error(`無法搜尋書籍: ${error.message}`);
   }
 }
 
 // 核心顯示函式
 async function showFolderContents(interaction, folderId, page = 1) {
-  console.log(`[DEBUG] showFolderContents called with folderId: ${folderId || 'root'}, page: ${page}, ephemeral: ${interaction.ephemeral}`);
   try {
     const subfolders = await getCachedFolders(folderId);
     const books = await getCachedBooksInFolder(folderId);
@@ -165,7 +151,6 @@ async function showFolderContents(interaction, folderId, page = 1) {
               .setStyle(ButtonStyle.Success)
               .setEmoji('📁')
           );
-          console.log(`[DEBUG] Added button: customId=library|folder-nav|${safeFolderId}|0|enter, label=${folderItem.data.name}`);
         });
         components.push(row);
       }
@@ -187,11 +172,9 @@ async function showFolderContents(interaction, folderId, page = 1) {
     }
     if (controlRow.components.length > 0 && components.length < 5) {
       components.push(controlRow);
-      console.log(`[DEBUG] Added control row for folderId: ${folderId || 'root'}, page: ${page}`);
     }
 
     await safeInteractionReply(interaction, null, { embeds: [embed], components });
-    console.log(`[DEBUG] showFolderContents replied successfully, ephemeral: ${interaction.ephemeral}`);
   } catch (error) {
     console.error(`[ERROR] showFolderContents failed: ${error.message}, folderId: ${folderId}`);
     await safeInteractionReply(interaction, `❌ 無法顯示資料夾內容：${error.message}`, { embeds: [], components: [] });
@@ -221,7 +204,6 @@ module.exports = {
   ],
 
   async autocomplete(interaction) {
-    console.log(`[DEBUG] Autocomplete triggered for value: ${interaction.options.getFocused()}`);
     if (interaction.options.getSubcommand() === 'list') {
       const focused = interaction.options.getFocused();
       try {
@@ -234,7 +216,6 @@ module.exports = {
   },
 
   async run(client, interaction) {
-    console.log(`[DEBUG] Library command run: subcommand=${interaction.options.getSubcommand()}, user=${interaction.user.tag}, ephemeral: true`);
     try {
       await interaction.deferReply({ ephemeral: true });
       const subcommand = interaction.options.getSubcommand();
@@ -261,8 +242,12 @@ module.exports = {
           if (!results.length) {
             return safeInteractionReply(interaction, `🔍 沒有找到符合「${keyword}」的書籍`);
           }
-          const embed = createSearchResultEmbed(keyword, results, 0);
-          const maxPage = Math.ceil(results.length / 10);
+
+          // 【修正處】先計算 maxPage，並使用 BOOKSPAGE 常數
+          const maxPage = Math.ceil(results.length / BOOKSPAGE);
+          // 【修正處】將 maxPage 和 BOOKSPAGE 傳遞給 embed 建立函式
+          const embed = createSearchResultEmbed(keyword, results, 0, maxPage, BOOKSPAGE);
+          
           const components = maxPage > 1 ? [createPaginationRow('search', encodeURIComponent(keyword), 0, maxPage)] : [];
           return safeInteractionReply(interaction, null, { embeds: [embed], components });
         }
@@ -286,7 +271,6 @@ module.exports = {
   },
 
   async handleButton(interaction) {
-    console.log(`[DEBUG] handleButton triggered - customId: ${interaction.customId}, ephemeral: ${interaction.ephemeral}`);
     try {
       if (!interaction.isButton()) {
         return safeInteractionReply(interaction, '❌ 無效的交互類型！');
@@ -295,15 +279,10 @@ module.exports = {
         return safeInteractionReply(interaction, '❌ 此交互已超時，請重新執行 `/library browse` 指令！', { components: [] });
       }
 
-      await interaction.deferUpdate().catch(err => {
-        console.error(`[ERROR] deferUpdate failed: ${err.message}`);
-        throw new Error(`Defer update failed: ${err.message}`);
-      });
-      console.log(`[DEBUG] deferUpdate successful for customId: ${interaction.customId}`);
+      await interaction.deferUpdate();
 
       const parts = interaction.customId.split('|');
       if (parts.length !== 5 || parts[0] !== 'library') {
-        console.error(`[ERROR] Invalid customId format: ${interaction.customId}`);
         return safeInteractionReply(interaction, '❌ 無效的按鈕操作！');
       }
 
@@ -312,38 +291,33 @@ module.exports = {
       try {
         identifier = decodeURIComponent(identifierRaw);
       } catch (err) {
-        console.error(`[ERROR] decodeURIComponent failed: ${err.message}`);
         return safeInteractionReply(interaction, '❌ 無效的按鈕資料！');
       }
       let pageIndex = parseInt(pageStr, 10) || 0;
 
       if (type === 'folder-nav' && action === 'enter') {
         const targetFolderId = identifier === 'root' ? null : identifier;
-        console.log(`[DEBUG] Navigating to folder: ${targetFolderId || 'root'}`);
         await showFolderContents(interaction, targetFolderId, 1);
         return;
       }
 
-  if (type === 'search') {
-  if (action === 'next') pageIndex++;
-  else if (action === 'prev') pageIndex--;
-  pageIndex = Math.max(0, pageIndex);
+      if (type === 'search') {
+        if (action === 'next') pageIndex++;
+        else if (action === 'prev') pageIndex--;
+        pageIndex = Math.max(0, pageIndex);
 
-  const keyword = identifier;
-  console.log(`[DEBUG] Handling search pagination: keyword=${keyword}, pageIndex=${pageIndex}`);
-  const results = await getCachedSearchResults(keyword);
-  if (!results.length) {
-    console.log(`[DEBUG] No search results for keyword: ${keyword}`);
-    return safeInteractionReply(interaction, '🔍 搜尋結果已過期或不存在', { components: [] });
-  }
-  const maxPage = Math.ceil(results.length / BOOKSPAGE);
-  pageIndex = Math.max(0, Math.min(pageIndex, maxPage - 1));
-  console.log(`[DEBUG] Search pagination: maxPage=${maxPage}, adjusted pageIndex=${pageIndex}`);
-  const embed = createSearchResultEmbed(keyword, results, pageIndex, maxPage, BOOKSPAGE);
-  const row = createPaginationRow('search', encodeURIComponent(keyword), pageIndex, maxPage);
-  await safeInteractionReply(interaction, null, { embeds: [embed], components: [row] });
-  return;
-}
+        const keyword = identifier;
+        const results = await getCachedSearchResults(keyword);
+        if (!results.length) {
+          return safeInteractionReply(interaction, '🔍 搜尋結果已過期或不存在', { components: [] });
+        }
+        const maxPage = Math.ceil(results.length / BOOKSPAGE);
+        pageIndex = Math.max(0, Math.min(pageIndex, maxPage - 1));
+        const embed = createSearchResultEmbed(keyword, results, pageIndex, maxPage, BOOKSPAGE);
+        const row = createPaginationRow('search', encodeURIComponent(keyword), pageIndex, maxPage);
+        await safeInteractionReply(interaction, null, { embeds: [embed], components: [row] });
+        return;
+      }
 
       if (type === 'folder') {
         if (action === 'next') pageIndex++;
@@ -351,7 +325,6 @@ module.exports = {
         pageIndex = Math.max(0, pageIndex);
 
         const folderId = identifier === 'root' ? null : identifier;
-        console.log(`[DEBUG] Folder pagination: folderId=${folderId || 'root'}, page=${pageIndex + 1}`);
         await showFolderContents(interaction, folderId, pageIndex + 1);
         return;
       }
