@@ -33,19 +33,28 @@ function isCacheValid(lastFetched) {
 // 統一回應函式
 async function safeInteractionReply(interaction, content, options = {}) {
   try {
+    const replyOptions = { content, ...options, ephemeral: true };
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content, ...options, ephemeral: true });
+      await interaction.reply(replyOptions);
     } else {
-      await interaction.editReply({ content, ...options });
+      await interaction.editReply(replyOptions);
     }
   } catch (error) {
-    // 錯誤已在更高層級處理，此處避免重複發送訊息
+    console.error(`[ERROR] safeInteractionReply failed: ${error.message}`);
+    if (!interaction.replied && !interaction.deferred) {
+      try {
+        await interaction.reply({ content: `❌ 回應失敗：${error.message}`, ephemeral: true });
+      } catch (err) {
+        console.error(`[ERROR] Fallback reply failed: ${err.message}`);
+      }
+    }
   }
 }
 
 // 快取函式
 async function getCachedFolders(parentId = null) {
   const cacheKey = parentId || 'root';
+  console.log(`[DEBUG] getCachedFolders called with cacheKey: ${cacheKey}`);
   if (cache.folders.has(cacheKey) && isCacheValid(cache.foldersLastFetched.get(cacheKey) ?? 0)) {
     return cache.folders.get(cacheKey);
   }
@@ -55,12 +64,14 @@ async function getCachedFolders(parentId = null) {
     cache.foldersLastFetched.set(cacheKey, Date.now());
     return folders;
   } catch (error) {
+    console.error(`[ERROR] getCachedFolders failed: ${error.message}`);
     throw new Error(`無法獲取資料夾: ${error.message}`);
   }
 }
 
 async function getCachedBooksInFolder(folderId) {
   const cacheKey = folderId || 'root';
+  console.log(`[DEBUG] getCachedBooksInFolder called with cacheKey: ${cacheKey}`);
   if (cache.folderBooks.has(cacheKey) && isCacheValid(cache.folderBooksLastFetched.get(cacheKey) ?? 0)) {
     return cache.folderBooks.get(cacheKey);
   }
@@ -70,11 +81,13 @@ async function getCachedBooksInFolder(folderId) {
     cache.folderBooksLastFetched.set(cacheKey, Date.now());
     return books;
   } catch (error) {
+    console.error(`[ERROR] getCachedBooksInFolder failed: ${error.message}`);
     throw new Error(`無法獲取書籍: ${error.message}`);
   }
 }
 
 async function getCachedSearchResults(keyword) {
+  console.log(`[DEBUG] getCachedSearchResults called with keyword: ${keyword}`);
   if (cache.searchResults.has(keyword) && isCacheValid(cache.searchResultsLastFetched.get(keyword) ?? 0)) {
     return cache.searchResults.get(keyword);
   }
@@ -84,12 +97,14 @@ async function getCachedSearchResults(keyword) {
     cache.searchResultsLastFetched.set(keyword, Date.now());
     return results;
   } catch (error) {
+    console.error(`[ERROR] getCachedSearchResults failed: ${error.message}`);
     throw new Error(`無法搜尋書籍: ${error.message}`);
   }
 }
 
 // 核心顯示函式
 async function showFolderContents(interaction, folderId, page = 1) {
+  console.log(`[DEBUG] showFolderContents called with folderId: ${folderId || 'root'}, page: ${page}, ephemeral: ${interaction.ephemeral}`);
   try {
     const subfolders = await getCachedFolders(folderId);
     const books = await getCachedBooksInFolder(folderId);
@@ -110,7 +125,7 @@ async function showFolderContents(interaction, folderId, page = 1) {
       .setTitle(folderId ? `📁 資料夾內容` : '📚 圖書館根目錄')
       .setDescription(`共 ${subfolders.length} 個子資料夾，${books.length} 本書籍。\n目前顯示第 ${page} / ${maxPage} 頁`)
       .setColor('#5865F2')
-      .setFooter({ text: '圖書館系統' }); // 【修改處】不再顯示資料夾ID
+      .setFooter({ text: '圖書館系統' });
 
     if (pageItems.length === 0) {
       embed.addFields({ name: '空空如也', value: '這個資料夾中沒有任何項目。' });
@@ -138,52 +153,47 @@ async function showFolderContents(interaction, folderId, page = 1) {
     const foldersOnPage = pageItems.filter(item => item.type === 'folder');
 
     if (foldersOnPage.length > 0) {
-      for (let i = 0; i < foldersOnPage.length; i += 5) {
+      for (let i = 0; i < foldersOnPage.length && components.length < 4; i += 5) {
         const row = new ActionRowBuilder();
         const chunk = foldersOnPage.slice(i, i + 5);
         chunk.forEach(folderItem => {
+          const safeFolderId = encodeURIComponent(folderItem.data.id).slice(0, 50);
           row.addComponents(
             new ButtonBuilder()
-              .setCustomId(`library|folder-nav|${encodeURIComponent(folderItem.data.id)}|0|enter`)
+              .setCustomId(`library|folder-nav|${safeFolderId}|0|enter`)
               .setLabel(folderItem.data.name.length > 80 ? folderItem.data.name.slice(0, 77) + '...' : folderItem.data.name)
               .setStyle(ButtonStyle.Success)
               .setEmoji('📁')
           );
+          console.log(`[DEBUG] Added button: customId=library|folder-nav|${safeFolderId}|0|enter, label=${folderItem.data.name}`);
         });
         components.push(row);
       }
     }
 
-    // --- 【修改處 1】建立一個控制列 (返回、翻頁) ---
     const controlRow = new ActionRowBuilder();
-
-    // 如果在子資料夾中 (folderId 存在)，就新增「回到根目錄」按鈕
     if (folderId) {
-        controlRow.addComponents(
-            new ButtonBuilder()
-                .setCustomId('library|folder-nav|root|0|enter')
-                .setLabel('回到根目錄')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('↩️')
-        );
+      controlRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId('library|folder-nav|root|0|enter')
+          .setLabel('回到根目錄')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('↩️')
+      );
     }
-    
-    // 如果項目總數超過一頁的容量，則新增分頁按鈕
     if (totalItems > BOOKSPAGE) {
-        const paginationRow = createPaginationRow('folder', encodeURIComponent(folderId ?? 'root'), pageIndex, maxPage);
-        // 將分頁按鈕 (上一頁、下一頁) 加到控制列中
-        controlRow.addComponents(...paginationRow.components);
+      const paginationRow = createPaginationRow('folder', encodeURIComponent(folderId ?? 'root'), pageIndex, maxPage);
+      controlRow.addComponents(...paginationRow.components);
     }
-    
-    // 如果控制列上有任何按鈕，且總元件列數小於 5，則將其加入
     if (controlRow.components.length > 0 && components.length < 5) {
-        components.push(controlRow);
+      components.push(controlRow);
+      console.log(`[DEBUG] Added control row for folderId: ${folderId || 'root'}, page: ${page}`);
     }
-    // --- 【修改結束】 ---
 
     await safeInteractionReply(interaction, null, { embeds: [embed], components });
+    console.log(`[DEBUG] showFolderContents replied successfully, ephemeral: ${interaction.ephemeral}`);
   } catch (error) {
-    console.error(`[ERROR] showFolderContents failed: ${error.message}`);
+    console.error(`[ERROR] showFolderContents failed: ${error.message}, folderId: ${folderId}`);
     await safeInteractionReply(interaction, `❌ 無法顯示資料夾內容：${error.message}`, { embeds: [], components: [] });
   }
 }
@@ -211,6 +221,7 @@ module.exports = {
   ],
 
   async autocomplete(interaction) {
+    console.log(`[DEBUG] Autocomplete triggered for value: ${interaction.options.getFocused()}`);
     if (interaction.options.getSubcommand() === 'list') {
       const focused = interaction.options.getFocused();
       try {
@@ -223,8 +234,9 @@ module.exports = {
   },
 
   async run(client, interaction) {
+    console.log(`[DEBUG] Library command run: subcommand=${interaction.options.getSubcommand()}, user=${interaction.user.tag}, ephemeral: true`);
     try {
-   await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ ephemeral: true });
       const subcommand = interaction.options.getSubcommand();
 
       switch (subcommand) {
@@ -274,6 +286,7 @@ module.exports = {
   },
 
   async handleButton(interaction) {
+    console.log(`[DEBUG] handleButton triggered - customId: ${interaction.customId}, ephemeral: ${interaction.ephemeral}`);
     try {
       if (!interaction.isButton()) {
         return safeInteractionReply(interaction, '❌ 無效的交互類型！');
@@ -282,25 +295,34 @@ module.exports = {
         return safeInteractionReply(interaction, '❌ 此交互已超時，請重新執行 `/library browse` 指令！', { components: [] });
       }
 
-      await interaction.deferUpdate();
+      await interaction.deferUpdate().catch(err => {
+        console.error(`[ERROR] deferUpdate failed: ${err.message}`);
+        throw new Error(`Defer update failed: ${err.message}`);
+      });
+      console.log(`[DEBUG] deferUpdate successful for customId: ${interaction.customId}`);
 
       const parts = interaction.customId.split('|');
       if (parts.length !== 5 || parts[0] !== 'library') {
+        console.error(`[ERROR] Invalid customId format: ${interaction.customId}`);
         return safeInteractionReply(interaction, '❌ 無效的按鈕操作！');
       }
 
       const [prefix, type, identifierRaw, pageStr, action] = parts;
-      const identifier = decodeURIComponent(identifierRaw);
+      let identifier;
+      try {
+        identifier = decodeURIComponent(identifierRaw);
+      } catch (err) {
+        console.error(`[ERROR] decodeURIComponent failed: ${err.message}`);
+        return safeInteractionReply(interaction, '❌ 無效的按鈕資料！');
+      }
       let pageIndex = parseInt(pageStr, 10) || 0;
 
-      // --- 【修改處 2】處理「回到根目錄」的點擊事件 ---
       if (type === 'folder-nav' && action === 'enter') {
-        // 新增這行，將 'root' 識別碼轉換為 null，以便 showFolderContents 正確處理
         const targetFolderId = identifier === 'root' ? null : identifier;
+        console.log(`[DEBUG] Navigating to folder: ${targetFolderId || 'root'}`);
         await showFolderContents(interaction, targetFolderId, 1);
         return;
       }
-      // --- 【修改結束】 ---
 
       if (type === 'search') {
         if (action === 'next') pageIndex++;
@@ -326,13 +348,15 @@ module.exports = {
         pageIndex = Math.max(0, pageIndex);
 
         const folderId = identifier === 'root' ? null : identifier;
+        console.log(`[DEBUG] Folder pagination: folderId=${folderId || 'root'}, page=${pageIndex + 1}`);
         await showFolderContents(interaction, folderId, pageIndex + 1);
         return;
       }
-      
+
+      console.error(`[ERROR] Unknown button type: ${type}`);
       await safeInteractionReply(interaction, '❌ 未知的按鈕操作！', { embeds: [], components: [] });
     } catch (error) {
-      console.error(`[ERROR] handleButton failed: ${error.message}`);
+      console.error(`[ERROR] handleButton failed: ${error.message}, customId: ${interaction.customId}`);
       await safeInteractionReply(interaction, `❌ 操作時發生錯誤：${error.message}`, { embeds: [], components: [] });
     }
   },
