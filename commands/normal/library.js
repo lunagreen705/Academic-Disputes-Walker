@@ -71,78 +71,78 @@ async function getCachedSearchResults(keyword) {
 
 // --- 核心顯示函式 (保留在指令檔中，以便存取快取) ---
 async function showFolderContents(interaction, folderId, page = 1) {
-  const subfolders = await getCachedFolders(folderId);
-  const books = await getCachedBooksInFolder(folderId);
+    const subfolders = await getCachedFolders(folderId);
+    const books = await getCachedBooksInFolder(folderId);
 
-  const combinedItems = [
-    ...subfolders.map(f => ({ type: 'folder', data: f })),
-    ...books.map(b => ({ type: 'book', data: b })),
-  ];
-  
-  const totalItems = combinedItems.length;
-  const maxPage = Math.max(1, Math.ceil(totalItems / BOOKSPAGE));
-  
-  page = Math.max(1, Math.min(page, maxPage));
-  const pageIndex = page - 1;
+    const combinedItems = [
+        ...subfolders.map(f => ({ type: 'folder', data: f })),
+        ...books.map(b => ({ type: 'book', data: b })),
+    ];
+    
+    const totalItems = combinedItems.length;
+    const maxPage = Math.max(1, Math.ceil(totalItems / BOOKSPAGE));
+    
+    page = Math.max(1, Math.min(page, maxPage));
+    const pageIndex = page - 1;
 
-  const pageItems = combinedItems.slice(pageIndex * BOOKSPAGE, (pageIndex + 1) * BOOKSPAGE);
+    // pageItems 是當前頁面要顯示的項目 (最多10個)
+    const pageItems = combinedItems.slice(pageIndex * BOOKSPAGE, (pageIndex + 1) * BOOKSPAGE);
 
-  const embed = new EmbedBuilder()
-    .setTitle(folderId ? `📁 資料夾內容` : '📚 圖書館根目錄')
-    .setDescription(`共 ${subfolders.length} 個子資料夾，${books.length} 本書籍。\n目前顯示第 ${page} / ${maxPage} 頁`)
-    .setColor('#5865F2')
-    .setFooter({ text: `資料夾ID: ${folderId || 'root'}` });
+    const embed = new EmbedBuilder()
+        .setTitle(folderId ? `📁 資料夾內容` : '📚 圖書館根目錄')
+        .setDescription(`共 ${subfolders.length} 個子資料夾，${books.length} 本書籍。\n目前顯示第 ${page} / ${maxPage} 頁`)
+        .setColor('#5865F2')
+        .setFooter({ text: `資料夾ID: ${folderId || 'root'}` });
 
-  if (pageItems.length === 0) {
-    embed.addFields({ name: '空空如也', value: '這個資料夾中沒有任何項目。' });
-  } else {
-    for (const item of pageItems) {
-      if (item.type === 'folder') {
-        embed.addFields({
-          name: `📁 資料夾：${item.data.name}`,
-          value: `點擊下方同名按鈕進入此資料夾。`,
-          inline: false,
-        });
-      } else if (item.type === 'book') {
-        const bookData = item.data;
-        const downloadLink = bookData.webContentLink || bookData.webViewLink;
-        embed.addFields({
-          name: `📖 書籍：${bookData.name}`,
-          value: `[在瀏覽器中開啟](${bookData.webViewLink}) | [下載](${downloadLink})`,
-          inline: false,
-        });
-      }
-    }
-  }
+    // 建立 embed 內容 (這部分邏輯不變)
+    if (pageItems.length === 0) {
+        embed.addFields({ name: '空空如也', value: '這個資料夾中沒有任何項目。' });
+    } else {
+        for (const item of pageItems) {
+            if (item.type === 'folder') {
+                embed.addFields({ name: `📁 資料夾：${item.data.name}`, value: `點擊下方同名按鈕進入此資料夾。`, inline: false });
+            } else if (item.type === 'book') {
+                const bookData = item.data;
+                const downloadLink = bookData.webContentLink || bookData.webViewLink;
+                embed.addFields({ name: `📖 書籍：${bookData.name}`, value: `[在瀏覽器中開啟](${bookData.webViewLink}) | [下載](${downloadLink})`, inline: false });
+            }
+        }
+    }
 
-  const components = [];
+    const components = [];
 
-  // --- 【關鍵修正】---
-  // 將資料夾按鈕分行，每行最多5個，總共最多顯示 25 個 (5行)
-  const subfoldersToShow = subfolders.slice(0, 25);
-  for (let i = 0; i < subfoldersToShow.length; i += 5) {
-      const row = new ActionRowBuilder();
-      const chunk = subfoldersToShow.slice(i, i + 5); // 取得 5 個資料夾的一組
-      
-      chunk.forEach(folder => {
-          row.addComponents(
-              new ButtonBuilder()
-                  .setCustomId(`library_folder-nav_${folder.id}_0_enter`)
-                  .setLabel(folder.name.length > 20 ? folder.name.slice(0, 17) + '...' : folder.name)
-                  .setStyle(ButtonStyle.Success)
-                  .setEmoji('📁')
-          );
-      });
-      components.push(row); // 將這一排按鈕加入到 components 陣列
-  }
-  
-  // 分頁按鈕
-  if (totalItems > BOOKSPAGE) {
-    const paginationRow = createPaginationRow('folder', encodeURIComponent(folderId ?? 'root'), pageIndex, maxPage);
-    components.push(paginationRow);
-  }
+    // --- 【全新邏輯】 ---
+    // 1. 過濾出當前頁面上的所有資料夾
+    const foldersOnPage = pageItems.filter(item => item.type === 'folder');
 
-  await interaction.editReply({ embeds: [embed], components });
+    // 2. 為這些資料夾建立按鈕，並自動分行
+    if (foldersOnPage.length > 0) {
+        for (let i = 0; i < foldersOnPage.length; i += 5) {
+            const row = new ActionRowBuilder();
+            const chunk = foldersOnPage.slice(i, i + 5);
+            
+            chunk.forEach(folderItem => {
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`library_folder-nav_${folderItem.data.id}_0_enter`)
+                        .setLabel(folderItem.data.name.length > 20 ? folderItem.data.name.slice(0, 17) + '...' : folderItem.data.name)
+                        .setStyle(ButtonStyle.Success)
+                        .setEmoji('📁')
+                );
+            });
+            components.push(row);
+        }
+    }
+    
+    // 3. 加入翻頁按鈕
+    if (totalItems > BOOKSPAGE) {
+        if (components.length < 5) { // 確保總排數不超過5
+            const paginationRow = createPaginationRow('folder', encodeURIComponent(folderId ?? 'root'), pageIndex, maxPage);
+            components.push(paginationRow);
+        }
+    }
+
+    await interaction.editReply({ embeds: [embed], components });
 }
 // --- 指令主體 ---
 module.exports = {
