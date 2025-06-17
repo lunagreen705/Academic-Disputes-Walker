@@ -1,6 +1,9 @@
 const { google } = require('googleapis');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const fs = require('fs');
+// 在檔案頂部定義快取
+const parentCache = new Map();
+const PARENT_CACHE_TTL = 1000 * 60 * 30; // 30 分鐘
 
 // 從 Secret Manager 讀取並解析 Google Service Account 的憑證
 const data = fs.readFileSync('/etc/secrets/GOOGLE_SERVICE_ACCOUNT_JSON', 'utf8');
@@ -96,22 +99,20 @@ async function listBooksAtLevel(folderId) {
 }
 
 /**
- * 使用 Google Drive 的搜尋功能來尋找書籍，涵蓋整個資料夾結構。
+ * 使用 Google Drive 的搜尋功能，搜尋整個圖書館資料夾結構中的電子書。
  * @param {string} keyword - 搜尋的關鍵字。
- * @returns {Promise<Array<Object>>} 搜尋結果的書籍列表。
+ * @returns {Promise<Array<Object>>} 搜尋結果的電子書列表。
  */
 async function searchBooks(keyword) {
   try {
-    // 轉義關鍵字中的特殊字符
-    const safeKeyword = keyword.replace(/'/g, "\\'").replace(/"/g, '\\"').trim();
-    if (!safeKeyword) {
-      console.warn(`[WARN] Empty keyword provided for searchBooks`);
+    if (typeof keyword !== 'string' || !keyword?.trim()) {
+      console.warn(`[WARN] Invalid or empty keyword provided for searchBooks: ${keyword}`);
       return [];
     }
 
+    const safeKeyword = keyword.trim().replace(/'/g, "\\'").replace(/"/g, '\\"');
     console.log(`[DEBUG] Executing searchBooks with keyword: ${safeKeyword}`);
 
-    // 使用 name contains 搜尋檔案名稱
     const res = await drive.files.list({
       q: `name contains '${safeKeyword}' and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
       fields: 'files(id, name, webViewLink, webContentLink, mimeType, parents)',
@@ -121,7 +122,6 @@ async function searchBooks(keyword) {
     const files = res.data.files || [];
     const validFiles = [];
 
-    // 快取父資料夾檢查結果
     async function isInLibraryFolder(fileId) {
       const cacheKey = fileId;
       if (parentCache.has(cacheKey) && (Date.now() - parentCache.get(cacheKey).timestamp) < PARENT_CACHE_TTL) {
@@ -152,11 +152,14 @@ async function searchBooks(keyword) {
       }
     }
 
-    // 過濾檔案
     for (const file of files) {
       if (isSupportedFile(file.name) && await isInLibraryFolder(file.id)) {
         validFiles.push({
-          ...file,
+          id: file.id,
+          name: file.name,
+          webViewLink: file.webViewLink,
+          webContentLink: file.webContentLink,
+          mimeType: file.mimeType,
           downloadLink: file.webContentLink || file.webViewLink || null,
         });
       }
@@ -165,11 +168,10 @@ async function searchBooks(keyword) {
     console.log(`[DEBUG] searchBooks found ${validFiles.length} files for keyword: ${safeKeyword}`);
     return validFiles;
   } catch (error) {
-    console.error(`[ERROR] searchBooks failed: ${error.message}, keyword: ${safeKeyword}`);
+    console.error(`[ERROR] searchBooks failed: ${error.message}, keyword: ${keyword ?? 'undefined'}`);
     throw new Error(`搜尋書籍失敗: ${error.message}`);
   }
 }
-
 /**
  * 從整個圖書館隨機選取一本書。
  * 注意：此函式依賴較慢的遞迴函式，因為需要統計「所有」書籍。
