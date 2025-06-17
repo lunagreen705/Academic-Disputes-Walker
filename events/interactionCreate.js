@@ -16,28 +16,36 @@ module.exports = async (client, interaction) => {
     const languageFile = path.join(__dirname, `../languages/${config.language}.js`);
     const lang = require(languageFile);
 
-    // ✅ 處理按鈕互動
-    if (interaction.isButton()) {
-      const customId = interaction.customId;
+// ✅ 處理按鈕互動
+if (interaction.isButton()) {
+  const customId = interaction.customId;
+  console.log(`[DEBUG] Button interaction received with customId: ${customId}`); // 添加日誌
 
-      // 將 "library_" 開頭的按鈕轉交給 library 指令的 handleButton 處理
-      if (customId.startsWith("library_")) {
-        const libraryCommand = client.commands.find(cmd => cmd.name === "library");
-        if (libraryCommand && typeof libraryCommand.handleButton === "function") {
-          try {
-            await libraryCommand.handleButton(interaction);
-          } catch (e) {
-            console.error("❌ library handleButton 在 interactionCreate 中發生錯誤:", e);
-            if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ content: "❌ 處理按鈕時發生嚴重錯誤", ephemeral: true }).catch(console.error);
-            } else {
-                await interaction.editReply({ content: "❌ 處理按鈕時發生嚴重錯誤", embeds: [], components: [] }).catch(console.error);
-            }
-          }
-        }
-        return;
-      }
-    }
+  // 將 "library|" 開頭的按鈕轉交給 library 指令的 handleButton 處理
+  if (customId.startsWith("library|")) {
+    const libraryCommand = client.commands.find(cmd => cmd.name === "library");
+    if (libraryCommand && typeof libraryCommand.handleButton === "function") {
+      try {
+        await libraryCommand.handleButton(interaction);
+      } catch (e) {
+        console.error(`❌ library handleButton 在 interactionCreate 中發生錯誤: ${e.stack || e}`);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({ content: "❌ 處理按鈕時發生嚴重錯誤", ephemeral: true }).catch(console.error);
+        } else {
+          await interaction.editReply({ content: "❌ 處理按鈕時發生嚴重錯誤", embeds: [], components: [] }).catch(console.error);
+        }
+      }
+    } else {
+      console.error(`[ERROR] Library command or handleButton not found for customId: ${customId}`);
+      await interaction.reply({ content: "❌ 找不到按鈕處理程式", ephemeral: true }).catch(console.error);
+    }
+    return;
+  } else {
+    console.warn(`[WARN] Unhandled button interaction with customId: ${customId}`);
+    await interaction.reply({ content: "❌ 未識別的按鈕操作", ephemeral: true }).catch(console.error);
+    return;
+  }
+}
 
     // ✅ 自動補全（Autocomplete）處理
     if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
