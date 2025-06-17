@@ -15,45 +15,73 @@ const {
 
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
-// 簡易快取物件 (可視需求換成更專業快取)
 const cache = {
   folders: null,
+  foldersLastFetched: 0,
+
   folderBooks: new Map(), // key: folderId, value: books[]
+  folderBooksLastFetched: new Map(), // key: folderId, value: timestamp
+
   searchResults: new Map(), // key: keyword, value: results[]
+  searchResultsLastFetched: new Map(), // key: keyword, value: timestamp
+
   cacheTTL: 1000 * 60 * 5, // 5分鐘
-  lastFetched: 0,
 };
 
-function isCacheValid() {
-  return (Date.now() - cache.lastFetched) < cache.cacheTTL;
+function isCacheValid(lastFetched) {
+  return (Date.now() - lastFetched) < cache.cacheTTL;
 }
 
-async function getCachedFolders() {
-  if (cache.folders && isCacheValid()) return cache.folders;
-  const folders = await listSubfolders();
-  cache.folders = folders;
-  cache.lastFetched = Date.now();
+async function getCachedFolders(parentId = null) {
+  // parentId null 表示根資料夾
+  if (cache.folders && isCacheValid(cache.foldersLastFetched) && !parentId) return cache.folders;
+  const folders = await listSubfolders(parentId);
+  if (!parentId) {
+    cache.folders = folders;
+    cache.foldersLastFetched = Date.now();
+  }
   return folders;
 }
 
 async function getCachedBooksInFolder(folderId) {
-  if (cache.folderBooks.has(folderId) && isCacheValid()) {
+  if (
+    cache.folderBooks.has(folderId) &&
+    isCacheValid(cache.folderBooksLastFetched.get(folderId) ?? 0)
+  ) {
     return cache.folderBooks.get(folderId);
   }
   const books = await listBooksInFolder(folderId);
   cache.folderBooks.set(folderId, books);
-  cache.lastFetched = Date.now();
+  cache.folderBooksLastFetched.set(folderId, Date.now());
   return books;
 }
 
 async function getCachedSearchResults(keyword) {
-  if (cache.searchResults.has(keyword) && isCacheValid()) {
+  if (
+    cache.searchResults.has(keyword) &&
+    isCacheValid(cache.searchResultsLastFetched.get(keyword) ?? 0)
+  ) {
     return cache.searchResults.get(keyword);
   }
   const results = await searchBooks(keyword);
   cache.searchResults.set(keyword, results);
-  cache.lastFetched = Date.now();
+  cache.searchResultsLastFetched.set(keyword, Date.now());
   return results;
+}
+
+function createPaginationRow(type, identifier, page, maxPage) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`library_${type}_${identifier}_${page}_prev`)
+      .setLabel('上一頁')
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(page <= 0),
+    new ButtonBuilder()
+      .setCustomId(`library_${type}_${identifier}_${page}_next`)
+      .setLabel('下一頁')
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(page >= maxPage - 1),
+  );
 }
 
 module.exports = {
@@ -63,7 +91,7 @@ module.exports = {
     { name: 'categories', description: '列出所有分類', type: 1 },
     {
       name: 'list',
-      description: '列出指定分類書籍',
+      description: '列出指定分類或子資料夾書籍',
       type: 1,
       options: [
         {
@@ -77,6 +105,12 @@ module.exports = {
           name: 'page',
           description: '頁碼，從1開始',
           type: 4,
+          required: false,
+        },
+        {
+          name: 'parent_id', // 新增選項：指定父資料夾ID來支援多層
+          description: '父資料夾ID（用於多層瀏覽）',
+          type: 3,
           required: false,
         },
       ],
@@ -126,14 +160,21 @@ module.exports = {
       let page = interaction.options.getInteger('page') || 1;
       page = page < 1 ? 1 : page;
 
-      const folders = await getCachedFolders();
+      const parentId = interaction.options.getString('parent_id') || null;
+
+      // 先取得指定父資料夾下的子資料夾
+      const folders = await getCachedFolders(parentId);
+
+      // 先嘗試在該父資料夾中找分類名稱對應的資料夾
       const folder = folders.find(f => f.name.toLowerCase() === categoryName.toLowerCase());
 
       if (!folder) {
         return interaction.reply({ content: `❌ 找不到分類「${categoryName}」`, ephemeral: true });
       }
 
+      // 取得此分類資料夾下的書籍
       const books = await getCachedBooksInFolder(folder.id);
+
       if (books.length === 0) {
         return interaction.reply({ content: `📂 分類「${categoryName}」目前沒有書籍`, ephemeral: true });
       }
@@ -141,30 +182,17 @@ module.exports = {
       const maxPage = Math.ceil(books.length / BOOKSPAGE);
       if (page > maxPage) page = maxPage;
 
-      // 內部頁碼 0基底
       const pageIndex = page - 1;
 
       const embed = createPaginatedEmbed(categoryName, books, pageIndex);
 
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`library_list_${folder.id}_${pageIndex}_prev`)
-          .setLabel('上一頁')
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(pageIndex <= 0),
-        new ButtonBuilder()
-          .setCustomId(`library_list_${folder.id}_${pageIndex}_next`)
-          .setLabel('下一頁')
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(pageIndex >= maxPage - 1),
-      );
+      const row = createPaginationRow('list', folder.id, pageIndex, maxPage);
 
       return interaction.reply({ embeds: [embed], components: [row] });
     }
 
     if (subcommand === 'search') {
       const keywordRaw = interaction.options.getString('keyword');
-      // 對 customId 編碼，避免解析錯亂
       const keyword = encodeURIComponent(keywordRaw);
 
       let page = interaction.options.getInteger('page') || 1;
@@ -182,18 +210,7 @@ module.exports = {
 
       const embed = createSearchResultEmbed(keywordRaw, results, pageIndex);
 
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`library_search_${keyword}_${pageIndex}_prev`)
-          .setLabel('上一頁')
-          .setStyle(ButtonStyle.Success)
-          .setDisabled(pageIndex <= 0),
-        new ButtonBuilder()
-          .setCustomId(`library_search_${keyword}_${pageIndex}_next`)
-          .setLabel('下一頁')
-          .setStyle(ButtonStyle.Success)
-          .setDisabled(pageIndex >= maxPage - 1),
-      );
+      const row = createPaginationRow('search', keyword, pageIndex, maxPage);
 
       return interaction.reply({ embeds: [embed], components: [row] });
     }
@@ -221,17 +238,17 @@ module.exports = {
       let page = parseInt(pageStr, 10);
       if (isNaN(page)) page = 0;
 
-      // 解碼搜尋關鍵字（identifier可能是encodeURIComponent後的字串）
       const identifier = decodeURIComponent(identifierRaw);
 
       if (direction === 'next') page++;
       else if (direction === 'prev') page--;
 
-      // 分頁頁碼限制下界
       page = page < 0 ? 0 : page;
 
       if (type === 'list') {
-        const folders = await getCachedFolders();
+        // 這邊你可以改成支援 parentId，方便支援子資料夾更多層
+        const folders = await getCachedFolders(null); // 根資料夾快取
+        // 直接用 id 找 folder（有需要可以改成支援多層快取）
         const folder = folders.find(f => f.id === identifier);
         if (!folder) return interaction.reply({ content: '❌ 找不到該分類', ephemeral: true });
 
@@ -242,19 +259,7 @@ module.exports = {
         page = page >= maxPage ? maxPage - 1 : page;
 
         const embed = createPaginatedEmbed(folder.name, books, page);
-
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`library_list_${identifier}_${page}_prev`)
-            .setLabel('上一頁')
-            .setStyle(ButtonStyle.Primary)
-            .setDisabled(page <= 0),
-          new ButtonBuilder()
-            .setCustomId(`library_list_${identifier}_${page}_next`)
-            .setLabel('下一頁')
-            .setStyle(ButtonStyle.Primary)
-            .setDisabled(page >= maxPage - 1),
-        );
+        const row = createPaginationRow('list', identifier, page, maxPage);
 
         return interaction.update({ embeds: [embed], components: [row] });
       }
@@ -267,24 +272,11 @@ module.exports = {
         page = page >= maxPage ? maxPage - 1 : page;
 
         const embed = createSearchResultEmbed(identifier, results, page);
-
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`library_search_${encodeURIComponent(identifier)}_${page}_prev`)
-            .setLabel('上一頁')
-            .setStyle(ButtonStyle.Success)
-            .setDisabled(page <= 0),
-          new ButtonBuilder()
-            .setCustomId(`library_search_${encodeURIComponent(identifier)}_${page}_next`)
-            .setLabel('下一頁')
-            .setStyle(ButtonStyle.Success)
-            .setDisabled(page >= maxPage - 1),
-        );
+        const row = createPaginationRow('search', encodeURIComponent(identifier), page, maxPage);
 
         return interaction.update({ embeds: [embed], components: [row] });
       }
     } catch (error) {
-      // 錯誤處理，防止DiscordAPIError崩潰
       console.error('library handleButton error:', error);
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({ content: '❌ 操作失敗，請稍後再試', ephemeral: true });

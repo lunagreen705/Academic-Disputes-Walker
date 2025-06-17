@@ -13,7 +13,7 @@ const drive = google.drive({ version: 'v3', auth });
 
 const LIBRARY_FOLDER_ID = '1NNbsjeQZrG8MQABXwf8nqaIHgRtO4_sY';
 const BOOKSPAGE = 10;
-const SUPPORTED_EXTENSIONS = ['pdf', 'epub', 'mobi', 'azw3', 'txt', 'doc', 'docx', 'odt', 'rtf', 'html', 'md','xslx','jpg'];
+const SUPPORTED_EXTENSIONS = ['pdf', 'epub', 'mobi', 'azw3', 'txt', 'doc', 'docx', 'odt', 'rtf', 'html', 'md','xlsx','jpg'];
 
 function isSupportedFile(fileName) {
   const ext = fileName.split('.').pop().toLowerCase();
