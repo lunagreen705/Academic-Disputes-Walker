@@ -265,71 +265,72 @@ module.exports = {
     }
   },
 
-  async handleButton(interaction) {
-    console.log(`[DEBUG] ${new Date().toISOString()} - handleButton triggered - customId: ${interaction.customId}`);
-    try {
-      if (!interaction.isButton()) {
-        console.error(`[ERROR] Non-button interaction: ${interaction.type}`);
-        return safeInteractionReply(interaction, '❌ 無效的交互類型！');
-      }
-      if (Date.now() - interaction.message.createdTimestamp > 15 * 60 * 1000) {
-        console.error(`[ERROR] Interaction timed out: ${interaction.customId}`);
-        return safeInteractionReply(interaction, '❌ 此交互已超時，請重新執行 `/library browse` 指令！');
-      }
-      await interaction.deferUpdate();
-      console.log(`[DEBUG] deferUpdate successful for customId: ${interaction.customId}`);
-
-      const parts = interaction.customId.split('|');
-      console.log(`[DEBUG] Parsed customId parts: ${JSON.stringify(parts)}`);
-      if (parts.length !== 5 || parts[0] !== 'library') {
-        console.error(`[ERROR] Invalid customId format: ${interaction.customId}`);
-        return safeInteractionReply(interaction, '❌ 無效的按鈕操作！');
-      }
-
-      const [prefix, type, identifierRaw, pageStr, action] = parts;
-      const identifier = decodeURIComponent(identifierRaw);
-      let pageIndex = parseInt(pageStr, 10) || 0;
-
-      if (type === 'folder-nav' && action === 'enter') {
-        console.log(`[DEBUG] Navigating to folder: ${identifier}`);
-        await showFolderContents(interaction, identifier, 1);
-        return;
-      }
-
-      if (type === 'search') {
-        if (action === 'next') pageIndex++;
-        else if (action === 'prev') pageIndex--;
-
-        const keyword = identifier;
-        console.log(`[DEBUG] Search pagination: keyword=${keyword}, pageIndex=${pageIndex}`);
-        const results = await getCachedSearchResults(keyword);
-        if (!results.length) {
-          return safeInteractionReply(interaction, '🔍 搜尋結果已過期或不存在', { components: [] });
-        }
-        const maxPage = Math.ceil(results.length / 10);
-        pageIndex = Math.max(0, Math.min(pageIndex, maxPage - 1));
-        const embed = createSearchResultEmbed(keyword, results, pageIndex);
-        const row = createPaginationRow('search', encodeURIComponent(keyword), pageIndex, maxPage);
-        await safeInteractionReply(interaction, null, { embeds: [embed], components: [row] });
-        return;
-      }
-
-      if (type === 'folder') {
-        if (action === 'next') pageIndex++;
-        else if (action === 'prev') pageIndex--;
-
-        const folderId = identifier === 'root' ? null : identifier;
-        const page = pageIndex + 1;
-        console.log(`[DEBUG] Folder pagination: folderId=${folderId}, page=${page}`);
-        await showFolderContents(interaction, folderId, page);
-        return;
-      }
-
-      console.error(`[ERROR] Unknown button type: ${type}`);
-      await safeInteractionReply(interaction, '❌ 未知的按鈕操作！', { embeds: [], components: [] });
-    } catch (error) {
-      console.error(`[ERROR] handleButton failed: ${error.message}`);
-      await safeInteractionReply(interaction, `❌ 操作時發生錯誤：${error.message}`, { embeds: [], components: [] });
+async handleButton(interaction) {
+  console.log(`[DEBUG] ${new Date().toISOString()} - handleButton triggered - customId: ${interaction.customId}`);
+  try {
+    if (!interaction.isButton()) {
+      console.error(`[ERROR] Non-button interaction: ${interaction.type}`);
+      return safeInteractionReply(interaction, '❌ 無效的交互類型！');
     }
-  },
+    // 暫時禁用超時檢查以測試
+    // if (Date.now() - interaction.message.createdTimestamp > 15 * 60 * 1000) {
+    //   console.error(`[ERROR] Interaction timed out: ${interaction.customId}`);
+    //   return safeInteractionReply(interaction, '❌ 此交互已超時，請重新執行 `/library browse` 指令！');
+    // }
+    await interaction.deferUpdate();
+    console.log(`[DEBUG] deferUpdate successful for customId: ${interaction.customId}`);
+
+    const parts = interaction.customId.split('|');
+    console.log(`[DEBUG] Parsed customId parts: ${JSON.stringify(parts)}`);
+    if (parts.length !== 5 || parts[0] !== 'library') {
+      console.error(`[ERROR] Invalid customId format: ${interaction.customId}`);
+      return safeInteractionReply(interaction, '❌ 無效的按鈕操作！');
+    }
+
+    const [prefix, type, identifierRaw, pageStr, action] = parts;
+    const identifier = decodeURIComponent(identifierRaw);
+    let pageIndex = parseInt(pageStr, 10) || 0;
+    console.log(`[DEBUG] Parsed: type=${type}, identifier=${identifier}, pageIndex=${pageIndex}, action=${action}`);
+
+    if (type === 'folder-nav' && action === 'enter') {
+      console.log(`[DEBUG] Navigating to folder: ${identifier}`);
+      await showFolderContents(interaction, identifier, 1);
+      return;
+    }
+
+    if (type === 'search') {
+      if (action === 'next') pageIndex++;
+      else if (action === 'prev') pageIndex--;
+      pageIndex = Math.max(0, pageIndex);
+      console.log(`[DEBUG] Search pagination: keyword=${identifier}, pageIndex=${pageIndex}`);
+      const keyword = identifier;
+      const results = await getCachedSearchResults(keyword);
+      if (!results.length) {
+        return safeInteractionReply(interaction, '🔍 搜尋結果已過期或不存在', { components: [] });
+      }
+      const maxPage = Math.ceil(results.length / 10);
+      pageIndex = Math.max(0, Math.min(pageIndex, maxPage - 1));
+      const embed = createSearchResultEmbed(keyword, results, pageIndex);
+      const row = createPaginationRow('search', encodeURIComponent(keyword), pageIndex, maxPage);
+      await safeInteractionReply(interaction, null, { embeds: [embed], components: [row] });
+      return;
+    }
+
+    if (type === 'folder') {
+      if (action === 'next') pageIndex++;
+      else if (action === 'prev') pageIndex--;
+      pageIndex = Math.max(0, pageIndex);
+      console.log(`[DEBUG] Folder pagination: folderId=${identifier}, page=${pageIndex + 1}`);
+      const folderId = identifier === 'root' ? null : identifier;
+      await showFolderContents(interaction, folderId, pageIndex + 1);
+      return;
+    }
+
+    console.error(`[ERROR] Unknown button type: ${type}`);
+    await safeInteractionReply(interaction, '❌ 未知的按鈕操作！', { embeds: [], components: [] });
+  } catch (error) {
+    console.error(`[ERROR] handleButton failed: ${error.message}`);
+    await safeInteractionReply(interaction, `❌ 操作時發生錯誤：${error.message}`, { embeds: [], components: [] });
+  }
+},
 };

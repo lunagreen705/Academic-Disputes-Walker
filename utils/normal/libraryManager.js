@@ -143,19 +143,19 @@ function createPaginatedEmbed(categoryName, files, page = 0) {
     return embed;
 }
 
-function createPaginationRow(currentPage, totalPage, customIdPrefix) {
-    return new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId(`${customIdPrefix}_prev_${currentPage}`)
-            .setLabel('⬅️ 上一頁')
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(currentPage === 0),
-        new ButtonBuilder()
-            .setCustomId(`${customIdPrefix}_next_${currentPage}`)
-            .setLabel('➡️ 下一頁')
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(currentPage >= totalPage - 1),
-    );
+function createPaginationRow(type, identifier, currentPage, totalPage) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`library|${type}|${identifier}|${currentPage}|prev`)
+      .setLabel('⬅️ 上一頁')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(currentPage === 0),
+    new ButtonBuilder()
+      .setCustomId(`library|${type}|${identifier}|${currentPage}|next`)
+      .setLabel('➡️ 下一頁')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(currentPage >= totalPage - 1),
+  );
 }
 
 function createCategoryListEmbed(folders) {
