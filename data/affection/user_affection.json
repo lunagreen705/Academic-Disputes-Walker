@@ -1,8 +1,8 @@
 {
   "329999695390965760": {
     "affection": 12,
-    "lastGreetDate": "2025-06-16",
-    "greetCountToday": 1
+    "lastGreetDate": "2025-06-18",
+    "greetCountToday": 0
   },
   "1252333484022698014": {
     "affection": 12,
@@ -25,8 +25,8 @@
     "greetCountToday": 1
   },
   "1011155256505274418": {
-    "affection": 4,
-    "lastGreetDate": "2025-06-05",
+    "affection": 5,
+    "lastGreetDate": "2025-06-18",
     "greetCountToday": 1
   },
   "1119983125754302565": {
@@ -113,5 +113,10 @@
     "affection": 1,
     "lastGreetDate": "2025-06-16",
     "greetCountToday": 1
+  },
+  "1351815357752541187": {
+    "affection": 0,
+    "lastGreetDate": "2025-06-18",
+    "greetCountToday": 0
   }
 }
