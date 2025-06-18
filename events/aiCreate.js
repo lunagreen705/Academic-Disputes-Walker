@@ -1,4 +1,4 @@
-const { getAIResponse } = require('../utils/normal/aiManager.js');
+const { getAIResponse } = require('../utils/ai/aiManager.js');
 
 module.exports = {
   name: 'messageCreate',
