@@ -1,13 +1,14 @@
-const personaMap = new Map(); // 記錄每個 sessionId 的 persona
+const personaMap = new Map();
 
-// 設定某個 sessionId 的 persona
-function setPersona(sessionId, personaName) {
-  personaMap.set(sessionId, personaName);
+function setPersona(guildId, personaName) {
+  personaMap.set(guildId, personaName);
 }
 
-// 取得 persona，預設為 default
-function getPersona(sessionId) {
-  return personaMap.get(sessionId) || "default";
+function getPersona(guildId) {
+  return personaMap.get(guildId) || 'default';
 }
 
-module.exports = { setPersona, getPersona };
+module.exports = {
+  setPersona,
+  getPersona,
+};
