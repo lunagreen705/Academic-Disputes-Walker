@@ -1,5 +1,5 @@
 const { GoogleGenAI } = require("@google/genai");
-const { getPersona } = require("./utils/ai/personaManager");
+const { getPersona } = require("./personaManager");
 const aiConfig = require("../../data/ai/persona.json"); // 引入您的人格設定檔
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
