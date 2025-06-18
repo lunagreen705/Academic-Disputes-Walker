@@ -41,7 +41,7 @@ async function getAIResponse(rawPrompt, sessionId) {
   try {
     const result = await chat.sendMessage({
       message: prompt,
-      maxOutputTokens: 2000,
+      maxOutputTokens: aiConfig[personaName]?.maxOutputTokens || 2000
     });
 
     console.log("[AI Manager] API 回傳結果:", result);
