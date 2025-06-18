@@ -1,8 +1,8 @@
 {
   "329999695390965760": {
     "affection": 12,
-    "lastGreetDate": "2025-06-16",
-    "greetCountToday": 1
+    "lastGreetDate": "2025-06-18",
+    "greetCountToday": 0
   },
   "1252333484022698014": {
     "affection": 12,
@@ -15,18 +15,18 @@
     "greetCountToday": 1
   },
   "627912547672260629": {
-    "affection": 15,
-    "lastGreetDate": "2025-06-17",
-    "greetCountToday": 2
+    "affection": 16,
+    "lastGreetDate": "2025-06-18",
+    "greetCountToday": 1
   },
   "536441757697703937": {
-    "affection": 15,
-    "lastGreetDate": "2025-06-17",
+    "affection": 16,
+    "lastGreetDate": "2025-06-18",
     "greetCountToday": 1
   },
   "1011155256505274418": {
-    "affection": 4,
-    "lastGreetDate": "2025-06-05",
+    "affection": 5,
+    "lastGreetDate": "2025-06-18",
     "greetCountToday": 1
   },
   "1119983125754302565": {
@@ -55,8 +55,8 @@
     "greetCountToday": 2
   },
   "600320765778460673": {
-    "affection": 11,
-    "lastGreetDate": "2025-06-17",
+    "affection": 12,
+    "lastGreetDate": "2025-06-18",
     "greetCountToday": 1
   },
   "713304382892146721": {
@@ -75,8 +75,8 @@
     "greetCountToday": 1
   },
   "948982947241943070": {
-    "affection": 13,
-    "lastGreetDate": "2025-06-17",
+    "affection": 14,
+    "lastGreetDate": "2025-06-18",
     "greetCountToday": 1
   },
   "584372707706273812": {
@@ -90,8 +90,8 @@
     "greetCountToday": 1
   },
   "730558196187660300": {
-    "affection": 4,
-    "lastGreetDate": "2025-06-17",
+    "affection": 5,
+    "lastGreetDate": "2025-06-18",
     "greetCountToday": 1
   },
   "603599847412465664": {
@@ -113,5 +113,10 @@
     "affection": 1,
     "lastGreetDate": "2025-06-16",
     "greetCountToday": 1
+  },
+  "1351815357752541187": {
+    "affection": 0,
+    "lastGreetDate": "2025-06-18",
+    "greetCountToday": 0
   }
 }
