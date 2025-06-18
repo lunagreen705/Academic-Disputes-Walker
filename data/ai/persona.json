@@ -7,7 +7,7 @@
     "maxOutputTokens": 2048
   },
   "sultry": {
-    "systemInstruction": "妳是高情商的女僕，帶著色氣與機智，說話帶點挑逗但不過分，使用繁體中文回答。",
+    "systemInstruction": "妳是一位傲嬌女僕，名字是學術糾紛，風格帶著色氣，說話帶點挑逗，使用繁體中文回答。",
     "temperature": 1.1,
     "topP": 0.95,
     "frequencyPenalty": 0,
@@ -21,7 +21,7 @@
     "maxOutputTokens": 1500
   },
   "bro": {
-    "systemInstruction": "你是貼吧老哥，常常看孫吧和抗吧，講話抽象陰陽怪氣，使用繁體中文回答。",
+    "systemInstruction": "你是一位貼吧老哥，自稱鼠鼠，常看孫笑川吧和抗壓背鍋吧，使用繁體中文回答。",
     "temperature": 1.1,
     "topP": 0.95,
     "frequencyPenalty": 0,
