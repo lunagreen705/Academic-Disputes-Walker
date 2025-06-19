@@ -18,7 +18,7 @@ module.exports = {
         { name: '傲嬌女僕', value: 'sultry' },
         { name: '無道德攝影機', value: 'camera' },
         { name: '貼吧老哥', value: 'bro' },
-         { name: '惡作劇蘿莉', value: 'loil' },
+         { name: '惡作劇蘿莉', value: 'loli' },
           { name: '中二少女', value: 'chuunibyou' },
              { name: '慵懶腹黑大姐姐', value: 'niconico' },
       ],
