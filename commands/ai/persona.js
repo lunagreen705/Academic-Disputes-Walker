@@ -21,6 +21,7 @@ module.exports = {
          { name: '惡作劇蘿莉', value: 'loli' },
           { name: '中二少女', value: 'chuunibyou' },
              { name: '慵懶腹黑大姐姐', value: 'niconico' },
+            { name: '大老師', value: 'bigteacher' },
       ],
     },
   ],
