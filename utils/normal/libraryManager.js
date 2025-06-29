@@ -12,7 +12,7 @@ const credentials = JSON.parse(data);
 // 設定 Google API 認證，指定唯讀權限
 const auth = new google.auth.GoogleAuth({
   credentials,
-  scopes: ['https://www.googleapis.com/auth/drive.file'],
+  scopes: ['https://www.googleapis.com/auth/drive'],
 });
 
 // 建立 Google Drive API 客戶端
