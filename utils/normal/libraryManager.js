@@ -12,7 +12,7 @@ const credentials = JSON.parse(data);
 // 設定 Google API 認證，指定唯讀權限
 const auth = new google.auth.GoogleAuth({
   credentials,
-  scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+  scopes: ['https://www.googleapis.com/auth/drive.file'],
 });
 
 // 建立 Google Drive API 客戶端
@@ -330,6 +330,45 @@ function createRandomBookEmbed(book) {
   return embed;
 }
 
+// --- 上傳功能設定 ---
+const UPLOAD_FOLDER_ID = '1oEDFA4FeYTO9bjbhTqLxq5EZbzygwZKf';
+
+/**
+ * 上傳本地檔案至 Google Drive 圖書館指定上傳資料夾。
+ * @param {string} filePath - 本地檔案的完整路徑。
+ * @param {string} fileName - 上傳後的檔名。
+ * @returns {Promise<Object>} 上傳後的檔案資訊。
+ */
+async function uploadBook(filePath, fileName) {
+  try {
+    const fileMetadata = {
+      name: fileName,
+      parents: [UPLOAD_FOLDER_ID],
+    };
+
+    const media = {
+      mimeType: 'application/octet-stream',
+      body: fs.createReadStream(filePath),
+    };
+
+    const response = await drive.files.create({
+      resource: fileMetadata,
+      media: media,
+      fields: 'id, name, webViewLink, webContentLink',
+    });
+
+    return {
+      id: response.data.id,
+      name: response.data.name,
+      webViewLink: response.data.webViewLink,
+      webContentLink: response.data.webContentLink,
+    };
+  } catch (error) {
+    console.error(`[ERROR] Failed to upload book: ${error.message}`);
+    throw new Error(`上傳失敗：${error.message}`);
+  }
+}
+
 // --- 模組匯出 ---
 module.exports = {
   listSubfolders,
@@ -345,5 +384,7 @@ module.exports = {
   createSearchResultEmbed,
   createStatEmbed,
   createRandomBookEmbed,
+  uploadBook,
+  UPLOAD_FOLDER_ID,
   BOOKSPAGE,
 };

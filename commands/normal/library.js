@@ -10,10 +10,15 @@ const {
   createSearchResultEmbed,
   createStatEmbed,
   createRandomBookEmbed,
+  uploadBook,
   BOOKSPAGE,
 } = require('../../utils/normal/libraryManager');
 
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const fetch = require('node-fetch');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
 // 快取機制
 const cache = {
@@ -201,6 +206,19 @@ module.exports = {
     },
     { name: 'random', description: '隨機推薦一本書', type: 1 },
     { name: 'stats', description: '查看圖書館統計', type: 1 },
+    {
+      name: 'upload',
+      description: '上傳電子書到圖書館',
+      type: 1,
+      options: [
+        {
+          name: 'file',
+          description: '要上傳的電子書檔案',
+          type: 11, // ATTACHMENT
+          required: true,
+        },
+      ],
+    },
   ],
 
   async autocomplete(interaction) {
@@ -242,12 +260,8 @@ module.exports = {
           if (!results.length) {
             return safeInteractionReply(interaction, `🔍 沒有找到符合「${keyword}」的書籍`);
           }
-
-          // 【修正處】先計算 maxPage，並使用 BOOKSPAGE 常數
           const maxPage = Math.ceil(results.length / BOOKSPAGE);
-          // 【修正處】將 maxPage 和 BOOKSPAGE 傳遞給 embed 建立函式
           const embed = createSearchResultEmbed(keyword, results, 0, maxPage, BOOKSPAGE);
-          
           const components = maxPage > 1 ? [createPaginationRow('search', encodeURIComponent(keyword), 0, maxPage)] : [];
           return safeInteractionReply(interaction, null, { embeds: [embed], components });
         }
@@ -263,6 +277,46 @@ module.exports = {
           const embed = createStatEmbed(stat);
           return safeInteractionReply(interaction, null, { embeds: [embed] });
         }
+
+        case 'upload': {
+          const attachment = interaction.options.getAttachment('file');
+          if (!attachment) {
+            return safeInteractionReply(interaction, '❌ 請提供要上傳的檔案。');
+          }
+
+          // 允許的副檔名驗證
+          const ext = attachment.name.split('.').pop().toLowerCase();
+          const allowedExt = ['pdf', 'epub', 'mobi', 'azw3', 'txt', 'doc', 'docx', 'odt', 'rtf', 'html', 'md', 'xlsx', 'jpg'];
+          if (!allowedExt.includes(ext)) {
+            return safeInteractionReply(interaction, `❌ 不支援的檔案格式：.${ext}`);
+          }
+
+          try {
+            const tempFilePath = path.join(os.tmpdir(), `${Date.now()}_${attachment.name}`);
+
+            const response = await fetch(attachment.url);
+            if (!response.ok) throw new Error('下載檔案失敗');
+
+            const buffer = await response.buffer();
+            fs.writeFileSync(tempFilePath, buffer);
+
+            // 上傳到你指定的 LIBRARY_FOLDER_ID 資料夾
+            const uploadedFile = await uploadBook(tempFilePath, attachment.name);
+
+            fs.unlinkSync(tempFilePath);
+
+            return safeInteractionReply(
+              interaction,
+              `✅ 成功上傳檔案：${uploadedFile.name}\n[點此檢視](${uploadedFile.webViewLink})`
+            );
+          } catch (error) {
+            console.error(`[ERROR] Upload failed: ${error.message}`);
+            return safeInteractionReply(interaction, `❌ 上傳失敗：${error.message}`);
+          }
+        }
+
+        default:
+          return safeInteractionReply(interaction, '❌ 未知的子指令。');
       }
     } catch (error) {
       console.error(`[ERROR] Command run failed: ${error.message}`);
