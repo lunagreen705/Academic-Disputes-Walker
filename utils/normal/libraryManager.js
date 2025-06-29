@@ -355,6 +355,7 @@ async function uploadBook(filePath, fileName) {
       resource: fileMetadata,
       media: media,
       fields: 'id, name, webViewLink, webContentLink',
+      supportsAllDrives: true,
     });
 
     return {
