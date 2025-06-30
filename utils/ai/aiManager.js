@@ -27,7 +27,7 @@ setInterval(() => {
 
 async function getAIResponse(rawPrompt, sessionId) {
   // 取得該 session 的人格 key（名字）
-  const personaName = getPersona(sessionId);
+const personaName = getPersona(sessionId) || "bigteacher";
 
   // 從 aiConfig 拿該人格的系統指示
   const systemInstruction = aiConfig[personaName]?.systemInstruction || "你是一位理性且冷靜的助手，請用繁體中文回答。";

@@ -4,18 +4,53 @@ const path = require('path');
 const config = require("../../config.js");
 const musicIcons = require('../../UI/icons/musicicons.js');
 
+// 遞迴抓指令 + 附上分類（來源資料夾）
+function getCategorizedCommands(dir, category = "") {
+  let results = {};
+
+  const list = fs.readdirSync(dir);
+  for (const file of list) {
+    const fullPath = path.join(dir, file);
+    const stat = fs.statSync(fullPath);
+
+    if (stat && stat.isDirectory()) {
+      const subCategory = file;
+      const subResults = getCategorizedCommands(fullPath, subCategory);
+      for (const key in subResults) {
+        results[key] = (results[key] || []).concat(subResults[key]);
+      }
+    } else if (file.endsWith('.js')) {
+      try {
+        const command = require(fullPath);
+        if (!command.name) continue;
+
+        const cmdLine = `\`/${command.name}\` - ${command.description || "（無描述）"}`;
+        const catKey = category || "其他";
+
+        if (!results[catKey]) results[catKey] = [];
+        results[catKey].push(cmdLine);
+      } catch (err) {
+        console.warn(`⚠️ 無法載入指令：${fullPath}`);
+      }
+    }
+  }
+
+  return results;
+}
+
 module.exports = {
   name: "help",
   description: "取得機器人相關幫助",
   permissions: "0x0000000000000800",
   options: [],
+
   run: async (client, interaction, lang) => {
     try {
       const botName = client.user.username;
+      const commandsRoot = path.join(__dirname, "../");
 
-      const commandsPath = path.join(__dirname, "../commands");
-      const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-      const totalCommands = commandFiles.length;
+      const categorized = getCategorizedCommands(commandsRoot);
+      const totalCommands = Object.values(categorized).reduce((sum, cmds) => sum + cmds.length, 0);
 
       const totalServers = client.guilds.cache.size;
       const totalUsers = client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0);
@@ -45,21 +80,21 @@ module.exports = {
           .replace("{uptimeString}", uptimeString)
           .replace("{ping}", ping)
         )
-        .addFields(
-          {
-            name: lang.help.embed.availableCommands,
-            value: commandFiles.map(file => {
-              const command = require(path.join(commandsPath, file));
-              return `\`/${command.name}\` - ${command.description || lang.help.embed.noDescription}`;
-            }).join('\n') || lang.help.embed.noCommands
-          }
-        )
         .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
         .setTimestamp();
 
+      // 🔍 為每一分類加入欄位
+      for (const [category, commands] of Object.entries(categorized)) {
+        embed.addFields({
+          name: `📁 ${category}`,
+          value: commands.join('\n'),
+        });
+      }
+
       return interaction.reply({ embeds: [embed] });
+
     } catch (e) {
-      console.error(e);
+      console.error("❌ /help 錯誤：", e);
       return interaction.reply({
         content: lang.help.embed.error,
         ephemeral: true,
