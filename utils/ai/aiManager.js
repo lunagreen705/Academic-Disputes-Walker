@@ -10,7 +10,7 @@ const sessions = new Map();
 function getOrCreateSession(id) {
   let session = sessions.get(id);
   if (!session) {
-    session = ai.chats.create({ model: "gemini-2.5-flash-preview-05-20" });
+    session = ai.chats.create({ model: "gemini-2.5-pro" });
     sessions.set(id, session);
   }
   return session;

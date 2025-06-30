@@ -40,7 +40,7 @@ function setPersona(guildId, personaName) {
 
 // 取得某個伺服器的 persona，沒設定預設回 'default'
 function getPersona(guildId) {
-  return personaMap.get(guildId) || 'default';
+  return personaMap.get(guildId) || 'bigteacher';
 }
 
 // 初始化時讀取一次
