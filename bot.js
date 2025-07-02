@@ -184,31 +184,60 @@ app.get('/auth/google', (req, res) => {
   }
 });
 
-// --- 新增：Google OAuth2 回呼路由 ---
+// ===== 請用這段更新後的程式碼，替換掉您原本的 /oauth2callback 路由 =====
 app.get('/oauth2callback', async (req, res) => {
-  const { code } = req.query;
-  if (!code) {
-    console.error('[ERROR] Google OAuth2 回呼未收到授權碼。');
-    return res.status(400).send('Google OAuth2 授權失敗：未收到授權碼。');
+  console.log('\n\n============================================');
+  console.log('[DEBUG] /oauth2callback 路由已被觸發！');
+  console.log(`[DEBUG] 當前時間: ${new Date().toISOString()}`);
+
+  // 同時捕捉 Google 可能直接回傳的 error 參數
+  const { code, error: queryError } = req.query; 
+
+  if (queryError) {
+    console.error(`[DEBUG] Google 直接在網址中回傳了錯誤: ${queryError}`);
+    res.status(400).send(`Google 授權失敗，回傳錯誤: ${queryError}`);
+    return;
   }
+
+  if (!code) {
+    console.error('[DEBUG] 路由被觸發了，但是在查詢參數中找不到 "code"。');
+    res.status(400).send('Google OAuth2 授權失敗：未收到授權碼。');
+    return;
+  }
+
+  console.log(`[DEBUG] 成功從 Google 收到授權碼 (code): ${code.substring(0, 20)}...`); // 只顯示前20個字元
+  console.log('[DEBUG] 準備執行 oAuth2Client.getToken(code)...');
 
   try {
     const { tokens } = await oAuth2Client.getToken(code);
+    console.log('[DEBUG] oAuth2Client.getToken(code) 執行成功！已取得令牌。');
+    console.log(`[DEBUG] 取得的令牌資訊: access_token存在=${!!tokens.access_token}, refresh_token存在=${!!tokens.refresh_token}`);
+
     oAuth2Client.setCredentials(tokens);
+    console.log('[DEBUG] 準備執行 saveToken(tokens)...');
 
     try {
       await saveToken(tokens);
-      console.log('[INFO] Google Drive 令牌已成功獲取並儲存到 MongoDB！');
+      console.log('[DEBUG] saveToken(tokens) 執行成功！');
+      // 保留原始的成功日誌
+      console.log('[INFO] Google Drive 令牌已成功獲取並儲存到 MongoDB！'); 
       res.send('Google Drive 授權成功！令牌已儲存至資料庫。您可以關閉此頁面。');
     } catch (saveError) {
-      console.error('[ERROR] 儲存令牌至 MongoDB 失敗:', saveError);
+      console.error('[DEBUG] saveToken(tokens) 執行時發生了致命錯誤！');
+      // 保留原始的錯誤日誌
+      console.error('[ERROR] 儲存令牌至 MongoDB 失敗:', saveError); 
       res.status(500).send('令牌授權成功，但儲存令牌時發生錯誤，請檢查伺服器日誌。');
     }
   } catch (error) {
-    console.error('[ERROR] 交換 Google Drive 令牌失敗:', error);
+    console.error('[DEBUG] oAuth2Client.getToken(code) 執行時發生了致命錯誤！');
+    // 保留原始的錯誤日誌
+    console.error('[ERROR] 交換 Google Drive 令牌失敗:', error); 
     res.status(500).send(`交換 Google Drive 令牌失敗：${error.message}`);
   }
+  console.log('[DEBUG] /oauth2callback 路由執行完畢。');
+  console.log('============================================\n\n');
 });
+
 
 // 啟動伺服器
 app.listen(port, () => {
