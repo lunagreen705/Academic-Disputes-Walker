@@ -7,7 +7,7 @@ require("dotenv").config();
 const config = require("./config.js");
 const colors = require("./UI/colors/colors");
 const { initializePlayer } = require("./utils/music/player.js");
-const { connectToDatabase } = require("./utils/db/mongodb");
+const { connectToDatabase } = require("./utils/db/mongodb"); // <-- MongoDB 連線模組
 
 const deckManager = require("./utils/entertainment/deckManager");
 const affectionManager = require("./utils/entertainment/affectionManager");
@@ -15,16 +15,19 @@ const aiManager = require("./utils/ai/aiManager");
 const personaManager = require("./utils/ai/personaManager");
 const botManager = require("./utils/normal/botManager");
 const libraryManager = require('./utils/normal/libraryManager');
-const oauth2 = require('./utils/auth/oauth2.js');
 
-// ========== Google OAuth2 相關模組 ==========
+// ========== 引入 Google OAuth2 相關模組 ==========
 const { google } = require('googleapis');
-
+const { getAuth, saveToken, CLIENT_SECRET_PATH } = require('./utils/auth/oauth2.js'); // <--- 確保路徑正確
+// --------------------------------------------------
 
 
 const express = require("express");
 const app = express();
-const port = 3000;
+// ========== Express 伺服器埠號設定 ==========
+// 在 Render 上，PORT 會由環境變數提供
+const port = process.env.PORT || 3000;
+// ------------------------------------------
 
 const client = new Client({
   intents: Object.values(GatewayIntentBits),
@@ -32,7 +35,7 @@ const client = new Client({
 client.config = config;
 initializePlayer(client);
 
-// ========== 載入事件 ==========
+// ========== 載入事件 (保持不變) ==========
 
 const eventsPath = path.join(__dirname, "events");
 fs.readdir(eventsPath, (err, files) => {
@@ -63,7 +66,7 @@ fs.readdir(eventsPath, (err, files) => {
   });
 });
 
-// ========== 載入指令 ==========
+// ========== 載入指令 (保持不變) ==========
 
 client.commands = [];
 function loadCommands(dir) {
@@ -91,7 +94,7 @@ function loadCommands(dir) {
 }
 loadCommands(path.join(__dirname, config.commandsDir));
 
-// ========== Bot Ready  ==========
+// ========== Bot Ready (保持不變) ==========
 
 client.once("ready", async () => {
   console.log('\n' + '─'.repeat(40));
@@ -114,14 +117,14 @@ client.once("ready", async () => {
     console.log(`${colors.cyan}[ DECKS ]${colors.reset} ${colors.green}牌堆模組已準備就緒 ✅${colors.reset}`);
     console.log(`${colors.cyan}[ AFFECTION ]${colors.reset} ${colors.green}好感度系統已準備就緒 ✅${colors.reset}`);
     console.log(`${colors.cyan}[ AI ]${colors.reset} ${colors.green}AI模組已準備就緒 ✅${colors.reset}`);
-    console.log(`${colors.cyan}[ MANAGER ]${colors.reset} ${colors.green}管理模組已準備就緒 ✅${colors.reset}`);
+    console.log(`${colors.cyan}[ MANAGER ]${colors.reset} ${colors.green}管理模듈已準備就緒 ✅${colors.reset}`);
     console.log(`${colors.cyan}[ LIBRARY ]${colors.reset} ${colors.green}圖書模組已準備就緒 ✅${colors.reset}`);
   } catch (err) {
     console.error(`${colors.red}[ DATABASE ] MongoDB連線失敗，可能影響部分功能：${err.message}${colors.reset}`);
   }
 });
 
-// ==========  Voice Packets ==========
+// ========== Voice Packets (保持不變) ==========
 
 client.on("raw", (d) => {
   const { GatewayDispatchEvents } = require("discord.js");
@@ -129,7 +132,7 @@ client.on("raw", (d) => {
   client.riffy.updateVoiceState(d);
 });
 
-// ========== 登入 BOT ==========
+// ========== 登入 BOT (保持不變) ==========
 
 client.login(config.TOKEN || process.env.TOKEN).catch((e) => {
   console.log('\n' + '─'.repeat(40));
@@ -139,18 +142,15 @@ client.login(config.TOKEN || process.env.TOKEN).catch((e) => {
   console.log(`${colors.gray}Error: Turn On Intents or Reset New Token${colors.reset}`);
 });
 
-// ========== Express 本地伺服器 ==========
+// ========== Express 網頁伺服器（整合 OAuth2 授權路由） ==========
 
 // 讀取 client_secret.json 以便初始化 oAuth2Client
-const { getAuth, saveToken, CLIENT_SECRET_PATH } = require('./utils/auth/oauth2.js');
 const clientSecretContent = fs.readFileSync(CLIENT_SECRET_PATH, 'utf8');
 const credentials = JSON.parse(clientSecretContent);
 const { client_id, client_secret, redirect_uris } = credentials.web || credentials.installed;
-const REDIRECT_URI = redirect_uris[0];
-const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);
 
 // 確保 REDIRECT_URI 是你 Render 部署的網址，且要與 Google Cloud Console 中設定的完全一致
-
+const REDIRECT_URI = redirect_uris[0]; // 應該是 "https://academic-disputes-walker.onrender.com"
 
 // 創建 OAuth2 客戶端，用於生成授權 URL 和交換令牌
 const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);
@@ -158,78 +158,49 @@ const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_U
 // 根路徑，用於顯示基本的首頁或授權入口
 app.get("/", (req, res) => {
   const filePath = path.join(__dirname, "index.html");
-  res.sendFile(filePath, (err) => {
-    if (err) {
-      console.error('[ERROR] 發送首頁失敗:', err);
-      res.status(500).send('伺服器錯誤，無法讀取首頁。');
-    }
-  });
+  res.sendFile(filePath);
 });
 
 // --- 新增：啟動 Google OAuth2 授權流程的路由 ---
+// 當用戶訪問 https://academic-disputes-walker.onrender.com/auth/google 時觸發
 app.get('/auth/google', (req, res) => {
   const scopes = [
-    'https://www.googleapis.com/auth/drive',
-    'https://www.googleapis.com/auth/userinfo.profile',
+    'https://www.googleapis.com/auth/drive', // 請求 Google Drive 讀寫權限
+    'https://www.googleapis.com/auth/userinfo.profile', // 請求用戶基本資料，可選
   ];
 
-  try {
-    const authUrl = oAuth2Client.generateAuthUrl({
-      access_type: 'offline',
-      scope: scopes,
-      prompt: 'consent',
-    });
-    console.log(`[INFO] 請訪問以下 URL 進行授權：${authUrl}`);
-    res.send(`請訪問以下 URL 進行 Google Drive 權限授權：<a href="${authUrl}" target="_blank" rel="noopener noreferrer">點擊這裡</a>。授權完成後，此頁面會顯示成功訊息，您即可關閉。`);
-  } catch (error) {
-    console.error('[ERROR] 生成授權 URL 失敗:', error);
-    res.status(500).send('伺服器錯誤，無法生成授權 URL。');
-  }
+  const authUrl = oAuth2Client.generateAuthUrl({
+    access_type: 'offline', // 這是獲取 refresh_token 的關鍵
+    scope: scopes,
+    prompt: 'consent', // 每次都要求用戶同意，確保能拿到 refresh_token
+  });
+  console.log(`[INFO] 請訪問以下 URL 進行授權：${authUrl}`);
+  // 不再自動重定向，而是提供連結讓管理員手動點擊
+  res.send(`請訪問以下 URL 進行 Google Drive 權限授權：<a href="${authUrl}">點擊這裡</a>。授權完成後，此頁面會顯示成功訊息，您即可關閉。`);
 });
 
-// ===== 測試 A：檢查是否成功從 Google 換取到令牌 =====
-// 請用這段程式碼暫時替換掉您的 /oauth2callback 路由
+// --- 新增：Google OAuth2 回呼路由 ---
+// Google 授權成功後會重定向到 https://academic-disputes-walker.onrender.com/oauth2callback
 app.get('/oauth2callback', async (req, res) => {
-    console.log('[TEST A] /oauth2callback 路由已被觸發。');
-    const { code, error: queryError } = req.query;
+  const { code } = req.query; // Google 會將授權碼作為 'code' 參數傳回
+  if (!code) {
+    console.error('[ERROR] Google OAuth2 回呼未收到授權碼。');
+    return res.status(400).send('Google OAuth2 授權失敗：未收到授權碼。');
+  }
 
-    // 如果 Google 直接回傳錯誤，就顯示它
-    if (queryError || !code) {
-        console.error('[TEST A] Google 回傳錯誤或沒有授權碼:', queryError);
-        return res.status(400).json({
-            status: 'failed_at_start',
-            message: 'Google 回傳錯誤，或沒有收到授權碼。',
-            error: queryError
-        });
-    }
+  try {
+    // 使用授權碼交換 access_token 和 refresh_token
+    const { tokens } = await oAuth2Client.getToken(code);
+    oAuth2Client.setCredentials(tokens); // 更新 OAuth2 客戶端的憑證
 
-    try {
-        console.log('[TEST A] 準備向 Google 交換令牌...');
-        // 核心測試步驟：交換令牌
-        const { tokens } = await oAuth2Client.getToken(code);
-        console.log('[TEST A] 成功從 Google 交換到令牌！');
-
-        // !!! 最重要的一步：我們不儲存令牌，而是直接將結果顯示在瀏覽器上 !!!
-        res.status(200).json({
-            status: 'SUCCESS_GET_TOKEN',
-            message: '成功從 Google 換取到令牌！請檢查下方資料。',
-            has_access_token: !!tokens.access_token,
-            has_refresh_token: !!tokens.refresh_token, // <<-- 這個最重要！必須是 true
-            scope: tokens.scope,
-            expires_in: tokens.expiry_date
-        });
-
-    } catch (error) {
-        console.error('[TEST A] 向 Google 交換令牌時發生致命錯誤:', error);
-        // 如果交換失敗，我們也將詳細錯誤顯示在瀏覽器上
-        res.status(500).json({
-            status: 'FAILED_GET_TOKEN',
-            message: '向 Google 交換令牌時，伺服器發生了錯誤。',
-            error_message: error.message,
-            // Google 回傳的詳細錯誤通常在這裡
-            error_response: error.response?.data,
-        });
-    }
+    // 將獲取到的令牌儲存到 MongoDB
+    await saveToken(tokens);
+    console.log('[INFO] Google Drive 令牌已成功獲取並儲存到 MongoDB！');
+    res.send('Google Drive 授權成功！令牌已儲存至資料庫。您可以關閉此頁面。');
+  } catch (error) {
+    console.error('[ERROR] 交換 Google Drive 令牌失敗:', error.message);
+    res.status(500).send(`交換 Google Drive 令牌失敗：${error.message}`);
+  }
 });
 
 
@@ -239,8 +210,9 @@ app.listen(port, () => {
   console.log(`${colors.magenta}${colors.bright}🌐 SERVER STATUS${colors.reset}`);
   console.log('─'.repeat(40));
   console.log(`${colors.cyan}[ SERVER ]${colors.reset} ${colors.green}Online ✅${colors.reset}`);
-  console.log(`${colors.cyan}[ PORT ]${colors.reset} ${colors.yellow}http://localhost:${port}${colors.reset}`);
+  console.log(`${colors.cyan}[ PORT ]${colors.reset} ${colors.yellow}http://localhost:${port}${colors.reset}`); // 在 Render 上這個 URL 不會被直接訪問
+  // 顯示 Render 部署的公開 URL 和授權入口
   console.log(`${colors.cyan}[ RENDER URL ]${colors.reset} ${colors.yellow}${REDIRECT_URI}${colors.reset}`);
-  console.log(`${colors.cyan}[ Google Auth URL ]${colors.reset} ${colors.yellow}${REDIRECT_URI}/auth/google${colors.reset}`);
+  console.log(`${colors.cyan}[ Google Auth URL ]${colors.reset} ${colors.yellow}${REDIRECT_URI}/auth/google${colors.reset}`); // 這是手動觸發的網址
   console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.gray}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
 });
