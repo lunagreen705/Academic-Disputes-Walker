@@ -150,7 +150,7 @@ const REDIRECT_URI = redirect_uris[0];
 const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);
 
 // 確保 REDIRECT_URI 是你 Render 部署的網址，且要與 Google Cloud Console 中設定的完全一致
-const REDIRECT_URI = redirect_uris[0]; // 例如 "https://academic-disputes-walker.onrender.com"
+
 
 // 創建 OAuth2 客戶端，用於生成授權 URL 和交換令牌
 const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);
