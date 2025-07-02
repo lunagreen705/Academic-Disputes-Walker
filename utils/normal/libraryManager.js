@@ -1,30 +1,38 @@
 const { google } = require('googleapis');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const fs = require('fs');
-// 在檔案頂部定義快取
+
+// --- MongoDB OAuth2 模組導入 ---
+// 引入你修改過的 getAuth 模組，它現在能從 MongoDB 獲取 token
+const { getAuth } = require('../auth/oauth2'); // <--- 重要：調整這個路徑！
+// --------------------------------
+
+// 在檔案頂部定義快取 (保持不變)
 const parentCache = new Map();
 const PARENT_CACHE_TTL = 1000 * 60 * 30; // 30 分鐘
 
-// 從 Secret Manager 讀取並解析 Google Service Account 的憑證
-const data = fs.readFileSync('/etc/secrets/GOOGLE_SERVICE_ACCOUNT_JSON', 'utf8');
-const credentials = JSON.parse(data);
+// --- 服務帳戶認證 (用於查詢功能) ---
+// 從 Secret Manager 讀取並解析 Google Service Account 的憑證 (保持不變)
+const serviceAccountData = fs.readFileSync('/etc/secrets/GOOGLE_SERVICE_ACCOUNT_JSON', 'utf8');
+const serviceAccountCredentials = JSON.parse(serviceAccountData);
 
 // 設定 Google API 認證，指定唯讀權限
-const auth = new google.auth.GoogleAuth({
-  credentials,
-  scopes: ['https://www.googleapis.com/auth/drive'],
+const serviceAccountAuth = new google.auth.GoogleAuth({
+  credentials: serviceAccountCredentials,
+  scopes: ['https://www.googleapis.com/auth/drive.readonly'], // 通常服務帳戶讀取用 readOnly 即可，如果需要其他權限請調整
 });
 
-// 建立 Google Drive API 客戶端
-const drive = google.drive({ version: 'v3', auth });
+// 建立 Google Drive API 客戶端 (用於查詢功能)
+const drive = google.drive({ version: 'v3', auth: serviceAccountAuth });
+// ------------------------------------
 
-// --- 常數設定 ---
+// --- 常數設定 (保持不變) ---
 const LIBRARY_FOLDER_ID = '1NNbsjeQZrG8MQABXwf8nqaIHgRtO4_sY'; // 圖書館根目錄的 Google Drive 資料夾 ID
 const BOOKSPAGE = 5; // 在瀏覽模式下，每頁顯示的項目數量
 const SUPPORTED_EXTENSIONS = ['pdf', 'epub', 'mobi', 'azw3', 'txt', 'doc', 'docx', 'odt', 'rtf', 'html', 'md', 'xlsx', 'jpg']; // 支援的檔案類型
 
 /**
- * 檢查檔案名稱是否為支援的書籍格式。
+ * 檢查檔案名稱是否為支援的書籍格式。(保持不變)
  * @param {string} fileName - 要檢查的檔案名稱。
  * @returns {boolean} 如果支援則返回 true，否則返回 false。
  */
@@ -33,6 +41,9 @@ function isSupportedFile(fileName) {
   return SUPPORTED_EXTENSIONS.includes(ext);
 }
 
+// 以下所有查詢功能 (listSubfolders, listAllBooksRecursively, listBooksAtLevel, searchBooks, getRandomBook, getLibraryStat, autocompleteCategory)
+// 都將繼續使用 `drive` 物件 (由 serviceAccountAuth 建立)，因此不需要修改。
+// ... (所有你原有的查詢相關函數，從 listSubfolders 到 autocompleteCategory，請原樣保留) ...
 /**
  * 列出指定資料夾 ID 下的子資料夾。
  * 讓 listSubfolders 更靈活，若未提供 parentId，則預設使用根目錄。
@@ -41,7 +52,7 @@ function isSupportedFile(fileName) {
  */
 async function listSubfolders(parentId = null) {
   const folderId = parentId || LIBRARY_FOLDER_ID;
-  const res = await drive.files.list({
+  const res = await drive.files.list({ // <-- 這裡繼續使用 serviceAccountAuth 建立的 drive
     q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed = false`,
     fields: 'files(id, name)',
   });
@@ -56,7 +67,7 @@ async function listSubfolders(parentId = null) {
  */
 async function listAllBooksRecursively(folderId) {
   const folderIdToQuery = folderId || LIBRARY_FOLDER_ID;
-  const res = await drive.files.list({
+  const res = await drive.files.list({ // <-- 這裡繼續使用 serviceAccountAuth 建立的 drive
     q: `'${folderIdToQuery}' in parents and trashed = false`,
     fields: 'files(id, name, webViewLink, webContentLink, mimeType)',
   });
@@ -85,7 +96,7 @@ async function listAllBooksRecursively(folderId) {
  */
 async function listBooksAtLevel(folderId) {
   const folderIdToQuery = folderId || LIBRARY_FOLDER_ID;
-  const res = await drive.files.list({
+  const res = await drive.files.list({ // <-- 這裡繼續使用 serviceAccountAuth 建立的 drive
     q: `'${folderIdToQuery}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
     fields: 'files(id, name, webViewLink, webContentLink, mimeType)',
   });
@@ -111,8 +122,8 @@ async function searchBooks(keyword) {
     }
 
     const safeKeyword = keyword.trim().replace(/'/g, "\\'").replace(/"/g, '\\"');
-    
-    const res = await drive.files.list({
+
+    const res = await drive.files.list({ // <-- 這裡繼續使用 serviceAccountAuth 建立的 drive
       q: `name contains '${safeKeyword}' and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
       fields: 'files(id, name, webViewLink, webContentLink, mimeType, parents)',
       corpora: 'user',
@@ -128,7 +139,7 @@ async function searchBooks(keyword) {
       }
 
       try {
-        const fileRes = await drive.files.get({
+        const fileRes = await drive.files.get({ // <-- 這裡繼續使用 serviceAccountAuth 建立的 drive
           fileId,
           fields: 'parents',
         });
@@ -163,7 +174,7 @@ async function searchBooks(keyword) {
         });
       }
     }
-    
+
     return validFiles;
   } catch (error) {
     console.error(`[ERROR] searchBooks failed: ${error.message}, keyword: ${keyword ?? 'undefined'}`);
@@ -216,7 +227,9 @@ async function autocompleteCategory(partial) {
     .map(f => ({ name: f.name, value: f.name }));
 }
 
-// --- 以下是建立 Embed 和 Button 的輔助函式 ---
+
+// --- 以下是建立 Embed 和 Button 的輔助函式 (保持不變) ---
+// ... (所有 createPaginatedEmbed 到 createRandomBookEmbed 函數，請原樣保留) ...
 
 function createPaginatedEmbed(categoryName, files, page = 0) {
   const start = page * BOOKSPAGE;
@@ -291,7 +304,7 @@ function createSearchResultEmbed(keyword, results, pageIndex, maxPage, BOOKSPAGE
       });
     });
   }
-  
+
   return embed;
 }
 
@@ -331,16 +344,23 @@ function createRandomBookEmbed(book) {
 }
 
 // --- 上傳功能設定 ---
-const UPLOAD_FOLDER_ID = '1oEDFA4FeYTO9bjbhTqLxq5EZbzygwZKf';
+const UPLOAD_FOLDER_ID = '1oEDFA4FeYTO9bjbhTqLxq5EZbzygwZKf'; // 上傳目標資料夾
 
 /**
  * 上傳本地檔案至 Google Drive 圖書館指定上傳資料夾。
+ * 這個函數現在將使用 OAuth2 認證。
  * @param {string} filePath - 本地檔案的完整路徑。
  * @param {string} fileName - 上傳後的檔名。
  * @returns {Promise<Object>} 上傳後的檔案資訊。
  */
 async function uploadBook(filePath, fileName) {
   try {
+    // 1. 獲取經過 OAuth2 認證的客戶端
+    const oauth2Client = await getAuth(); // 從你的 getAuth 模組獲取 OAuth2 實例
+
+    // 2. 使用這個 OAuth2 客戶端創建一個新的 Drive 實例，專門用於上傳
+    const oauth2Drive = google.drive({ version: 'v3', auth: oauth2Client });
+
     const fileMetadata = {
       name: fileName,
       parents: [UPLOAD_FOLDER_ID],
@@ -351,7 +371,8 @@ async function uploadBook(filePath, fileName) {
       body: fs.createReadStream(filePath),
     };
 
-    const response = await drive.files.create({
+    // 使用 oauth2Drive 進行上傳操作
+    const response = await oauth2Drive.files.create({
       resource: fileMetadata,
       media: media,
       fields: 'id, name, webViewLink, webContentLink',

@@ -15,6 +15,7 @@ const aiManager = require("./utils/ai/aiManager");
 const personaManager = require("./utils/ai/personaManager");
 const botManager = require("./utils/normal/botManager");
 const libraryManager = require('./utils/normal/libraryManager');
+const oauth2 = require('./utils/auth/oauth2.js');
 
 const express = require("express");
 const app = express();
