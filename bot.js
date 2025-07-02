@@ -147,7 +147,7 @@ const credentials = JSON.parse(clientSecretContent);
 const { client_id, client_secret, redirect_uris } = credentials.web || credentials.installed;
 
 // 確保 REDIRECT_URI 是你 Render 部署的網址，且要與 Google Cloud Console 中設定的完全一致
-const REDIRECT_URI = redirect_uris[0]; // 應該是 "https://academic-disputes-walker.onrender.com"
+const REDIRECT_URI = redirect_uris[0]; // 例如 "https://academic-disputes-walker.onrender.com"
 
 // 創建 OAuth2 客戶端，用於生成授權 URL 和交換令牌
 const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);
@@ -155,51 +155,60 @@ const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_U
 // 根路徑，用於顯示基本的首頁或授權入口
 app.get("/", (req, res) => {
   const filePath = path.join(__dirname, "index.html");
-  res.sendFile(filePath);
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      console.error('[ERROR] 發送首頁失敗:', err);
+      res.status(500).send('伺服器錯誤，無法讀取首頁。');
+    }
+  });
 });
 
 // --- 新增：啟動 Google OAuth2 授權流程的路由 ---
-// 當用戶訪問 https://academic-disputes-walker.onrender.com/auth/google 時觸發
 app.get('/auth/google', (req, res) => {
   const scopes = [
-    'https://www.googleapis.com/auth/drive', // 請求 Google Drive 讀寫權限
-    'https://www.googleapis.com/auth/userinfo.profile', // 請求用戶基本資料，可選
+    'https://www.googleapis.com/auth/drive',
+    'https://www.googleapis.com/auth/userinfo.profile',
   ];
 
-  const authUrl = oAuth2Client.generateAuthUrl({
-    access_type: 'offline', // 這是獲取 refresh_token 的關鍵
-    scope: scopes,
-    prompt: 'consent', // 每次都要求用戶同意，確保能拿到 refresh_token
-  });
-  console.log(`[INFO] 請訪問以下 URL 進行授權：${authUrl}`);
-  // 不再自動重定向，而是提供連結讓管理員手動點擊
-  res.send(`請訪問以下 URL 進行 Google Drive 權限授權：<a href="${authUrl}">點擊這裡</a>。授權完成後，此頁面會顯示成功訊息，您即可關閉。`);
+  try {
+    const authUrl = oAuth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: scopes,
+      prompt: 'consent',
+    });
+    console.log(`[INFO] 請訪問以下 URL 進行授權：${authUrl}`);
+    res.send(`請訪問以下 URL 進行 Google Drive 權限授權：<a href="${authUrl}" target="_blank" rel="noopener noreferrer">點擊這裡</a>。授權完成後，此頁面會顯示成功訊息，您即可關閉。`);
+  } catch (error) {
+    console.error('[ERROR] 生成授權 URL 失敗:', error);
+    res.status(500).send('伺服器錯誤，無法生成授權 URL。');
+  }
 });
 
 // --- 新增：Google OAuth2 回呼路由 ---
-// Google 授權成功後會重定向到 https://academic-disputes-walker.onrender.com/oauth2callback
 app.get('/oauth2callback', async (req, res) => {
-  const { code } = req.query; // Google 會將授權碼作為 'code' 參數傳回
+  const { code } = req.query;
   if (!code) {
     console.error('[ERROR] Google OAuth2 回呼未收到授權碼。');
     return res.status(400).send('Google OAuth2 授權失敗：未收到授權碼。');
   }
 
   try {
-    // 使用授權碼交換 access_token 和 refresh_token
     const { tokens } = await oAuth2Client.getToken(code);
-    oAuth2Client.setCredentials(tokens); // 更新 OAuth2 客戶端的憑證
+    oAuth2Client.setCredentials(tokens);
 
-    // 將獲取到的令牌儲存到 MongoDB
-    await saveToken(tokens);
-    console.log('[INFO] Google Drive 令牌已成功獲取並儲存到 MongoDB！');
-    res.send('Google Drive 授權成功！令牌已儲存至資料庫。您可以關閉此頁面。');
+    try {
+      await saveToken(tokens);
+      console.log('[INFO] Google Drive 令牌已成功獲取並儲存到 MongoDB！');
+      res.send('Google Drive 授權成功！令牌已儲存至資料庫。您可以關閉此頁面。');
+    } catch (saveError) {
+      console.error('[ERROR] 儲存令牌至 MongoDB 失敗:', saveError);
+      res.status(500).send('令牌授權成功，但儲存令牌時發生錯誤，請檢查伺服器日誌。');
+    }
   } catch (error) {
-    console.error('[ERROR] 交換 Google Drive 令牌失敗:', error.message);
+    console.error('[ERROR] 交換 Google Drive 令牌失敗:', error);
     res.status(500).send(`交換 Google Drive 令牌失敗：${error.message}`);
   }
 });
-
 
 // 啟動伺服器
 app.listen(port, () => {
@@ -207,9 +216,8 @@ app.listen(port, () => {
   console.log(`${colors.magenta}${colors.bright}🌐 SERVER STATUS${colors.reset}`);
   console.log('─'.repeat(40));
   console.log(`${colors.cyan}[ SERVER ]${colors.reset} ${colors.green}Online ✅${colors.reset}`);
-  console.log(`${colors.cyan}[ PORT ]${colors.reset} ${colors.yellow}http://localhost:${port}${colors.reset}`); // 在 Render 上這個 URL 不會被直接訪問
-  // 顯示 Render 部署的公開 URL 和授權入口
+  console.log(`${colors.cyan}[ PORT ]${colors.reset} ${colors.yellow}http://localhost:${port}${colors.reset}`);
   console.log(`${colors.cyan}[ RENDER URL ]${colors.reset} ${colors.yellow}${REDIRECT_URI}${colors.reset}`);
-  console.log(`${colors.cyan}[ Google Auth URL ]${colors.reset} ${colors.yellow}${REDIRECT_URI}/auth/google${colors.reset}`); // 這是手動觸發的網址
+  console.log(`${colors.cyan}[ Google Auth URL ]${colors.reset} ${colors.yellow}${REDIRECT_URI}/auth/google${colors.reset}`);
   console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.gray}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
 });
