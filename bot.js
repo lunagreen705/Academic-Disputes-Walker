@@ -142,9 +142,12 @@ client.login(config.TOKEN || process.env.TOKEN).catch((e) => {
 // ========== Express 本地伺服器 ==========
 
 // 讀取 client_secret.json 以便初始化 oAuth2Client
+const { getAuth, saveToken, CLIENT_SECRET_PATH } = require('./utils/auth/oauth2.js');
 const clientSecretContent = fs.readFileSync(CLIENT_SECRET_PATH, 'utf8');
 const credentials = JSON.parse(clientSecretContent);
 const { client_id, client_secret, redirect_uris } = credentials.web || credentials.installed;
+const REDIRECT_URI = redirect_uris[0];
+const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);
 
 // 確保 REDIRECT_URI 是你 Render 部署的網址，且要與 Google Cloud Console 中設定的完全一致
 const REDIRECT_URI = redirect_uris[0]; // 例如 "https://academic-disputes-walker.onrender.com"
