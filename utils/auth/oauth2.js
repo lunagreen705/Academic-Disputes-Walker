@@ -5,7 +5,7 @@ const { google } = require('googleapis');
 // 引入你的 MongoDB 連線模組
 const { getCollections } = require('../db/mongodb'); // <--- 重要：請再次確認這個路徑！
 
-const CLIENT_SECRET_PATH = '/etc/secrets/GOOGLE_CLIENT_SECRET_JSON'; // 你的 client secret JSON 路徑
+const CLIENT_SECRET_PATH = '/etc/secrets/CLIENT_SECRETS_JSON'; // 你的 client secret JSON 路徑
 
 // 讀取 client secret 並返回 OAuth2 client
 function createOAuth2Client() {
