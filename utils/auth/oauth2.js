@@ -77,5 +77,7 @@ async function getAuth() {
 
 module.exports = {
   getAuth,
+  saveToken, 
+  loadToken,
   CLIENT_SECRET_PATH,
 };
