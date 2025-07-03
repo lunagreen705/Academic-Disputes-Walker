@@ -80,7 +80,7 @@ module.exports = {
           .replace("{uptimeString}", uptimeString)
           .replace("{ping}", ping)
         )
-        .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
+        .setFooter({ text: `📄 ${lang.footer}` })
         .setTimestamp();
 
       // 🔍 為每一分類加入欄位

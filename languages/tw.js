@@ -1,5 +1,5 @@
 module.exports = {
-    footer: "測試中",
+    footer: "行走的學術糾紛",
     ping: {
       description: "檢查機器人延遲",
       response: "正在測試延遲...",
@@ -8,7 +8,7 @@ module.exports = {
         responseTime: "- 機器人響應時間：**{latency}毫秒**",
         websocketPing: "- WebSocket延遲：**{ping}毫秒**",
         uptime: "- 運行時間：**{uptime}**",
-        footer: "測試中"
+        footer: "機房"
       }
     },
     addsong: {
