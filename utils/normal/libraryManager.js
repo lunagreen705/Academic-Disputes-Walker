@@ -1,13 +1,8 @@
+// libraryManager.js
 const { google } = require('googleapis');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const fs = require('fs');
-
-// --- MongoDB OAuth2 模組導入 ---
-// 引入你修改過的 getAuth 模組，它現在能從 MongoDB 獲取 token
-const { getAuth } = require('../auth/oauth2'); // <--- 重要：調整這個路徑！
-// --------------------------------
-
-// 在檔案頂部定義快取 (保持不變)
+const { getAuth } = require('../auth/oauth2'); 
 const parentCache = new Map();
 const PARENT_CACHE_TTL = 1000 * 60 * 30; // 30 分鐘
 
@@ -19,7 +14,7 @@ const serviceAccountCredentials = JSON.parse(serviceAccountData);
 // 設定 Google API 認證，指定唯讀權限
 const serviceAccountAuth = new google.auth.GoogleAuth({
   credentials: serviceAccountCredentials,
-  scopes: ['https://www.googleapis.com/auth/drive.readonly'], // 通常服務帳戶讀取用 readOnly 即可，如果需要其他權限請調整
+  scopes: ['https://www.googleapis.com/auth/drive.readonly'], 
 });
 
 // 建立 Google Drive API 客戶端 (用於查詢功能)

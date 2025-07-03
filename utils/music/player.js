@@ -1,6 +1,4 @@
-
-
-
+// player.js
 const { Riffy, Player } = require("riffy");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, PermissionsBitField } = require("discord.js");
 const { requesters } = require("../../commands/music/play.js"); // 確保 play.js 正確導出 requesters

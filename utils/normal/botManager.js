@@ -1,3 +1,4 @@
+// botManager.js
 module.exports = {
   listGuilds(client) {
     return client.guilds.cache.map(guild => ({

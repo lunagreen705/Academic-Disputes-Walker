@@ -1,3 +1,4 @@
+// mongodb.js
 const { MongoClient } = require('mongodb');
 require('dotenv').config(); // 確保你可以從 .env 檔案讀取環境變數
 const config = require("../../config.js"); // 你的本地設定檔

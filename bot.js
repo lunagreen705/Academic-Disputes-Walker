@@ -16,11 +16,8 @@ const personaManager = require("./utils/ai/personaManager");
 const botManager = require("./utils/normal/botManager");
 const libraryManager = require('./utils/normal/libraryManager');
 const oauth2 = require('./utils/auth/oauth2.js');
-
-// ========== Google OAuth2 相關模組 ==========
 const { google } = require('googleapis');
 const { getAuth, saveToken, CLIENT_SECRET_PATH } = require('./utils/auth/oauth2.js'); 
-// --------------------------------------------------
 
 const express = require("express");
 const app = express();
@@ -99,7 +96,7 @@ client.once("ready", async () => {
   console.log('─'.repeat(40));
   console.log(`${colors.cyan}[ SYSTEM ]${colors.reset} ${colors.green}Client logged as ${colors.yellow}${client.user.tag}${colors.reset}`);
   console.log(`${colors.cyan}[ MUSIC ]${colors.reset} ${colors.green}Riffy Music System Ready 🎵${colors.reset}`);
-  console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.gray}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
+  console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.green}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
 
   client.riffy.init(client.user.id);
 
@@ -146,8 +143,8 @@ const clientSecretContent = fs.readFileSync(CLIENT_SECRET_PATH, 'utf8');
 const credentials = JSON.parse(clientSecretContent);
 const { client_id, client_secret, redirect_uris } = credentials.web || credentials.installed;
 
-// 確保 REDIRECT_URI 是你 Render 部署的網址，且要與 Google Cloud Console 中設定的完全一致
-const REDIRECT_URI = redirect_uris[0]; // 例如 "https://academic-disputes-walker.onrender.com"
+// 確保 REDIRECT_URI 要與 Google Cloud Console 中設定的完全一致
+const REDIRECT_URI = redirect_uris[0]; 
 
 // 創建 OAuth2 客戶端，用於生成授權 URL 和交換令牌
 const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);

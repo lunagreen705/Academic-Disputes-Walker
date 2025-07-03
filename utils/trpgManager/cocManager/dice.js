@@ -1,4 +1,4 @@
-// 只需要引入與擲骰邏輯相關的模組
+// dice.js
 const { EmbedBuilder } = require('discord.js');
 const config = require("../../../config.js"); 
 // --- 擲骰功能：/rd 指令的核心邏輯 ---

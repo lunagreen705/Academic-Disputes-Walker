@@ -1,9 +1,6 @@
-// your-discord-bot/commands/draw.js
 const { EmbedBuilder, ApplicationCommandOptionType } = require('discord.js');
 const config = require("../../config.js");
-const deckManager = require('../../utils/entertainment/deckManager.js'); // 引入牌堆管理模組
-
-// 不再需要 deckNameMap，因為我們直接顯示原始英文名稱
+const deckManager = require('../../utils/entertainment/deckManager.js'); 
 
 module.exports = {
     name: "draw",
@@ -16,11 +13,10 @@ module.exports = {
         description: '選擇要抽取的牌堆',
         type: ApplicationCommandOptionType.String,
         required: true,
-        autocomplete: true // 🔥 關鍵就在這一行
+        autocomplete: true 
     }
 ],
 
-    // Discord.js v13/v14 的 slash command 支援 autocomplete 功能
     async autocomplete(interaction) {
         const focusedValue = interaction.options.getFocused();
         // 從 deckManager 獲取所有可用牌堆名稱，這些名稱就是 .json 檔案的名稱（不含副檔名）
@@ -28,8 +24,8 @@ module.exports = {
 
         // 直接將牌堆的原始英文名稱作為選項的 name 和 value
         const choices = availableDecks.map(name => ({
-            name: name, // 直接使用原始英文名稱作為顯示名稱
-            value: name  // value 仍然是英文檔案名，deckManager 處理時需要這個
+            name: name, // 直接使用原始名稱作為顯示名稱
+            value: name  
         }));
 
         // 根據用戶輸入過濾選項，使用 includes 實現模糊匹配
@@ -45,7 +41,7 @@ module.exports = {
 
     run: async (client, interaction, lang) => {
         try {
-            const deckName = interaction.options.getString('deck'); // 這裡拿到的是用戶選擇的原始英文值
+            const deckName = interaction.options.getString('deck'); 
             let drawnItem = deckManager.drawFromDeck(deckName);
 
             if (!drawnItem) {
@@ -56,7 +52,6 @@ module.exports = {
                 return interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
 
-            // 標題也直接使用原始英文名稱
             const embedTitle = `✨ ${deckName} 牌堆，經過深淵的探索`;
             const embedDescription = `你抽到了：**${drawnItem}**`;
 

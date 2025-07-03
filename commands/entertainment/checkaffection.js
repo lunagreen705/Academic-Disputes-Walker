@@ -1,20 +1,14 @@
-// your-discord-bot/commands/checkaffection.js
 const { EmbedBuilder, ApplicationCommandOptionType } = require('discord.js');
 const config = require("../../config.js");
-const affectionManager = require('../../utils/entertainment/affectionManager.js'); // 確保這個路徑是正確的！
+const affectionManager = require('../../utils/entertainment/affectionManager.js'); 
 
 module.exports = {
     // 指令的名稱和描述
     name: "checkaffection",
     description: "查看機器人對你的好感度。",
-
-    // permissions 屬性（為了模仿舊結構而保留，不會影響斜線指令的實際部署行為）
     permissions: "0x0000000000000800",
-
-    // 這個指令不需要任何額外選項，因為它只是查詢發送者的好感度
     options: [],
 
-    // 指令執行邏輯
     run: async (client, interaction, lang) => {
         try {
             const userId = interaction.user.id; // 獲取發送指令的用戶 ID

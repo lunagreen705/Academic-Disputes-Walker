@@ -1,4 +1,4 @@
-// your-discord-bot/utils/deckManager.js
+// deckManager.js
 const fs = require('fs');
 const path = require('path');
 

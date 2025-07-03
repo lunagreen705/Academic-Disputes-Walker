@@ -33,7 +33,7 @@ module.exports = {
       const userId = interaction.user.id;
       const guildId = interaction.guildId;
 
-      // ✅ 僅 bot 擁有者可以切換
+      //  僅 bot 擁有者可以切換
       if (!config.ownerID.includes(userId)) {
         const noPermEmbed = new EmbedBuilder()
           .setColor('#ff9900')
@@ -44,7 +44,7 @@ module.exports = {
 
       const selectedPersona = interaction.options.getString('persona');
 
-      // ✅ 儲存人格以 guild 為單位
+      //  儲存人格以伺服器為單位
       personaManager.setPersona(guildId, selectedPersona);
 
       const embed = new EmbedBuilder()

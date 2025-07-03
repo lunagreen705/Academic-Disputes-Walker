@@ -1,5 +1,5 @@
-const affectionManager = require('../utils/entertainment/affectionManager'); // 管理好感度模組
-const { EmbedBuilder } = require('discord.js'); // 用於建立嵌入訊息（美化回覆）
+const affectionManager = require('../utils/entertainment/affectionManager'); 
+const { EmbedBuilder } = require('discord.js'); 
 
 module.exports = {
   name: 'messageCreate', // Discord 事件：使用者發送訊息

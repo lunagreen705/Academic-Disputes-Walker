@@ -12,7 +12,6 @@ module.exports = async (client, interaction) => {
     }
 
     // 語言檔案載入
-    // 請確保 config.js 中的 language 欄位設定正確，否則此處會報錯
     const languageFile = path.join(__dirname, `../languages/${config.language}.js`);
     const lang = require(languageFile);
 
