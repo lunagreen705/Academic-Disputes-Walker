@@ -16,10 +16,6 @@ const libraryManager = require('./utils/normal/libraryManager');
 const oauth2 = require('./utils/auth/oauth2.js');
 const { google } = require('googleapis');
 const { getAuth, saveToken, CLIENT_SECRET_PATH } = require('./utils/auth/oauth2.js'); 
-
-const { google } = require('googleapis');
-const { getAuth, saveToken, CLIENT_SECRET_PATH } = require('./utils/auth/oauth2.js'); 
-
 const express = require("express");
 const app = express();
 const port = process.env.PORT || 3000;
