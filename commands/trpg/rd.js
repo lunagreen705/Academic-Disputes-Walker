@@ -10,7 +10,7 @@ module.exports = {
         {
             name: 'num',
             description: '骰子面數 (1-10000)',
-            type: ApplicationCommandOptionType.String, // 你也可以用 Integer，但 String 可避免部分奇怪輸入
+            type: ApplicationCommandOptionType.String, 
             required: true,
         }
     ],

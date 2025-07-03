@@ -1,6 +1,7 @@
 // deckManager.js
 const fs = require('fs');
 const path = require('path');
+const colors = require("../../UI/colors/colors"); // 確保這個路徑正確
 
 const decks = {}; // 用來儲存所有已載入的牌堆資料
 const availableDeckNames = []; // 新增：儲存所有已載入牌堆的名稱
@@ -23,7 +24,8 @@ function loadDecks(deckNames = null) {
 
     // 確保牌堆資料夾存在
     if (!fs.existsSync(DECK_FOLDER_PATH)) {
-        console.error(`[DECK MANAGER] 錯誤：牌堆資料夾不存在：${DECK_FOLDER_PATH}`);
+        // 格式化錯誤輸出
+        console.error(`${colors.red}[ DECK MANAGER ]${colors.reset} ${colors.red}錯誤：牌堆資料夾不存在 ❌: ${DECK_FOLDER_PATH}${colors.reset}`);
         return;
     }
 
@@ -32,14 +34,17 @@ function loadDecks(deckNames = null) {
     if (deckNames && deckNames.length > 0) {
         // 如果提供了具體的牌堆名稱，就只載入這些
         filesToLoad = deckNames.map(name => `${name}.json`);
+        console.log(`${colors.cyan}[ DECK MANAGER ]${colors.reset} ${colors.blue}準備載入指定牌堆：${deckNames.join(', ')} 🎯${colors.reset}`); // 新增日誌
     } else {
         // 如果沒有提供具體的牌堆名稱，則自動讀取資料夾內所有 .json 檔案
         try {
             const allFiles = fs.readdirSync(DECK_FOLDER_PATH);
             filesToLoad = allFiles.filter(file => file.endsWith('.json'));
-            console.log(`[DECK MANAGER] 檢測到 ${filesToLoad.length} 個牌堆檔案在 /${DECK_SUBFOLDER}/ 中。`);
+            // 格式化輸出
+            console.log(`${colors.cyan}[ DECK MANAGER ]${colors.reset} ${colors.green}檢測到 ${filesToLoad.length} 個牌堆 ✨${colors.reset}`);
         } catch (error) {
-            console.error(`[DECK MANAGER] 讀取牌堆資料夾失敗:`, error.message);
+            // 格式化錯誤輸出
+            console.error(`${colors.red}[ DECK MANAGER ]${colors.reset} ${colors.red}讀取牌堆資料夾失敗 ❌: ${error.message}${colors.reset}`);
             return;
         }
     }
@@ -56,16 +61,20 @@ function loadDecks(deckNames = null) {
             if (Array.isArray(parsedData) && parsedData.length > 0) {
                 decks[deckName] = parsedData;
                 availableDeckNames.push(deckName); // 將載入成功的牌堆名稱加入列表
-                console.log(`[DECK MANAGER] 成功載入牌堆: ${deckName} (從 ${file})`);
+                // 格式化成功輸出
+                console.log(`${colors.cyan}[ DECK MANAGER ]${colors.reset} ${colors.green}成功載入牌堆 ${colors.yellow}${deckName}${colors.reset} ✅ (檔案: ${file})${colors.reset}`);
             } else {
-                console.warn(`[DECK MANAGER] 警告：牌堆 ${deckName} (檔案 ${file}) 為空或格式不正確，將不會載入。`);
+                // 格式化警告輸出
+                console.warn(`${colors.yellow}[ DECK MANAGER ]${colors.reset} ${colors.yellow}警告：牌堆 ${colors.brightYellow}${deckName}${colors.reset}${colors.yellow} (檔案: ${file}) 為空或格式不正確，將不會載入 ⚠️${colors.reset}`);
                 decks[deckName] = []; // 依然設為空陣列以避免後續錯誤
             }
         } catch (error) {
-            console.error(`[DECK MANAGER] 載入牌堆 ${deckName} (檔案 ${file}) 失敗:`, error.message);
+            // 格式化錯誤輸出
+            console.error(`${colors.red}[ DECK MANAGER ]${colors.reset} ${colors.red}載入牌堆 ${colors.brightRed}${deckName}${colors.reset}${colors.red} (檔案: ${file}) 失敗 ❌: ${error.message}${colors.reset}`);
             decks[deckName] = []; // 載入失敗時初始化為空陣列
         }
     }
+    console.log(`${colors.cyan}[ DECK MANAGER ]${colors.reset} ${colors.green}所有牌堆載入過程完成。已載入 ${availableDeckNames.length} 個有效牌堆。📦${colors.reset}`); // 新增總結日誌
 }
 
 /**
@@ -76,6 +85,8 @@ function loadDecks(deckNames = null) {
 function drawFromDeck(deckName) {
     const deck = decks[deckName];
     if (!deck || deck.length === 0) {
+        // 可以考慮在這裡加一個日誌，但頻繁調用會很吵
+        // console.warn(`${colors.yellow}[ DECK MANAGER ]${colors.reset} ${colors.yellow}警告：嘗試從空或不存在的牌堆 ${deckName} 抽取項目 ⚠️${colors.reset}`);
         return null;
     }
     const randomIndex = Math.floor(Math.random() * deck.length);
@@ -93,5 +104,5 @@ function getAvailableDeckNames() {
 module.exports = {
     loadDecks,
     drawFromDeck,
-    getAvailableDeckNames // 新增導出這個函式
+    getAvailableDeckNames 
 };

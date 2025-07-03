@@ -8,7 +8,7 @@ module.exports = {
 
     run: async (client, interaction, lang) => {
         try {
-            const embed = sc.handleTICommand(); // 直接取得 EmbedBuilder
+            const embed = sc.handleTICommand(); 
             await interaction.reply({ embeds: [embed] });
         } catch (err) {
             console.error('執行 /ti 指令錯誤：', err);

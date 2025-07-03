@@ -1,5 +1,6 @@
 const config = require("../config.js");
 const { ActivityType } = require("discord.js");
+const colors = require("../UI/colors/colors");
 
 module.exports = async (client) => {
     const { REST } = require("@discordjs/rest");
@@ -11,7 +12,7 @@ module.exports = async (client) => {
             await rest.put(Routes.applicationCommands(client.user.id), {
                 body: await client.commands,
             });
-            console.log("✅ Commands Loaded Successfully");
+          console.log(`${colors.cyan}[ COMMANDS ]${colors.reset} ${colors.green}Commands Loaded Successfully ✅${colors.reset}`);
         } catch (err) {
             console.error("❌ Failed to load commands:", err.message);
         }

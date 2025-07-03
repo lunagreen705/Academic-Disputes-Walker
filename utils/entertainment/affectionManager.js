@@ -1,6 +1,7 @@
 // affectionManager.js
 const fs = require('fs');
 const path = require('path');
+const colors = require("../../UI/colors/colors");
 
 // === GitHub 環境設定 ===
 const GH_TOKEN    = process.env.GH_TOKEN;
@@ -16,6 +17,7 @@ const RESPONSE_FILE  = path.join(__dirname, '../../data/affection/affectionRespo
 let userAffectionData   = {};
 let affectionResponses  = {};
 
+
 // === 載入回應語句 ===
 try {
     const responseDir = path.dirname(RESPONSE_FILE);
@@ -23,7 +25,7 @@ try {
 
     if (fs.existsSync(RESPONSE_FILE)) {
         affectionResponses = JSON.parse(fs.readFileSync(RESPONSE_FILE, 'utf8'));
-        console.log('[AFFECTION MANAGER] ✅ 已載入好感回應語句：', RESPONSE_FILE);
+  console.log(`${colors.cyan}[ AFFECTION ]${colors.reset} ${colors.green}好感回應語句載入成功 ✅${colors.reset}`);
     } else {
         console.warn('[AFFECTION MANAGER] ⚠️ 未找到回應語句檔案，已初始化為空。');
     }
@@ -45,7 +47,7 @@ function initializeAffectionData() {
             fs.writeFileSync(DATA_FILE, JSON.stringify(userAffectionData, null, 2), 'utf8');
         }
 
-        console.log('[AFFECTION MANAGER] ✅ 好感度資料初始化完成。');
+    console.log(`${colors.cyan}[ AFFECTION ]${colors.reset} ${colors.green}好感度資料初始化完成 ✅${colors.reset}`);
     } catch (err) {
         console.error('[AFFECTION MANAGER] ❌ 初始化好感度資料失敗：', err.message);
     }

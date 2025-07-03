@@ -1,21 +1,24 @@
 // bot.js
 const { Client, GatewayIntentBits } = require("discord.js");
+const { google } = require('googleapis');
 const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
 const config = require("./config.js");
 const colors = require("./UI/colors/colors");
+//========== 載入模組 ==========
+
 const { initializePlayer } = require("./utils/music/player.js");
-const { connectToDatabase } = require("./utils/db/mongodb"); // <-- MongoDB 連線模組
+const { connectToDatabase } = require("./utils/db/mongodb"); 
 const deckManager = require("./utils/entertainment/deckManager");
 const affectionManager = require("./utils/entertainment/affectionManager");
 const aiManager = require("./utils/ai/aiManager");
 const personaManager = require("./utils/ai/personaManager");
 const botManager = require("./utils/normal/botManager");
 const libraryManager = require('./utils/normal/libraryManager');
-const oauth2 = require('./utils/auth/oauth2.js');
-const { google } = require('googleapis');
 const { getAuth, saveToken, CLIENT_SECRET_PATH } = require('./utils/auth/oauth2.js'); 
+//========== 連線設定 ==========
+
 const express = require("express");
 const app = express();
 const port = process.env.PORT || 3000;
@@ -131,6 +134,7 @@ client.login(config.TOKEN || process.env.TOKEN).catch((e) => {
 });
 
 // ========== Express 網頁伺服器 ==========
+
 const clientSecretContent = fs.readFileSync(CLIENT_SECRET_PATH, 'utf8');
 const credentials = JSON.parse(clientSecretContent);
 const { client_id, client_secret, redirect_uris } = credentials.web || credentials.installed;
@@ -195,7 +199,5 @@ app.listen(port, () => {
   console.log('─'.repeat(40));
   console.log(`${colors.cyan}[ SERVER ]${colors.reset} ${colors.green}Online ✅${colors.reset}`);
   console.log(`${colors.cyan}[ PORT ]${colors.reset} ${colors.yellow}http://localhost:${port}${colors.reset}`); 
-  console.log(`${colors.cyan}[ RENDER URL ]${colors.reset} ${colors.yellow}${REDIRECT_URI}${colors.reset}`);
-  console.log(`${colors.cyan}[ Google Auth URL ]${colors.reset} ${colors.yellow}${REDIRECT_URI}/auth/google${colors.reset}`); 
   console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.green}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
 });
