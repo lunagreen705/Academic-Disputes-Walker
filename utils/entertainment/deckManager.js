@@ -62,7 +62,7 @@ function loadDecks(deckNames = null) {
                 decks[deckName] = parsedData;
                 availableDeckNames.push(deckName); // 將載入成功的牌堆名稱加入列表
                 // 格式化成功輸出
-                console.log(`${colors.cyan}[ DECK MANAGER ]${colors.reset} ${colors.green}成功載入牌堆 ${colors.yellow}${deckName}${colors.reset} ✅ (檔案: ${file})${colors.reset}`);
+                console.log(`${colors.cyan}[ DECK MANAGER ]${colors.reset} ${colors.green}成功載入牌堆 ${colors.yellow}${deckName}${colors.reset} ✅`);
             } else {
                 // 格式化警告輸出
                 console.warn(`${colors.yellow}[ DECK MANAGER ]${colors.reset} ${colors.yellow}警告：牌堆 ${colors.brightYellow}${deckName}${colors.reset}${colors.yellow} (檔案: ${file}) 為空或格式不正確，將不會載入 ⚠️${colors.reset}`);
@@ -74,7 +74,7 @@ function loadDecks(deckNames = null) {
             decks[deckName] = []; // 載入失敗時初始化為空陣列
         }
     }
-    console.log(`${colors.cyan}[ DECK MANAGER ]${colors.reset} ${colors.green}所有牌堆載入過程完成。已載入 ${availableDeckNames.length} 個有效牌堆。📦${colors.reset}`); // 新增總結日誌
+    console.log(`${colors.cyan}[ DECK MANAGER ]${colors.reset} ${colors.green}所有牌堆載入過程完成。已載入 ${availableDeckNames.length} 個牌堆。📦${colors.reset}`); 
 }
 
 /**

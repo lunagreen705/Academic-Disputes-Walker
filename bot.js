@@ -17,6 +17,7 @@ const personaManager = require("./utils/ai/personaManager");
 const botManager = require("./utils/normal/botManager");
 const libraryManager = require('./utils/normal/libraryManager');
 const { getAuth, saveToken, CLIENT_SECRET_PATH } = require('./utils/auth/oauth2.js'); 
+
 //========== 連線設定 ==========
 
 const express = require("express");
@@ -97,7 +98,6 @@ client.once("ready", async () => {
   console.log(`${colors.cyan}[ SYSTEM ]${colors.reset} ${colors.green}Client logged as ${colors.yellow}${client.user.tag}${colors.reset}`);
   console.log(`${colors.cyan}[ MUSIC ]${colors.reset} ${colors.green}Riffy Music System Ready 🎵${colors.reset}`);
   console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.green}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
-
   client.riffy.init(client.user.id);
 
   try {
@@ -105,11 +105,11 @@ client.once("ready", async () => {
     await connectToDatabase();
     console.log(`${colors.cyan}[ DATABASE ]${colors.reset} ${colors.green}MongoDB資料庫已連線 ✅${colors.reset}`);
     deckManager.loadDecks();
-    console.log(`${colors.cyan}[ DECKS ]${colors.reset} ${colors.green}牌堆模組已準備就緒 ✅${colors.reset}`);
+    console.log(`${colors.cyan}[ DECKS ]${colors.reset} ${colors.green}牌堆系統已準備就緒 ✅${colors.reset}`);
     console.log(`${colors.cyan}[ AFFECTION ]${colors.reset} ${colors.green}好感度系統已準備就緒 ✅${colors.reset}`);
-    console.log(`${colors.cyan}[ AI ]${colors.reset} ${colors.green}AI模組已準備就緒 ✅${colors.reset}`);
-    console.log(`${colors.cyan}[ MANAGER ]${colors.reset} ${colors.green}管理模듈已準備就緒 ✅${colors.reset}`);
-    console.log(`${colors.cyan}[ LIBRARY ]${colors.reset} ${colors.green}圖書模組已準備就緒 ✅${colors.reset}`);
+    console.log(`${colors.cyan}[ AI ]${colors.reset} ${colors.green}AI系統已準備就緒 ✅${colors.reset}`);
+    console.log(`${colors.cyan}[ MANAGER ]${colors.reset} ${colors.green}管理系統已準備就緒 ✅${colors.reset}`);
+    console.log(`${colors.cyan}[ LIBRARY ]${colors.reset} ${colors.green}圖書館系統已準備就緒 ✅${colors.reset}`);
   } catch (err) {
     console.error(`${colors.red}[ DATABASE ] MongoDB連線失敗，可能影響部分功能：${err.message}${colors.reset}`);
   }
