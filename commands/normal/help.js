@@ -80,7 +80,7 @@ module.exports = {
           .replace("{uptimeString}", uptimeString)
           .replace("{ping}", ping)
         )
-        .setFooter({ text: `📄 ${lang.footer}` })
+        .setFooter({ text: '📄 行走的學術糾紛' })
         .setTimestamp();
 
       // 🔍 為每一分類加入欄位
