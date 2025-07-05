@@ -22,5 +22,17 @@
     "args": {
       "message": "⏰ **排程提醒**：\n\n>>> 吃飯"
     }
+  },
+  {
+    "id": "0a4ea860",
+    "name": "寫作業",
+    "cronExpression": "57 8 5 7 *",
+    "action": "sendDirectMessage",
+    "enabled": true,
+    "timezone": "Asia/Taipei",
+    "userId": "329999695390965760",
+    "args": {
+      "message": "⏰ **排程提醒**：\n\n>>> 寫作業"
+    }
   }
 ]
