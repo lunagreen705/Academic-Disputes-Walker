@@ -40,23 +40,26 @@ fs.readdir(eventsPath, (err, files) => {
     return;
   }
 
- files.forEach((file) => {
+  files.forEach((file) => {
+    if (!file.endsWith(".js")) return;
+    const eventPath = path.join(eventsPath, file);
     const event = require(eventPath);
 
-    // 格式一：如果匯出的是一個函式
-    if (typeof event === "function") { 
-        const eventName = file.split(".")[0]; // 從檔案名稱猜測事件名
+    try {
+      if (typeof event === "function") {
+        const eventName = file.split(".")[0];
         client.on(eventName, event.bind(null, client));
-        console.log("舊式事件載入...");
-    
-    // 格式二：如果匯出的是一個物件
-    } else if (event.name && typeof event.execute === "function") { 
+        console.log(`${colors.cyan}[ EVENT ]${colors.reset} 舊式事件載入：${colors.yellow}${eventName}${colors.reset}`);
+      } else if (event.name && typeof event.execute === "function") {
         client.on(event.name, (...args) => event.execute(client, ...args));
-        console.log("新式事件載入...");
-    } else {
-        console.warn("格式錯誤...");
+        console.log(`${colors.cyan}[ EVENT ]${colors.reset} 已載入事件：${colors.yellow}${event.name}${colors.reset}`);
+      } else {
+        console.warn(`${colors.red}[ EVENT ] 格式錯誤，跳過：${file}${colors.reset}`);
+      }
+    } catch (err) {
+      console.error(`${colors.red}[ ERROR ] 載入事件 ${file} 時發生錯誤：${err.message}${colors.reset}`);
     }
-});
+  });
 });
 
 // ========== 載入指令  ==========
