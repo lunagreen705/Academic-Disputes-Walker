@@ -42,7 +42,7 @@ const personaName = getPersona(sessionId) || "bigteacher";
   try {
     const result = await chat.sendMessage({
       message: prompt,
-      maxOutputTokens: aiConfig[personaName]?.maxOutputTokens || 2000
+      maxOutputTokens: aiConfig[personaName]?.maxOutputTokens || 200
     });
 
     console.log("[AI Manager] API 回傳結果:", result);
