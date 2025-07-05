@@ -1,399 +1,231 @@
-// schedulerManager.js
+// schedulerManager.js 
 const fs = require('fs');
 const path = require('path');
 const cron = require('node-cron');
 const { EmbedBuilder } = require('discord.js');
 const colors = require("../../UI/colors/colors"); 
-
-const affectionManager = require('../../utils/entertainment/affectionManager'); // 確保路徑正確
+const affectionManager = require('../../utils/entertainment/affectionManager');
 
 // === GitHub 環境設定 ===
 const GH_TOKEN = process.env.GH_TOKEN;
 const GH_USERNAME = process.env.GH_USERNAME;
 const GH_REPO = process.env.GH_REPO;
 
-// === 路徑設定 ===
-const TASKS_FILE_LOCAL = path.join(__dirname, '../../data/normal/tasks.json'); // 用於動態排程的本地緩存路徑
-const GH_FILE_PATH = 'data/normal/tasks.json'; // 用於動態排程的 GitHub 倉庫路徑
+// === 路徑設定 (區分自動任務和個人任務) ===
+const AUTOTASKS_FILE_LOCAL = path.join(__dirname, '../../data/normal/autotasks.json');
+const GH_AUTOTASKS_PATH = 'data/normal/autotasks.json';
 
-// << 新增點 >>：將排行榜頻道 ID 設定為頂層常數，**請在此處填寫您的頻道 ID 或從環境變數讀取**
-const LEADERBOARD_CHANNEL_ID = process.env.LEADERBOARD_CHANNEL_ID || '1146286703741505679';
+const PERSONALTASKS_FILE_LOCAL = path.join(__dirname, '../../data/normal/personaltasks.json');
+const GH_PERSONALTASKS_PATH = 'data/normal/personaltasks.json';
 
+// === 資料容器 (區分兩種類型) ===
+let autoTasksConfig = [];
+let personalTasksConfig = [];
+let activeCronTasks = [];
 
-// === 資料容器 ===
-let tasksConfig = []; // 儲存從 GitHub 或本地載入的排程配置 (用於動態任務)
-let activeCronTasks = []; // 儲存 node-cron 任務實例 (動態任務和內建任務)
-let currentFileSha = null; // 用於 GitHub 更新，追蹤當前檔案的 SHA (用於動態任務)
+let autoTasksSha = null;
+let personalTasksSha = null;
 
-// === 輔助函式：從 GitHub 獲取檔案內容 ===
-/**
- * 從 GitHub 獲取指定檔案的內容及其 SHA 值。
- * @returns {Promise<{content: string|null, sha: string|null}>} 包含檔案內容和 SHA 的物件，若失敗則為 null。
- */
-async function fetchFromGitHub() {
-    if (!GH_TOKEN || !GH_USERNAME || !GH_REPO) {
-        console.warn(`${colors.yellow}[SCHEDULER MANAGER]${colors.reset} ⚠️ GitHub 憑證資訊不完整 (GH_TOKEN, GH_USERNAME, GH_REPO)，無法從 GitHub 獲取排程配置。`);
-        return { content: null, sha: null };
-    }
-
-    const apiUrl = `https://api.github.com/repos/${GH_USERNAME}/${GH_REPO}/contents/${GH_FILE_PATH}`;
+// === 輔助函式：從 GitHub 獲取檔案 ===
+async function fetchFromGitHub(filePath) {
+    if (!GH_TOKEN || !GH_USERNAME || !GH_REPO) return { content: null, sha: null };
+    const apiUrl = `https://api.github.com/repos/${GH_USERNAME}/${GH_REPO}/contents/${filePath}`;
     try {
         const res = await fetch(apiUrl, {
             headers: {
-                'Authorization': `Bearer ${GH_TOKEN}`,
-                'User-Agent': 'Discord-Bot', // GitHub 要求 User-Agent
-                'Accept': 'application/vnd.github.v3.raw', // 直接獲取原始內容
+                'Authorization': `Bearer ${GH_TOKEN}`, 'User-Agent': 'Discord-Bot', 'Accept': 'application/vnd.github.v3+json',
             },
         });
-
         if (res.ok) {
-            const data = await res.json(); // GitHub API 回傳的 JSON 包含 content 和 sha
-            const content = Buffer.from(data.content, 'base64').toString('utf8');
+            const data = await res.json();
+            const content = data.content ? Buffer.from(data.content, 'base64').toString('utf8') : '[]';
             return { content, sha: data.sha };
         } else if (res.status === 404) {
-            console.warn(`${colors.yellow}[SCHEDULER MANAGER]${colors.reset} ⚠️ GitHub 倉庫中未找到排程配置檔案：${GH_FILE_PATH}。`);
-            return { content: null, sha: null };
-        } else {
-            const errorText = await res.text();
-            throw new Error(`GitHub API 讀取錯誤 (${res.status}): ${errorText}`);
+            return { content: null, sha: null }; // 檔案不存在
         }
+        throw new Error(`GitHub API 讀取錯誤 (${res.status}): ${await res.text()}`);
     } catch (err) {
-        console.error(`${colors.red}[SCHEDULER MANAGER]${colors.reset} ❌ 從 GitHub 獲取排程配置失敗：${err.message}`);
+        console.error(`${colors.red}[SCHEDULER MANAGER]${colors.reset} ❌ 從 GitHub 獲取 ${filePath} 失敗：${err.message}`);
         return { content: null, sha: null };
     }
 }
 
-// === 輔助函式：將內容推送到 GitHub ===
-/**
- * 將給定內容推送到 GitHub 上的指定檔案。
- * @param {string} content - 要推送的檔案內容。
- * @param {string} message - Git commit 訊息。
- * @param {string|null} sha - 檔案的當前 SHA 值，用於版本控制。
- * @returns {Promise<{success: boolean, newSha: string|null}>} 推送結果和新的 SHA 值。
- */
-async function pushToGitHubInternal(content, message, sha) {
-    if (!GH_TOKEN || !GH_USERNAME || !GH_REPO) {
-        console.warn(`${colors.yellow}[SCHEDULER MANAGER]${colors.reset} ⚠️ GitHub 憑證資訊不完整，無法推送排程配置。`);
-        return { success: false, newSha: null };
-    }
-
-    const apiUrl = `https://api.github.com/repos/${GH_USERNAME}/${GH_REPO}/contents/${GH_FILE_PATH}`;
+// === 輔助函式：推送內容到 GitHub ===
+async function pushToGitHubInternal(filePath, content, message, sha) {
+    if (!GH_TOKEN || !GH_USERNAME || !GH_REPO) return { success: false, newSha: null };
+    const apiUrl = `https://api.github.com/repos/${GH_USERNAME}/${GH_REPO}/contents/${filePath}`;
     try {
-        const body = JSON.stringify({
-            message: message,
-            content: Buffer.from(content).toString('base64'),
-            sha: sha, // 帶上當前 SHA 避免衝突
-        });
-
         const res = await fetch(apiUrl, {
             method: 'PUT',
             headers: {
-                'Authorization': `Bearer ${GH_TOKEN}`,
-                'User-Agent': 'Discord-Bot',
-                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${GH_TOKEN}`, 'User-Agent': 'Discord-Bot', 'Content-Type': 'application/json',
             },
-            body,
+            body: JSON.stringify({ message, content: Buffer.from(content).toString('base64'), sha }),
         });
-
-        if (!res.ok) {
-            const errorText = await res.text();
-            if (res.status === 409) { // Conflict
-                console.error(`${colors.red}[SCHEDULER MANAGER]${colors.reset} ❌ 推送 GitHub 衝突 (SHA 過時)。請重新嘗試。`);
-            }
-            throw new Error(`GitHub API 寫入錯誤 (${res.status}): ${errorText}`);
-        }
-
+        if (!res.ok) throw new Error(`GitHub API 寫入錯誤 (${res.status}): ${await res.text()}`);
         const responseData = await res.json();
-        console.log(`${colors.cyan}[SCHEDULER MANAGER]${colors.reset} 🚀 排程配置已成功同步至 GitHub。`);
+        console.log(`${colors.cyan}[SCHEDULER MANAGER]${colors.reset} 🚀 ${filePath} 已成功同步至 GitHub。`);
         return { success: true, newSha: responseData.content.sha };
     } catch (err) {
-        console.error(`${colors.red}[SCHEDULER MANAGER]${colors.reset} ❌ 推送排程配置至 GitHub 失敗：${err.message}`);
+        console.error(`${colors.red}[SCHEDULER MANAGER]${colors.reset} ❌ 推送 ${filePath} 至 GitHub 失敗：${err.message}`);
         return { success: false, newSha: null };
     }
 }
 
-// === << 新增點 >>：內建的好感度排行榜發送函式 ===
-/**
- * 內部專用函式：產生並發送好感度排行榜。
- * 這個函式依賴於 AFFECTION_FILE_PATH 和 LEADERBOARD_CHANNEL_ID 常數。
- * @param {import('discord.js').Client} client - Discord 客戶端實例。
- */
-async function _postAffectionLeaderboard(client) {
-    console.log(`${colors.cyan}[SCHEDULER - SYSTEM]${colors.reset} 正在執行自動好感度排行榜任務...`);
-    
-    // 1. 檢查頻道 ID 是否已設定
-    if (LEADERBOARD_CHANNEL_ID === '1146286703741505679' || !LEADERBOARD_CHANNEL_ID) {
-        console.error(`${colors.red}[SCHEDULER - SYSTEM]${colors.reset} ❌ 錯誤：未在 schedulerManager.js 或環境變數中設定 LEADERBOARD_CHANNEL_ID。請確保此變數已正確設定。`);
+// === 連動模組排程 ===
+async function postAffectionLeaderboard(client, channelId, limit = 10) {
+    if (!channelId) {
+        console.error(`${colors.red}[SCHEDULER]${colors.reset} 錯誤：未提供有效的頻道 ID 來發送排行榜。`);
         return;
     }
-
-    // 2. 讀取並處理資料
-    let affectionData;
     try {
-        // 從好感度模組獲取數據，而不是直接讀取檔案，這樣更符合模組化原則
-        // 確保 affectionManager.js 有 getAffectionLeaderboard 函式
-        const leaderboard = affectionManager.getAffectionLeaderboard(100); // 獲取所有用戶的好感度
-        
-        // 如果 affectionManager.getAffectionLeaderboard 返回的是處理好的數據，則可以直接使用
-        // 否則，這裡需要重新排序和篩選
-        const sortedUsers = leaderboard
-            .sort((a, b) => b.affection - a.affection)
-            .slice(0, 10); // 取前 10 名
+        const leaderboard = affectionManager.getAffectionLeaderboard(limit);
+        if (leaderboard.length === 0) return;
 
-        if (sortedUsers.length === 0) {
-            console.log(`${colors.yellow}[SCHEDULER - SYSTEM]${colors.reset} ℹ️ 好感度資料中沒有足夠的用戶，無法生成排行榜。`);
-            return;
-        }
-
-        // 3. 建立並發送 Embed
-        const embed = new EmbedBuilder()
-            .setTitle('💖 每週好感度排行榜 💖')
-            .setColor('#FF69B4')
-            .setTimestamp()
-            .setFooter({ text: `由 ${client.user.username} 自動發佈` });
+        const sortedUsers = leaderboard.sort((a, b) => b.affection - a.affection).slice(0, limit);
+        const embed = new EmbedBuilder().setTitle('💖 好感度排行榜 💖').setColor('#FF69B4').setTimestamp();
         
         const leaderboardEntries = await Promise.all(
             sortedUsers.map(async (user, index) => {
                 let displayName = `使用者 (ID: ...${user.userId.slice(-4)})`;
                 try {
-                    // 確保 client 已準備就緒，可以 fetch 用戶
-                    if (client.isReady()) {
-                        const member = await client.users.fetch(user.userId);
-                        displayName = member.displayName || member.username;
-                    }
-                } catch (fetchErr) {
-                    console.error(`${colors.yellow}[SCHEDULER - SYSTEM]${colors.reset} ⚠️ 無法獲取用戶 ${user.userId} 的 displayName: ${fetchErr.message}`);
-                }
-
-                const rank = index + 1;
-                let rankIcon = `${rank}.`;
-                if (rank === 1) rankIcon = '🥇';
-                else if (rank === 2) rankIcon = '🥈';
-                else if (rank === 3) rankIcon = '🥉';
-                
+                    const member = await client.users.fetch(user.userId);
+                    displayName = member.displayName || member.username;
+                } catch {}
+                const rankIcons = ['🥇', '🥈', '🥉'];
+                const rankIcon = index < 3 ? rankIcons[index] : `${index + 1}.`;
                 return `${rankIcon} **${displayName}** - ${user.affection} 點好感度`;
             })
         );
         embed.setDescription(leaderboardEntries.join('\n\n'));
 
-        try {
-            const channel = await client.channels.fetch(LEADERBOARD_CHANNEL_ID);
-            if (channel && channel.isTextBased()) {
-                await channel.send({ embeds: [embed] });
-                console.log(`${colors.green}[SCHEDULER - SYSTEM]${colors.reset} ✅ 已成功將好感度排行榜推送至指定頻道。`);
-            } else {
-                throw new Error(`無法找到或無法發送訊息到頻道 ID: ${LEADERBOARD_CHANNEL_ID}。`);
-            }
-        } catch (error) {
-            console.error(`${colors.red}[SCHEDULER - SYSTEM]${colors.reset} ❌ 推送排行榜時發生錯誤:`, error.message);
+        const channel = await client.channels.fetch(channelId);
+        if (channel && channel.isTextBased()) {
+            await channel.send({ embeds: [embed] });
         }
-
     } catch (error) {
-        console.error(`${colors.red}[SCHEDULER - SYSTEM]${colors.reset} ❌ 執行好感度排行榜任務時發生未預期錯誤:`, error);
+        console.error(`${colors.red}[SCHEDULER]${colors.reset} 執行好感度排行榜任務時發生錯誤:`, error);
     }
 }
 
-
-// === 核心排程邏輯：載入並設定任務 ===
-/**
- * 內部函式：停止所有現有排程，然後根據 `tasksConfig` 載入並重新設定排程任務。
- * @param {object} taskActionFunctions - 任務執行函式對應表。
- */
-async function loadAndScheduleTasks(taskActionFunctions) {
-    // 停止所有現有的 cron 任務，防止重複排程
+// === 核心排程邏輯 ===
+async function loadAndScheduleTasks(client, taskActionFunctions) {
     activeCronTasks.forEach(task => task.stop());
     activeCronTasks = [];
 
-    if (!Array.isArray(tasksConfig)) {
-        console.error(`${colors.red}[SCHEDULER MANAGER]${colors.reset} ❌ 排程配置內容格式不正確，應為陣列。已重置為空。`);
-        tasksConfig = []; // 重置為空陣列
-    }
-
-    if (tasksConfig.length === 0) {
+    const allTasks = [...autoTasksConfig, ...personalTasksConfig];
+    if (allTasks.length === 0) {
         console.log(`[SCHEDULER MANAGER] ℹ️ 未找到任何啟用的排程任務。`);
     }
 
-    tasksConfig.forEach(task => {
-        if (task.enabled) {
-            const actualTaskFunction = taskActionFunctions[task.action];
+    allTasks.forEach(task => {
+        if (!task.enabled) {
+            console.log(`${colors.yellow}[SCHEDULER]${colors.reset} 任務 '${task.name || task.id}' 已禁用，跳過。`);
+            return;
+        }
 
-            if (typeof actualTaskFunction === 'function') {
-                const cronTask = cron.schedule(task.cronExpression, async () => {
-                    console.log(`${colors.yellow}[SCHEDULER]${colors.reset} 正在執行排程任務: ${task.name || task.id} (${new Date().toLocaleString()})`);
-                    try {
-                        await actualTaskFunction(task.args); // 執行實際任務，並傳遞參數
-                        console.log(`${colors.green}[SCHEDULER]${colors.reset} 任務 '${task.name || task.id}' 執行成功。`);
-                    } catch (err) {
-                        console.error(`${colors.red}[SCHEDULER]${colors.reset} 任務 '${task.name || task.id}' 執行失敗：`, err);
-                    }
-                }, {
-                    timezone: task.timezone || 'Asia/Taipei' // 使用配置中的時區，預設台灣時間
+        const actualTaskFunction = taskActionFunctions[task.action];
+        if (typeof actualTaskFunction === 'function') {
+            const cronTask = cron.schedule(task.cronExpression, () => {
+                console.log(`${colors.yellow}[SCHEDULER]${colors.reset} 正在執行任務: ${task.name || task.id}`);
+                actualTaskFunction(task, client).catch(err => {
+                    console.error(`${colors.red}[SCHEDULER]${colors.reset} 任務 '${task.name || task.id}' 執行失敗：`, err);
                 });
-                activeCronTasks.push(cronTask);
-                console.log(`${colors.cyan}[SCHEDULER]${colors.reset} 任務 '${task.name || task.id}' 已成功排程：'${task.cronExpression}' (時區: ${task.timezone || 'Asia/Taipei'})`);
-            } else {
-                console.error(`${colors.red}[SCHEDULER MANAGER]${colors.reset} ❌ 任務 '${task.name || task.id}' 的 action '${task.action}' 未找到對應的執行函式。`);
-            }
+            }, { timezone: task.timezone || 'Asia/Taipei' });
+            activeCronTasks.push(cronTask);
         } else {
-            console.log(`${colors.yellow}[SCHEDULER MANAGER]${colors.reset} ℹ️ 任務 '${task.name || task.id}' 已禁用，跳過排程。`);
+            console.error(`${colors.red}[SCHEDULER]${colors.reset} ❌ 任務 '${task.name}' 的 action '${task.action}' 未找到對應函式。`);
         }
     });
 
-    console.log(`${colors.cyan}[ SCHEDULER ]${colors.reset} ${colors.green}已載入並排程 ${activeCronTasks.length} 個任務。${colors.reset}`);
+    console.log(`${colors.green}[SCHEDULER]${colors.reset} 已成功載入並排程 ${activeCronTasks.length} 個任務。`);
 }
 
 // === 模組初始化入口點 ===
-/**
- * 初始化排程器：優先從 GitHub 載入排程配置，若失敗則從本地緩存載入。
- * 然後根據配置設定所有排程任務，並啟動內建的系統任務。
- * @param {import('discord.js').Client} client - Discord 客戶端實例。
- * @param {object} taskActionFunctions - 任務執行函式對應表。
- */
 async function initializeScheduler(client, taskActionFunctions) {
-    console.log(`${colors.cyan}[ SCHEDULER ]${colors.reset} 正在初始化排程器...`);
-    try {
-        // --- 處理來自 tasks.json 的個人化/動態任務 ---
-        const { content, sha } = await fetchFromGitHub();
-        if (content) {
-            tasksConfig = JSON.parse(content);
-            currentFileSha = sha;
-            console.log(`${colors.cyan}[ SCHEDULER ]${colors.reset} ${colors.green}從 GitHub 成功載入排程配置 ✅${colors.reset}`);
-        } else {
-            if (fs.existsSync(TASKS_FILE_LOCAL)) {
-                tasksConfig = JSON.parse(fs.readFileSync(TASKS_FILE_LOCAL, 'utf8'));
-                console.warn(`${colors.yellow}[SCHEDULER MANAGER]${colors.reset} ⚠️ 從 GitHub 載入失敗，已從本地檔案載入排程配置。`);
-            } else {
-                tasksConfig = [];
-                console.warn(`${colors.yellow}[SCHEDULER MANAGER]${colors.reset} ⚠️ 未找到本地排程緩存檔案，已初始化為空。`);
-            }
-        }
-        // 載入並排程動態任務
-        await loadAndScheduleTasks(taskActionFunctions);
-    } catch (err) {
-        console.error(`${colors.red}[SCHEDULER MANAGER]${colors.reset} ❌ 排程器初始化失敗：${err.message}`, err);
+    console.log(`${colors.cyan}[SCHEDULER]${colors.reset} 正在初始化排程器...`);
+
+    // 載入自動化任務 (autotasks.json)
+    const autoData = await fetchFromGitHub(GH_AUTOTASKS_PATH);
+    if (autoData.content) {
+        autoTasksConfig = JSON.parse(autoData.content);
+        autoTasksSha = autoData.sha;
+    } else if (fs.existsSync(AUTOTASKS_FILE_LOCAL)) {
+        autoTasksConfig = JSON.parse(fs.readFileSync(AUTOTASKS_FILE_LOCAL, 'utf8'));
     }
+
+    // 載入個人任務 (personaltasks.json)
+    const personalData = await fetchFromGitHub(GH_PERSONALTASKS_PATH);
+    if (personalData.content) {
+        personalTasksConfig = JSON.parse(personalData.content);
+        personalTasksSha = personalData.sha;
+    } else if (fs.existsSync(PERSONALTASKS_FILE_LOCAL)) {
+        personalTasksConfig = JSON.parse(fs.readFileSync(PERSONALTASKS_FILE_LOCAL, 'utf8'));
+    }
+
+    await loadAndScheduleTasks(client, taskActionFunctions);
 }
 
-// === 外部呼叫：重新載入和重設排程任務 (保持不變) ===
-/**
- * 重新載入排程任務：從 GitHub 獲取最新配置，然後重新設定排程。
- * @param {object} taskActionFunctions - 任務執行函式對應表。
- */
-async function reloadScheduledTasks(taskActionFunctions) {
-    console.log(`${colors.cyan}[SCHEDULER MANAGER]${colors.reset} 正在重新載入排程任務...`);
-    // 重新初始化會處理所有排程，包括內建和動態的
-    // 注意：這裡需要把 client 物件傳入 initializeScheduler
-    // 這表示 reloadScheduledTasks 也需要接收 client 物件，或者將 client 儲存在模組內部
-    // 為了簡潔，我們假設 client 會在 initializeScheduler 中被捕捉到或通過參數傳遞。
-    // 在本例中，我們已經將 client 作為參數傳遞給 initializeScheduler。
-    await initializeScheduler(taskActionFunctions); // **重要**：這裡如果沒有 client，會導致 initializeScheduler 失敗
-}
+// === CRUD (建立、讀取、更新、刪除) 功能 ===
 
-// === 外部呼叫：管理排程任務的 CRUD 操作 (保持不變) ===
-// addOrUpdateTask(), deleteTask(), getAllTasks(), getTask() ... (與之前相同)
-
-// 內部輔助函式，用於儲存並重新載入排程
-async function _saveAndReload(taskActionFunctions, source) {
+// 內部輔助函式，用於儲存並重新載入個人任務
+async function _saveAndReloadPersonalTasks(client, taskActionFunctions, source) {
     try {
-        const content = JSON.stringify(tasksConfig, null, 2);
-        
-        // 1. 寫入本地檔案
-        fs.writeFileSync(TASKS_FILE_LOCAL, content, 'utf8');
-        console.log(`${colors.cyan}[SCHEDULER MANAGER]${colors.reset} 💾 本地任務設定已儲存 (來源: ${source})。`);
-
-        // 2. 推送至 GitHub
-        const { success, newSha } = await pushToGitHubInternal(content, `Tasks updated by ${source}`, currentFileSha);
-        if (success) {
-            currentFileSha = newSha; // 更新 SHA
-        }
-
-        // 3. 重新載入所有排程任務
-        await loadAndScheduleTasks(taskActionFunctions);
+        const content = JSON.stringify(personalTasksConfig, null, 2);
+        fs.writeFileSync(PERSONALTASKS_FILE_LOCAL, content, 'utf8');
+        const { success, newSha } = await pushToGitHubInternal(GH_PERSONALTASKS_PATH, content, `Personal tasks updated by ${source}`, personalTasksSha);
+        if (success) personalTasksSha = newSha;
+        await loadAndScheduleTasks(client, taskActionFunctions);
         return true;
     } catch (error) {
-        console.error(`${colors.red}[SCHEDULER MANAGER]${colors.reset} ❌ 儲存並重載任務時發生錯誤:`, error);
+        console.error(`${colors.red}[SCHEDULER]${colors.reset} ❌ 儲存並重載個人任務時發生錯誤:`, error);
         return false;
     }
 }
 
-/**
- * 獲取所有已設定的任務
- * @returns {Array} 任務設定陣列
- */
-function getAllTasks() {
-    return tasksConfig;
+function getAllTasks(userId) {
+    return [
+        ...autoTasksConfig,
+        ...personalTasksConfig.filter(task => task.userId === userId)
+    ];
 }
 
-/**
- * 根據 ID 獲取單一任務
- * @param {string} taskId - 任務的唯一 ID
- * @returns {object|undefined} 找到的任務物件，或 undefined
- */
 function getTask(taskId) {
-    return tasksConfig.find(task => task.id === taskId);
+    return [...autoTasksConfig, ...personalTasksConfig].find(task => task.id === taskId);
 }
 
-/**
- * 新增或更新一個任務
- * @param {object} newTaskConfig - 新的任務設定物件
- * @param {object} taskActionFunctions - 任務執行函式對應表
- * @returns {Promise<boolean>} 操作是否成功
- */
-async function addOrUpdateTask(newTaskConfig, taskActionFunctions) {
-    // 安全性：確保 action 是在白名單中，避免執行任意程式碼
-    if (!taskActionFunctions[newTaskConfig.action]) {
-        console.error(`${colors.red}[SCHEDULER MANAGER]${colors.reset} ❌ 嘗試新增一個無效的 action: ${newTaskConfig.action}`);
-        return false;
-    }
+async function addOrUpdateTask(client, taskActionFunctions, newTaskConfig) {
+    if (!taskActionFunctions[newTaskConfig.action]) return false;
     
-    const existingTaskIndex = tasksConfig.findIndex(
+    const existingTaskIndex = personalTasksConfig.findIndex(
         task => task.id === newTaskConfig.id && task.userId === newTaskConfig.userId
     );
 
     if (existingTaskIndex > -1) {
-        // 更新現有任務
-        tasksConfig[existingTaskIndex] = { ...tasksConfig[existingTaskIndex], ...newTaskConfig };
+        personalTasksConfig[existingTaskIndex] = { ...personalTasksConfig[existingTaskIndex], ...newTaskConfig };
     } else {
-        // 新增任務
-        tasksConfig.push(newTaskConfig);
+        personalTasksConfig.push(newTaskConfig);
     }
     
-    return await _saveAndReload(taskActionFunctions, 'addOrUpdateTask');
+    return await _saveAndReloadPersonalTasks(client, taskActionFunctions, `add/update: ${newTaskConfig.id}`);
 }
 
-/**
- * 刪除一個任務
- * @param {string} taskId - 要刪除的任務 ID
- * @param {string} userId - 執行操作的使用者 ID，用於權限驗證
- * @param {object} taskActionFunctions - 任務執行函式對應表
- * @returns {Promise<boolean>} 操作是否成功
- */
-async function deleteTask(taskId, userId, taskActionFunctions) {
-    const taskToDelete = getTask(taskId);
-    
-    // 安全性：確保任務存在，並且操作者是該任務的擁有者
-    if (!taskToDelete || taskToDelete.userId !== userId) {
-        return false; // 找不到任務，或無權限刪除
-    }
-    
-    const initialLength = tasksConfig.length;
-    tasksConfig = tasksConfig.filter(task => task.id !== taskId);
+async function deleteTask(client, taskActionFunctions, taskId, userId) {
+    const initialLength = personalTasksConfig.length;
+    personalTasksConfig = personalTasksConfig.filter(task => !(task.id === taskId && task.userId === userId));
 
-    // 確認有任務被刪除
-    if (tasksConfig.length < initialLength) {
-        return await _saveAndReload(taskActionFunctions, 'deleteTask');
+    if (personalTasksConfig.length < initialLength) {
+        return await _saveAndReloadPersonalTasks(client, taskActionFunctions, `delete: ${taskId}`);
     }
-    
-    return false; // 如果沒有任何東西被刪除，也回傳失敗
+    return false;
 }
-
 
 // === 匯出模組 ===
 module.exports = {
     initializeScheduler,
-    reloadScheduledTasks,
-    addOrUpdateTask,
-    deleteTask,
     getAllTasks,
     getTask,
+    addOrUpdateTask,
+    deleteTask,
+    postAffectionLeaderboard,
 };

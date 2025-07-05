@@ -46,11 +46,7 @@ fs.readdir(eventsPath, (err, files) => {
     const event = require(eventPath);
 
     try {
-      if (typeof event === "function") {
-        const eventName = file.split(".")[0];
-        client.on(eventName, event.bind(null, client));
-        console.log(`${colors.cyan}[ EVENT ]${colors.reset} 舊式事件載入：${colors.yellow}${eventName}${colors.reset}`);
-      } else if (event.name && typeof event.execute === "function") {
+      if (event.name && typeof event.execute === "function") {
         client.on(event.name, (...args) => event.execute(client, ...args));
         console.log(`${colors.cyan}[ EVENT ]${colors.reset} 已載入事件：${colors.yellow}${event.name}${colors.reset}`);
       } else {
@@ -90,6 +86,37 @@ function loadCommands(dir) {
 }
 loadCommands(path.join(__dirname, config.commandsDir));
 
+// === 核心：定義所有排程任務可以執行的動作 ===
+const taskActionFunctions = {
+    /**
+     * 發送好感度排行榜到指定頻道 (用於 autotasks.json)
+     */
+    'sendAffectionLeaderboard': (task, client) => {
+        const channelId = task.args?.channelId;
+        if (!channelId) {
+            console.error(`[Action:sendAffectionLeaderboard] 任務 ${task.id} 未在 args 中指定 channelId。`);
+            return;
+        }
+        schedulerManager.postAffectionLeaderboard(client, channelId, task.args?.limit);
+    },
+
+    /**
+     * 發送私訊給建立任務的使用者 (用於 personaltasks.json)
+     */
+    'sendDirectMessage': async (task, client) => {
+        try {
+            const user = await client.users.fetch(task.userId);
+            if (user) {
+                const message = task.args?.message || `這是一則來自 ${client.user.username} 的排程提醒！`;
+                await user.send(message);
+            }
+        } catch (error) {
+            console.error(`${colors.red}[Action:sendDirectMessage]${colors.reset} ❌ 發送私訊失敗 (任務ID: ${task.id}):`, error.message);
+        }
+    }
+};
+
+
 // ========== Bot Ready  ==========
 
 client.once("ready", async () => {
@@ -101,30 +128,29 @@ client.once("ready", async () => {
   console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.green}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
   client.riffy.init(client.user.id);
   
-
     try {
-            // 初始化所有需要資料庫或其他前置作業的模組
-            await connectToDatabase();
-            console.log(`${colors.cyan}[ DATABASE ]${colors.reset} ${colors.green}MongoDB 資料庫已連線 ✅${colors.reset}`);
-            
-            deckManager.loadDecks(); // 牌堆系統
-            // affectionManager 和其他模組在 require 時已自行初始化，此處可選擇性加入日誌
-            console.log(`${colors.cyan}[ SYSTEMS ]${colors.reset} ${colors.green}所有主要功能模組已準備就緒 ✅${colors.reset}`);
-            
-            // =========================================================
-            // ===             初始化排程器 (正確的位置)             ===
-            // =========================================================
-            console.log(`${colors.cyan}[ SCHEDULER ]${colors.reset} ${colors.yellow}正在初始化排程任務...${colors.reset}`);
-            const taskActionFunctions = {
-                // 如果您有自訂的排程任務，請在這裡定義 action 名稱與函式的對應
-                // 例如: dailyMessage: (args) => { /* ... */ }
-            };
-            await schedulerManager.initializeScheduler(client, taskActionFunctions);
+        // 初始化所有需要資料庫或其他前置作業的模組
+        await connectToDatabase();
+        console.log(`${colors.cyan}[ DATABASE ]${colors.reset} ${colors.green}MongoDB 資料庫已連線 ✅${colors.reset}`);
+        
+        deckManager.loadDecks(); // 牌堆系統
+        console.log(`${colors.cyan}[ SYSTEMS ]${colors.reset} ${colors.green}所有主要功能模組已準備就緒 ✅${colors.reset}`);
 
-        } catch (err) {
-            console.error(`${colors.red}[ ERROR ] 準備就緒過程中發生錯誤：${err.message}${colors.reset}`);
-        }
-    });
+        // =========================================================
+        // ===             初始化排程器 (正確的位置)             ===
+        // =========================================================
+        console.log(`${colors.cyan}[ SCHEDULER ]${colors.reset} ${colors.yellow}正在初始化排程任務...${colors.reset}`);
+        
+        // 將 taskActionFunctions 附加到 client 上，方便其他檔案（如指令檔）取用
+        client.taskActionFunctions = taskActionFunctions; 
+        
+        // 現在傳遞的是一本內容完整的「說明書」
+        await schedulerManager.initializeScheduler(client, taskActionFunctions);
+
+    } catch (err) {
+        console.error(`${colors.red}[ ERROR ] 準備就緒過程中發生錯誤：${err.message}${colors.reset}`);
+    }
+});
 
 
 // ========== Voice Packets  ==========
@@ -147,69 +173,54 @@ client.login(config.TOKEN || process.env.TOKEN).catch((e) => {
 
 // ========== Express 網頁伺服器 ==========
 
-const clientSecretContent = fs.readFileSync(CLIENT_SECRET_PATH, 'utf8');
-const credentials = JSON.parse(clientSecretContent);
-const { client_id, client_secret, redirect_uris } = credentials.web || credentials.installed;
+try {
+    const clientSecretContent = fs.readFileSync(CLIENT_SECRET_PATH, 'utf8');
+    const credentials = JSON.parse(clientSecretContent);
+    const { client_id, client_secret, redirect_uris } = credentials.web || credentials.installed;
+    const REDIRECT_URI = redirect_uris[0]; 
+    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);
 
-// 確保 REDIRECT_URI 要與 Google Cloud Console 中設定的完全一致
-const REDIRECT_URI = redirect_uris[0]; 
+    app.get("/", (req, res) => {
+      const filePath = path.join(__dirname, "index.html");
+      res.sendFile(filePath);
+    });
 
-// 創建 OAuth2 客戶端，用於生成授權 URL 和交換令牌
-const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);
+    app.get('/auth/google', (req, res) => {
+      const scopes = [
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/userinfo.profile',
+      ];
+      const authUrl = oAuth2Client.generateAuthUrl({
+        access_type: 'offline',
+        scope: scopes,
+        prompt: 'consent',
+      });
+      res.send(`請訪問以下 URL 進行 Google Drive 權限授權：<a href="${authUrl}">點擊這裡</a>。`);
+    });
 
-// 用於顯示基本的首頁或授權入口
-app.get("/", (req, res) => {
-  const filePath = path.join(__dirname, "index.html");
-  res.sendFile(filePath);
-});
+    app.get('/oauth2callback', async (req, res) => {
+      const { code } = req.query;
+      if (!code) {
+        return res.status(400).send('Google OAuth2 授權失敗：未收到授權碼。');
+      }
+      try {
+        const { tokens } = await oAuth2Client.getToken(code);
+        oAuth2Client.setCredentials(tokens);
+        await saveToken(tokens);
+        res.send('Google Drive 授權成功！令牌已儲存至資料庫。您可以關閉此頁面。');
+      } catch (error) {
+        console.error('[ERROR] 交換 Google Drive 令牌失敗:', error.message);
+        res.status(500).send(`交換 Google Drive 令牌失敗：${error.message}`);
+      }
+    });
 
-// 啟動 Google OAuth2 授權流程的路由 ---
-app.get('/auth/google', (req, res) => {
-  const scopes = [
-    'https://www.googleapis.com/auth/drive', // 請求 Google Drive 讀寫權限
-    'https://www.googleapis.com/auth/userinfo.profile', // 請求用戶基本資料，可選
-  ];
-
-  const authUrl = oAuth2Client.generateAuthUrl({
-    access_type: 'offline', // 這是獲取 refresh_token 的關鍵
-    scope: scopes,
-    prompt: 'consent', // 每次都要求用戶同意，確保能拿到 refresh_token
-  });
-  console.log(`[INFO] 請訪問以下 URL 進行授權：${authUrl}`);
-  // 不再自動重定向，而是提供連結讓管理員手動點擊
-  res.send(`請訪問以下 URL 進行 Google Drive 權限授權：<a href="${authUrl}">點擊這裡</a>。授權完成後，此頁面會顯示成功訊息，您即可關閉。`);
-});
-
-// Google OAuth2 回呼路由 ---
-app.get('/oauth2callback', async (req, res) => {
-  const { code } = req.query; // Google 會將授權碼作為 'code' 參數傳回
-  if (!code) {
-    console.error('[ERROR] Google OAuth2 回呼未收到授權碼。');
-    return res.status(400).send('Google OAuth2 授權失敗：未收到授權碼。');
-  }
-
-  try {
-    // 使用授權碼交換 access_token 和 refresh_token
-    const { tokens } = await oAuth2Client.getToken(code);
-    oAuth2Client.setCredentials(tokens); // 更新 OAuth2 客戶端的憑證
-
-    // 將獲取到的令牌儲存到 MongoDB
-    await saveToken(tokens);
-    console.log('[INFO] Google Drive 令牌已成功獲取並儲存到 MongoDB！');
-    res.send('Google Drive 授權成功！令牌已儲存至資料庫。您可以關閉此頁面。');
-  } catch (error) {
-    console.error('[ERROR] 交換 Google Drive 令牌失敗:', error.message);
-    res.status(500).send(`交換 Google Drive 令牌失敗：${error.message}`);
-  }
-});
-
-
-// 啟動伺服器
-app.listen(port, () => {
-  console.log('\n' + '─'.repeat(40));
-  console.log(`${colors.magenta}${colors.bright}🌐 SERVER STATUS${colors.reset}`);
-  console.log('─'.repeat(40));
-  console.log(`${colors.cyan}[ SERVER ]${colors.reset} ${colors.green}Online ✅${colors.reset}`);
-  console.log(`${colors.cyan}[ PORT ]${colors.reset} ${colors.yellow}http://localhost:${port}${colors.reset}`); 
-  console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.green}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
-});
+    app.listen(port, () => {
+      console.log('\n' + '─'.repeat(40));
+      console.log(`${colors.magenta}${colors.bright}🌐 SERVER STATUS${colors.reset}`);
+      console.log('─'.repeat(40));
+      console.log(`${colors.cyan}[ SERVER ]${colors.reset} ${colors.green}Online ✅${colors.reset}`);
+      console.log(`${colors.cyan}[ PORT ]${colors.reset} ${colors.yellow}http://localhost:${port}${colors.reset}`); 
+    });
+} catch (error) {
+    console.warn(`${colors.yellow}[OAUTH2]${colors.reset} ⚠️ 未找到 client_secret.json，Google Drive 相關功能將停用。`);
+}
