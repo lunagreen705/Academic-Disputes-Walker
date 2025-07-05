@@ -24,7 +24,7 @@ module.exports = {
   run: async (client, interaction, lang) => {
     try {
       // 1. 檢查使用者ID是否為開發者ID
-      if (interaction.user.id !== config.ownerID) {
+   if (!config.ownerID.includes(interaction.user.id)) {
         return interaction.reply({
           content: "❌ 你沒有權限使用此指令。",
           ephemeral: true // 僅有該使用者可見
