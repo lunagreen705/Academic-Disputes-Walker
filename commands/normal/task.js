@@ -159,7 +159,7 @@ async function handleSet(interaction, userId) {
 }
 
 async function handleList(interaction, userId) {
-    // 已優化：直接從 schedulerManager 獲取該使用者的任務
+   const allTasks = schedulerManager.getAllTasks(userId);
     const userTasks = schedulerManager.getTasksByUserId(userId); 
 
     if (userTasks.length === 0) {
