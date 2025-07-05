@@ -269,18 +269,6 @@ async function initializeScheduler(client, taskActionFunctions) {
         }
         // 載入並排程動態任務
         await loadAndScheduleTasks(taskActionFunctions);
-
-        // --- << 新增點 >>：在這裡直接啟動內建的、硬編碼的系統任務 ---
-        console.log(`${colors.cyan}[SCHEDULER - SYSTEM]${colors.reset} 正在設定內建的自動化任務...`);
-        
-        // 設定幾點自動發送好感度排行榜
-        const systemTask = cron.schedule('42 14 * * 0', () => _postAffectionLeaderboard(client), {
-            timezone: 'Asia/Taipei'
-        });
-        activeCronTasks.push(systemTask); // 將系統任務也加入管理列表
-        
-        console.log(`${colors.green}[SCHEDULER - SYSTEM]${colors.reset} ✅ 自動好感度排行榜任務已排程 (每週日 20:00)。`);
-
     } catch (err) {
         console.error(`${colors.red}[SCHEDULER MANAGER]${colors.reset} ❌ 排程器初始化失敗：${err.message}`, err);
     }
