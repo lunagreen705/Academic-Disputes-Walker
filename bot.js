@@ -90,36 +90,8 @@ function loadCommands(dir) {
 }
 loadCommands(path.join(__dirname, config.commandsDir));
 
-// === 核心：定義所有排程任務可以執行的動作 ===
-const taskActionFunctions = {
-    /**
-     * 發送好感度排行榜到指定頻道 (用於 autotasks.json)
-     */
-    'sendAffectionLeaderboard': (task, client) => {
-        const channelId = task.args?.channelId;
-        if (!channelId) {
-            console.error(`[Action:sendAffectionLeaderboard] 任務 ${task.id} 未在 args 中指定 channelId。`);
-            return;
-        }
-        schedulerManager.postAffectionLeaderboard(client, channelId, task.args?.limit);
-    },
 
-    /**
-     * 發送私訊給建立任務的使用者 (用於 personaltasks.json)
-     */
-    'sendDirectMessage': async (task, client) => {
-        try {
-            const user = await client.users.fetch(task.userId);
-            if (user) {
-                const message = task.args?.message || `這是一則來自 ${client.user.username} 的排程提醒！`;
-                await user.send(message);
-            }
-        } catch (error) {
-            console.error(`${colors.red}[Action:sendDirectMessage]${colors.reset} ❌ 發送私訊失敗 (任務ID: ${task.id}):`, error.message);
-        }
-    }
-};
-
+// ========== Bot Ready  ==========
 
 // ========== Bot Ready  ==========
 
@@ -145,6 +117,45 @@ client.once("ready", async () => {
         // =========================================================
         console.log(`${colors.cyan}[ SCHEDULER ]${colors.reset} ${colors.yellow}正在初始化排程任務...${colors.reset}`);
         
+        // 【！重要修正！】在 client ready 後再定義 taskActionFunctions
+        // 這樣可以確保 client.users.fetch 等方法在定義時是可用的
+        taskActionFunctions = {
+            /**
+             * 發送好感度排行榜到指定頻道 (用於 autotasks.json)
+             */
+            'sendAffectionLeaderboard': (task, client) => {
+                const channelId = task.args?.channelId;
+                if (!channelId) {
+                    console.error(`[Action:sendAffectionLeaderboard] 任務 ${task.id} 未在 args 中指定 channelId。`);
+                    return;
+                }
+                schedulerManager.postAffectionLeaderboard(client, channelId, task.args?.limit);
+            },
+
+            /**
+             * 發送私訊給建立任務的使用者 (用於 personaltasks.json)
+             */
+            'sendDirectMessage': async (task, client) => {
+                console.log(`[ACTION] 嘗試向使用者 ID: ${task.userId} 傳送私訊，內容為: ${task.args?.message}`); // 添加詳細日誌
+                try {
+                    const user = await client.users.fetch(task.userId);
+                    if (user) {
+                        const message = task.args?.message || `這是一則來自 ${client.user.username} 的排程提醒！`;
+                        await user.send(message);
+                        console.log(`[ACTION] 成功向使用者 ID: ${task.userId} 傳送私訊`); // 添加成功日誌
+                    } else {
+                        console.error(`[ACTION] 找不到使用者 ID: ${task.userId}，無法傳送私訊。`);
+                    }
+                } catch (error) {
+                    console.error(`${colors.red}[Action:sendDirectMessage]${colors.reset} ❌ 發送私訊失敗 (任務ID: ${task.id}, 使用者ID: ${task.userId}):`, error.message);
+                    // 檢查常見錯誤訊息，如 "Cannot send messages to this user"
+                    if (error.code === 50007) { // Discord API 錯誤碼：無法向使用者傳送訊息
+                        console.error(`[Action:sendDirectMessage] 錯誤碼 50007: 這通常表示使用者關閉了來自伺服器成員的私訊，或者機器人被該使用者封鎖了。`);
+                    }
+                }
+            }
+        };
+        
         // 將 taskActionFunctions 附加到 client 上，方便其他檔案（如指令檔）取用
         client.taskActionFunctions = taskActionFunctions; 
         
@@ -155,6 +166,7 @@ client.once("ready", async () => {
         console.error(`${colors.red}[ ERROR ] 準備就緒過程中發生錯誤：${err.message}${colors.reset}`);
     }
 });
+
 
 
 // ========== Voice Packets  ==========
