@@ -1,0 +1,14 @@
+[
+  {
+    "id": "task-965760-1751703859471",
+    "name": "吃飯",
+    "cronExpression": "25 8 5 7 *",
+    "action": "sendDirectMessage",
+    "enabled": true,
+    "timezone": "Asia/Taipei",
+    "userId": "329999695390965760",
+    "args": {
+      "message": "⏰ **排程提醒**：\n\n>>> 吃飯"
+    }
+  }
+]
