@@ -44,6 +44,34 @@ module.exports = async (client, interaction) => {
         return;
       }
     }
+// =================================================================
+//                      【排程處理】
+// =================================================================
+else if (interaction.isStringSelectMenu()) {
+    const customId = interaction.customId;
+
+    // 將 customId 開頭為 "delete-task-menu", "toggle-task-menu", "edit-task-menu" 的互動
+    // 轉交給 task 指令的 handleMenu 函式處理
+    if (customId.startsWith('delete-task-menu') || customId.startsWith('toggle-task-menu') || customId.startsWith('edit-task-menu')) {
+        const taskCommand = client.commands.get('task'); // .get() 比 .find() 效率更高
+        if (taskCommand && typeof taskCommand.handleMenu === "function") {
+            try {
+                await taskCommand.handleMenu(client, interaction); // 將 client 和 interaction 傳遞過去
+            } catch (e) {
+                console.error(`❌ task handleMenu 在 interactionCreate 中發生錯誤: ${e.stack || e}`);
+                await interaction.reply({ content: "❌ 處理選單時發生嚴重錯誤", ephemeral: true }).catch(console.error);
+            }
+        } else {
+            console.error(`[ERROR] Task command or handleMenu not found for customId: ${customId}`);
+            await interaction.reply({ content: "❌ 找不到選單處理程式", ephemeral: true }).catch(console.error);
+        }
+        return; // 處理完畢，返回
+    } else {
+        console.warn(`[WARN] Unhandled select menu interaction with customId: ${customId}`);
+        await interaction.reply({ content: "❌ 未識別的選單操作", ephemeral: true }).catch(console.error);
+        return;
+    }
+}
 
     // 自動補全（Autocomplete）處理
     if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
