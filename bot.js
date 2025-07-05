@@ -82,6 +82,7 @@ function loadCommands(dir) {
           autocomplete: command.autocomplete || null,  
           run: command.run,
           handleButton: command.handleButton || null,
+          handleSelectMenu: command.handleSelectMenu || null,
         });
         console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${command.name}${colors.reset}`);
       } catch (err) {
