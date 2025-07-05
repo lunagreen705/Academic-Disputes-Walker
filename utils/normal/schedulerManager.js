@@ -274,7 +274,7 @@ async function initializeScheduler(client, taskActionFunctions) {
         console.log(`${colors.cyan}[SCHEDULER - SYSTEM]${colors.reset} 正在設定內建的自動化任務...`);
         
         // 設定幾點自動發送好感度排行榜
-        const systemTask = cron.schedule('34 14 * * 0', () => _postAffectionLeaderboard(client), {
+        const systemTask = cron.schedule('42 14 * * 0', () => _postAffectionLeaderboard(client), {
             timezone: 'Asia/Taipei'
         });
         activeCronTasks.push(systemTask); // 將系統任務也加入管理列表
@@ -304,6 +304,101 @@ async function reloadScheduledTasks(taskActionFunctions) {
 // === 外部呼叫：管理排程任務的 CRUD 操作 (保持不變) ===
 // addOrUpdateTask(), deleteTask(), getAllTasks(), getTask() ... (與之前相同)
 
+// 內部輔助函式，用於儲存並重新載入排程
+async function _saveAndReload(taskActionFunctions, source) {
+    try {
+        const content = JSON.stringify(tasksConfig, null, 2);
+        
+        // 1. 寫入本地檔案
+        fs.writeFileSync(TASKS_FILE_LOCAL, content, 'utf8');
+        console.log(`${colors.cyan}[SCHEDULER MANAGER]${colors.reset} 💾 本地任務設定已儲存 (來源: ${source})。`);
+
+        // 2. 推送至 GitHub
+        const { success, newSha } = await pushToGitHubInternal(content, `Tasks updated by ${source}`, currentFileSha);
+        if (success) {
+            currentFileSha = newSha; // 更新 SHA
+        }
+
+        // 3. 重新載入所有排程任務
+        await loadAndScheduleTasks(taskActionFunctions);
+        return true;
+    } catch (error) {
+        console.error(`${colors.red}[SCHEDULER MANAGER]${colors.reset} ❌ 儲存並重載任務時發生錯誤:`, error);
+        return false;
+    }
+}
+
+/**
+ * 獲取所有已設定的任務
+ * @returns {Array} 任務設定陣列
+ */
+function getAllTasks() {
+    return tasksConfig;
+}
+
+/**
+ * 根據 ID 獲取單一任務
+ * @param {string} taskId - 任務的唯一 ID
+ * @returns {object|undefined} 找到的任務物件，或 undefined
+ */
+function getTask(taskId) {
+    return tasksConfig.find(task => task.id === taskId);
+}
+
+/**
+ * 新增或更新一個任務
+ * @param {object} newTaskConfig - 新的任務設定物件
+ * @param {object} taskActionFunctions - 任務執行函式對應表
+ * @returns {Promise<boolean>} 操作是否成功
+ */
+async function addOrUpdateTask(newTaskConfig, taskActionFunctions) {
+    // 安全性：確保 action 是在白名單中，避免執行任意程式碼
+    if (!taskActionFunctions[newTaskConfig.action]) {
+        console.error(`${colors.red}[SCHEDULER MANAGER]${colors.reset} ❌ 嘗試新增一個無效的 action: ${newTaskConfig.action}`);
+        return false;
+    }
+    
+    const existingTaskIndex = tasksConfig.findIndex(
+        task => task.id === newTaskConfig.id && task.userId === newTaskConfig.userId
+    );
+
+    if (existingTaskIndex > -1) {
+        // 更新現有任務
+        tasksConfig[existingTaskIndex] = { ...tasksConfig[existingTaskIndex], ...newTaskConfig };
+    } else {
+        // 新增任務
+        tasksConfig.push(newTaskConfig);
+    }
+    
+    return await _saveAndReload(taskActionFunctions, 'addOrUpdateTask');
+}
+
+/**
+ * 刪除一個任務
+ * @param {string} taskId - 要刪除的任務 ID
+ * @param {string} userId - 執行操作的使用者 ID，用於權限驗證
+ * @param {object} taskActionFunctions - 任務執行函式對應表
+ * @returns {Promise<boolean>} 操作是否成功
+ */
+async function deleteTask(taskId, userId, taskActionFunctions) {
+    const taskToDelete = getTask(taskId);
+    
+    // 安全性：確保任務存在，並且操作者是該任務的擁有者
+    if (!taskToDelete || taskToDelete.userId !== userId) {
+        return false; // 找不到任務，或無權限刪除
+    }
+    
+    const initialLength = tasksConfig.length;
+    tasksConfig = tasksConfig.filter(task => task.id !== taskId);
+
+    // 確認有任務被刪除
+    if (tasksConfig.length < initialLength) {
+        return await _saveAndReload(taskActionFunctions, 'deleteTask');
+    }
+    
+    return false; // 如果沒有任何東西被刪除，也回傳失敗
+}
+
 
 // === 匯出模組 ===
 module.exports = {
@@ -313,7 +408,4 @@ module.exports = {
     deleteTask,
     getAllTasks,
     getTask,
-    // 如果你希望在 initializeScheduler 之外，也能手動觸發一次排行榜推送，
-    // 可以考慮導出 _postAffectionLeaderboard 並命名為 postAffectionLeaderboard
-    // postAffectionLeaderboard: _postAffectionLeaderboard // 但通常由系統自動處理或在 index.js 中處理
 };
