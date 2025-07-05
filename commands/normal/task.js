@@ -5,9 +5,6 @@ const chrono = require('chrono-node');
 const { DateTime } = require('luxon');
 const { randomUUID } = require('crypto');
 
-
-// ... (省略前面的程式碼)
-
 // 在模組頂層建立，供所有函式重複使用，提升效能
 const customChrono = chrono.zh.casual.clone();
 
@@ -72,11 +69,10 @@ module.exports = {
           await handleDelete(interaction, user.id);
           break;
         case 'toggle':
-            // 獨立處理 toggle 和 edit 的處理函數，以提供更清晰的邏輯
-            await handleInteractiveMenu(interaction, user.id, subcommand); // 此處依然調用 InteractiveMenu
+            await handleInteractiveMenu(interaction, user.id, subcommand);
             break;
         case 'edit': 
-            await handleInteractiveMenu(interaction, user.id, subcommand); // 此處依然調用 InteractiveMenu
+            await handleInteractiveMenu(interaction, user.id, subcommand);
             break;
       }
     } catch (e) {
@@ -96,37 +92,38 @@ module.exports = {
 // =================================================================
 
 function parseWhenToCron(whenStr) {
-    // 【修正點】使用 Luxon 獲取當前台北時間作為 chrono 的參考點
-    const nowInTaipei = DateTime.now().setZone('Asia/Taipei').toJSDate();
+    // 使用 Luxon 獲取當前台北時間作為 chrono 的參考點
+    const nowInTaipei = DateTime.now().setZone('Asia/Taipei').toJSDate();
 
-    // 使用彈性的正規表示式
+    // 優先處理明確的「每天」或「每週」模式
     if (/每天/.test(whenStr)) {
-        const parsedResult = customChrono.parse(whenStr, nowInTaipei, { forwardDate: true }); // 【修正點】使用 nowInTaipei
+        const parsedResult = customChrono.parse(whenStr, nowInTaipei, { forwardDate: true });
         if (!parsedResult || parsedResult.length === 0) return null;
         
         const hour = parsedResult[0].start.get('hour');
         const minute = parsedResult[0].start.get('minute');
-        return `${minute} ${hour} * * *`;
+        return `${minute} ${hour} * * *`; // 每天重複
     }
     const weeklyMatch = whenStr.match(/每(週|星期)([一二三四五六日])/);
     if (weeklyMatch) {
         const dayOfWeekMap = { '日': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6 };
         const dayOfWeek = dayOfWeekMap[weeklyMatch[2]];
         
-        const parsedResult = customChrono.parse(whenStr, nowInTaipei, { forwardDate: true }); // 【修正點】使用 nowInTaipei
+        const parsedResult = customChrono.parse(whenStr, nowInTaipei, { forwardDate: true });
         if (!parsedResult || parsedResult.length === 0) return null;
 
         const hour = parsedResult[0].start.get('hour');
         const minute = parsedResult[0].start.get('minute');
-        return `${minute} ${hour} * * ${dayOfWeek}`;
+        return `${minute} ${hour} * * ${dayOfWeek}`; // 每週重複
     }
 
-    const results = customChrono.parse(whenStr, nowInTaipei, { forwardDate: true }); // 【修正點】使用 nowInTaipei
+    // 處理一次性或每年重複的提醒 (例如 "明天早上9點", "10分鐘後", "7月5日")
+    const results = customChrono.parse(whenStr, nowInTaipei, { forwardDate: true });
     if (results.length === 0) return null;
 
     const targetDate = results[0].start.date();
-    // targetDate 會是一個 JavaScript Date 物件，其時區是基於 Luxon 提供的 nowInTaipei。
-    // 排程器會根據 taskConfig 中的 timezone 正確解讀這個 Cron。
+    // 對於特定日期，cron 會是 "分鐘 小時 日期 月份 *"，這表示每年都會在該日期執行。
+    // 我們將在 handleSet 中透過添加 occurrence_count: 1 來使其成為一次性。
     return `${targetDate.getMinutes()} ${targetDate.getHours()} ${targetDate.getDate()} ${targetDate.getMonth() + 1} *`;
 }
 
@@ -136,6 +133,13 @@ async function handleSet(interaction, userId) {
 
     const message = options.getString('message');
     const whenStr = options.getString('when');
+
+    // 判斷是否為重複性任務 (基於使用者輸入的字串)
+    let isRecurring = false;
+    if (whenStr.includes('每天') || whenStr.includes('每週') || whenStr.includes('每星期')) {
+        isRecurring = true;
+    }
+
     const cronExpression = parseWhenToCron(whenStr);
 
     if (!cronExpression) {
@@ -156,13 +160,18 @@ async function handleSet(interaction, userId) {
         args: { message: `⏰ **排程提醒**：\n\n>>> ${message}` }
     };
 
+    // 如果不是明確的重複性任務，則設定為只執行一次
+    if (!isRecurring) {
+        taskConfig.occurrence_count = 1;
+    }
+
     const success = await schedulerManager.addOrUpdateTask(client, client.taskActionFunctions, taskConfig);
     
     if (success) {
         const successEmbed = new EmbedBuilder()
             .setColor('#57F287')
             .setTitle('✅ 提醒設定成功！')
-            .setDescription(`學術糾紛將會透過私訊提醒您`);
+            .setDescription(`學術糾紛將會透過私訊提醒您。${!isRecurring ? '\n\n**此提醒將在執行一次後自動刪除。**' : ''}`); // 為一次性任務添加提示
         await interaction.followUp({ embeds: [successEmbed], ephemeral: true });
     } else {
         await interaction.followUp({ content: '❌ 操作失敗，請稍後再試。', ephemeral: true });
@@ -170,8 +179,7 @@ async function handleSet(interaction, userId) {
 }
 
 async function handleList(interaction, userId) {
-   const allTasks = schedulerManager.getAllTasks(userId);
-    const userTasks = schedulerManager.getTasksByUserId(userId); 
+   const userTasks = schedulerManager.getTasksByUserId(userId); 
 
     if (userTasks.length === 0) {
         return interaction.reply({ content: 'ℹ️ 您目前沒有設定任何個人提醒。', ephemeral: true });
@@ -183,9 +191,18 @@ async function handleList(interaction, userId) {
         .setDescription('以下是您設定的所有排程提醒。');
 
     userTasks.forEach(task => {
+        // 顯示執行次數和總次數 (如果存在)
+        let occurrenceInfo = '';
+        if (typeof task.occurrence_count === 'number' && task.occurrence_count > 0) {
+            const executed = typeof task.executedCount === 'number' ? task.executedCount : 0;
+            occurrenceInfo = ` (已執行 ${executed}/${task.occurrence_count} 次)`;
+        } else if (task.end_date) {
+            occurrenceInfo = ` (結束日期: ${task.end_date})`;
+        }
+
         embed.addFields({
             name: `${task.enabled ? '🟢' : '🔴'} ${task.name}`,
-            value: `ID: \`${task.id}\`\n排程: \`${task.cronExpression}\``, // 顯示cron表達式可能更有用
+            value: `ID: \`${task.id}\`\n排程: \`${task.cronExpression}\`${occurrenceInfo}`, // 顯示 cron 表達式和次數資訊
         });
     });
 
@@ -199,21 +216,21 @@ async function handleDelete(interaction, userId) {
 
 // 新增 handleToggle 函數，使其獨立處理
 async function handleToggle(interaction, userId) {
-    await handleInteractiveMenu(interaction, userId, 'toggle');
+    await handleInteractiveMenu(interaction, userId, 'toggle');
 }
 
 // 新增 handleEdit 函數，使其獨立處理
 async function handleEdit(interaction, userId) {
-    await handleInteractiveMenu(interaction, userId, 'edit');
-    // 注意：實際的編輯內容輸入和更新邏輯需要在 client.on('interactionCreate') 中處理，
-    // 當使用者從選單中選擇提醒後，您可以接著彈出一個 Modal 讓使用者輸入新的訊息和時間。
+    await handleInteractiveMenu(interaction, userId, 'edit');
+    // 注意：實際的編輯內容輸入和更新邏輯需要在 client.on('interactionCreate') 中處理，
+    // 當使用者從選單中選擇提醒後，您可以接著彈出一個 Modal 讓使用者輸入新的訊息和時間。
 }
 
 async function handleInteractiveMenu(interaction, userId, action) {
     const userTasks = schedulerManager.getTasksByUserId(userId);
     if (userTasks.length === 0) {
         // 訊息會根據 'action' 動態變化
-        return interaction.reply({ content: `ℹ️ 您沒有可${action === 'delete' ? '刪除' : action === 'toggle' ? '切換' : '編輯'}的提醒。`, ephemeral: true });
+        return interaction.reply({ content: `ℹ️ 您沒有可${action === 'delete' ? '刪除' : action === 'toggle' ? '切換啟用/暫停' : '編輯'}的提醒。`, ephemeral: true });
     }
 
     // 這個物件用於動態設定訊息和預留文字中的動詞
@@ -234,28 +251,4 @@ async function handleInteractiveMenu(interaction, userId, action) {
     const row = new ActionRowBuilder().addComponents(selectMenu);
     // 內容訊息也會動態更新
     await interaction.reply({ content: `請從下方選單選擇您想${actionVerb[action]}的提醒：`, components: [row], ephemeral: true });
-}
-
-// handleList 保持不變，因為它是用來列出任務，而不是修改任務。
-async function handleList(interaction, userId) {
-   const allTasks = schedulerManager.getAllTasks(userId);
-    const userTasks = schedulerManager.getTasksByUserId(userId);
-
-    if (userTasks.length === 0) {
-        return interaction.reply({ content: 'ℹ️ 您目前沒有設定任何個人提醒。', ephemeral: true });
-    }
-
-    const embed = new EmbedBuilder()
-        .setColor(config.embedColor)
-        .setAuthor({ name: `${interaction.user.username} 的個人提醒` })
-        .setDescription('以下是您設定的所有排程提醒。');
-
-    userTasks.forEach(task => {
-        embed.addFields({
-            name: `${task.enabled ? '🟢' : '🔴'} ${task.name}`,
-            value: `ID: \`${task.id}\`\n排程: \`${task.cronExpression}\``, // 顯示 cron 表達式
-        });
-    });
-
-    await interaction.reply({ embeds: [embed], ephemeral: true });
 }
