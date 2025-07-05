@@ -16,10 +16,48 @@ module.exports = async (client, interaction) => {
 
     // 處理按鈕互動
     if (interaction.isButton()) {
-        // 【修正點 1】處理按鈕互動時，立即延遲更新，避免超時
-        await interaction.deferUpdate().catch(() => {}); // 使用 deferUpdate 因為是組件互動
-
       const customId = interaction.customId;
+
+      // 【修正點 1】處理 'open-edit-modal' 按鈕互動 (這個按鈕會彈出 Modal)
+      if (customId.startsWith('open-edit-modal:')) {
+          // 這個互動將直接彈出 Modal，所以這裡不需要 deferUpdate 或 deferReply
+          const parts = customId.split(':');
+          if (parts.length < 3) { // 檢查格式是否正確 open-edit-modal:taskId:userId
+              console.error(`[ERROR] Invalid customId format for open-edit-modal button: ${customId}`);
+              return interaction.reply({ content: lang.errors.unknownButton, ephemeral: true }).catch(console.error);
+          }
+          const taskId = parts[1];
+          const userIdFromCustomId = parts[2];
+
+          const taskCommand = client.commands.get('task');
+          if (taskCommand && typeof taskCommand.handleModalTriggerButton === "function") {
+              try {
+                  // 這個函式會直接呼叫 interaction.showModal()
+                  await taskCommand.handleModalTriggerButton(interaction, taskId, userIdFromCustomId);
+              } catch (e) {
+                  console.error(`❌ taskModalTriggerButton 在 interactionCreate 中發生錯誤: ${e.stack || e}`);
+                  // 如果這裡發生錯誤，且 interaction 尚未被回覆，就回覆錯誤訊息
+                  if (!interaction.replied && !interaction.deferred) {
+                      await interaction.reply({ content: lang.errors.generalError.replace("{error}", e.message), ephemeral: true }).catch(console.error);
+                  } else {
+                      // 否則，表示可能已經回覆過，嘗試 followUp
+                      await interaction.followUp({ content: lang.errors.generalError.replace("{error}", e.message), ephemeral: true }).catch(console.error);
+                  }
+              }
+          } else {
+              console.error(`[ERROR] Task command or handleModalTriggerButton not found for customId: ${customId}`);
+              // 同樣，確保回覆方式正確
+              if (!interaction.replied && !interaction.deferred) {
+                  await interaction.reply({ content: lang.errors.buttonHandlerNotFound, ephemeral: true }).catch(console.error);
+              } else {
+                  await interaction.followUp({ content: lang.errors.buttonHandlerNotFound, ephemeral: true }).catch(console.error);
+              }
+          }
+          return;
+      }
+
+      // 【修正點 2】對於其他所有按鈕互動，統一 deferUpdate
+      await interaction.deferUpdate().catch(() => {}); 
 
       if (customId.startsWith("library|")) {
         const libraryCommand = client.commands.get("library"); 
@@ -28,7 +66,6 @@ module.exports = async (client, interaction) => {
             await libraryCommand.handleButton(interaction);
           } catch (e) {
             console.error(`❌ library handleButton 在 interactionCreate 中發生錯誤: ${e.stack || e}`);
-            // 由於已 deferUpdate，這裡應使用 followUp 或 editReply
             await interaction.followUp({ content: lang.errors.generalButtonError, ephemeral: true }).catch(console.error);
           }
         } else {
@@ -43,40 +80,88 @@ module.exports = async (client, interaction) => {
       }
     }
 // =================================================================
-//                      【排程處理】
+//                      【排程處理 - 下拉選單】
 // =================================================================
 else if (interaction.isStringSelectMenu()) {
-    const customId = interaction.customId;
-    const [actionType, menuId, userId] = customId.split(':');
+    // 【修正點 3】統一對所有下拉選單互動先 deferUpdate
+    await interaction.deferUpdate().catch(() => {}); 
 
-    // 這段邏輯旨在決定是否 deferUpdate
-    if (actionType !== 'edit-task-menu') {
-        await interaction.deferUpdate().catch(() => {}); // <--- 這裡會 deferUpdate
+    const customId = interaction.customId;
+    // 【修正點 4】更正 customId 的解析方式，確保 userId 從 customId 中正確提取
+    const parts = customId.split(':'); 
+    if (parts.length < 2) { // 基本檢查 customId 格式
+        console.error(`[ERROR] Invalid customId format for select menu: ${customId}`);
+        await interaction.followUp({ content: lang.errors.unknownSelectMenu, ephemeral: true }).catch(console.error);
+        return;
     }
+    const actionType = parts[0]; 
+    const userIdFromCustomId = parts[1]; // 這裡才是從 customId 中取出的 userId
 
-    if (customId.startsWith('delete-task-menu') || customId.startsWith('toggle-task-menu') || customId.startsWith('edit-task-menu')) {
-        const taskCommand = client.commands.get('task'); 
-        
-        if (taskCommand && typeof taskCommand.handleSelectMenu === "function") {
-            try {
-                await taskCommand.handleSelectMenu(client, interaction, actionType, userId); 
-            } catch (e) { // <--- 如果 taskCommand.handleSelectMenu 拋出錯誤
-                console.error(`❌ task 選單處理函數在 interactionCreate 中發生錯誤: ${e.stack || e}`);
-                // 這裡的回覆邏輯：如果 defer 或 reply 過，就 followUp；否則就 reply。
-                if (interaction.deferred || interaction.replied) {
-                    await interaction.followUp({ content: lang.errors.generalSelectMenuError, ephemeral: true }).catch(console.error); // <--- 可能導致 InteractionNotReplied (如果你從未 defer)
-                } else {
-                    await interaction.reply({ content: lang.errors.generalSelectMenuError, ephemeral: true }).catch(console.error); // <--- 可能導致 InteractionAlreadyAcknowledged (如果你已經 defer 了)
-                }
-            }
-        }
-        // ...
-    }
-    // ...
+    if (actionType.startsWith('delete-task-menu') || actionType.startsWith('toggle-task-menu') || actionType.startsWith('edit-task-menu')) {
+        const taskCommand = client.commands.get('task'); 
+        
+        if (taskCommand && typeof taskCommand.handleSelectMenu === "function") {
+            try {
+                // 將 client, interaction, actionType, 和正確提取的 userId 傳遞過去
+                await taskCommand.handleSelectMenu(client, interaction, actionType, userIdFromCustomId); 
+            } catch (e) {
+                console.error(`❌ task 選單處理函數在 interactionCreate 中發生錯誤: ${e.stack || e}`);
+                // 由於已經 deferUpdate，這裡始終使用 followUp
+                await interaction.followUp({ content: lang.errors.generalSelectMenuError, ephemeral: true }).catch(console.error);
+            }
+        } else {
+            console.error(`[ERROR] Task command or handleSelectMenu not found for customId: ${customId}`);
+            await interaction.followUp({ content: lang.errors.selectMenuHandlerNotFound, ephemeral: true }).catch(console.error);
+        }
+        return;
+    } else {
+        console.warn(`[WARN] Unhandled select menu interaction with customId: ${customId}`);
+        await interaction.followUp({ content: lang.errors.unknownSelectMenu, ephemeral: true }).catch(console.error);
+        return;
+    }
 }
+// =================================================================
+//                      【Modal 提交處理】
+// =================================================================
+else if (interaction.isModalSubmit()) {
+    const customId = interaction.customId;
+    // 【修正點 5】更正 Modal customId 的解析方式，確保 taskId 和 userId 正確提取
+    const parts = customId.split(':');
+    if (parts.length < 3) { // 檢查格式 edit-task-modal:taskId:userId
+        console.error(`[ERROR] Invalid customId format for modal submit: ${customId}`);
+        await interaction.reply({ content: lang.errors.unknownModal, ephemeral: true }).catch(console.error); // Modal 提交後如果錯了可以直接 reply
+        return;
+    }
+    const actionType = parts[0];
+    const taskId = parts[1];
+    const userIdFromCustomId = parts[2];
+
+    // 【修正點 6】統一 deferReply，因為 Modal 提交通常需要後續處理
+    await interaction.deferReply({ ephemeral: true }).catch(() => {});
+
+    if (actionType.startsWith('edit-task-modal')) {
+        const taskCommand = client.commands.get('task');
+        if (taskCommand && typeof taskCommand.handleModalSubmit === "function") {
+            try {
+                await taskCommand.handleModalSubmit(client, interaction, actionType, taskId, userIdFromCustomId);
+            } catch (e) {
+                console.error(`❌ task Modal 處理函數在 interactionCreate 中發生錯誤: ${e.stack || e}`);
+                await interaction.followUp({ content: lang.errors.generalError.replace("{error}", e.message), ephemeral: true }).catch(console.error);
+            }
+        } else {
+            console.error(`[ERROR] Task command or handleModalSubmit not found for customId: ${customId}`);
+            await interaction.followUp({ content: lang.errors.modalHandlerNotFound, ephemeral: true }).catch(console.error);
+        }
+        return;
+    } else {
+        console.warn(`[WARN] Unhandled modal submit interaction with customId: ${customId}`);
+        await interaction.followUp({ content: lang.errors.unknownModal, ephemeral: true }).catch(console.error);
+        return;
+    }
+}
+// ... (Autocomplete 和 Slash 指令處理部分保持不變)
 
     // 自動補全（Autocomplete）處理
-    // Autocomplete 不需要 defer，因為它必須在 3 秒內直接回覆 options
     if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
       const command = client.commands.get(interaction.commandName);
       if (command && typeof command.autocomplete === "function") {
@@ -91,10 +176,6 @@ else if (interaction.isStringSelectMenu()) {
 
     // Slash 指令處理
     if (interaction.type === InteractionType.ApplicationCommand) {
-        // 【修正點 3】指令處理，由指令本身的 run 函數來 deferReply
-        // 此處不需要 deferReply，因為指令執行會調用 command.run，由 command.run 內部來處理 deferReply
-        // 這樣可以讓指令自行決定是否需要 deferReply，以及是 ephemeral 還是 public
-
       const command = client.commands.get(interaction.commandName);
       if (!command) {
         return interaction.reply({ content: lang.errors.commandNotFound, ephemeral: true });
