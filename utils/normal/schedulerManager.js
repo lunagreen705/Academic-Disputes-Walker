@@ -236,7 +236,9 @@ async function deleteTask(client, taskActionFunctions, taskId, userId) {
     }
     return false;
 }
-
+function getTasksByUserId(userId) {
+    return personalTasksConfig.filter(task => task.userId === userId);
+}
 // === 匯出模組 ===
 module.exports = {
     initializeScheduler,
@@ -244,5 +246,6 @@ module.exports = {
     getTask,
     addOrUpdateTask,
     deleteTask,
+    getTasksByUserId,
     postAffectionLeaderboard,
 };
