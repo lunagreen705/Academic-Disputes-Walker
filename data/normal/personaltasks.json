@@ -24,19 +24,5 @@
     },
     "occurrence_count": 1,
     "executedCount": 0
-  },
-  {
-    "id": "a2c5b8ec",
-    "name": "s",
-    "cronExpression": "53 22 5 7 *",
-    "action": "sendDirectMessage",
-    "enabled": true,
-    "timezone": "Asia/Taipei",
-    "userId": "329999695390965760",
-    "args": {
-      "message": "⏰ **排程提醒**：\n\n>>> s"
-    },
-    "occurrence_count": 1,
-    "executedCount": 0
   }
 ]
