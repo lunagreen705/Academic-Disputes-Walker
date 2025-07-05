@@ -26,7 +26,7 @@
   {
     "id": "0a4ea860",
     "name": "寫作業",
-    "cronExpression": "5 9 5 7 *",
+    "cronExpression": "26 9 5 7 *",
     "action": "sendDirectMessage",
     "enabled": true,
     "timezone": "Asia/Taipei",
