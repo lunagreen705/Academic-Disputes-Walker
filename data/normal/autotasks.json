@@ -3,7 +3,7 @@
     "id": "affectionLeaderboardPush",
     "name": "每週好感度排行榜推送",
     "enabled": true,
-    "cronExpression": "15 16 * * 6",  
+    "cronExpression": "0 12 * * 7",  
     "timezone": "Asia/Taipei",
     "action": "sendAffectionLeaderboard",
     "args": {

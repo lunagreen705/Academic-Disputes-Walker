@@ -72,26 +72,45 @@ async function pushToGitHubInternal(filePath, content, message, sha) {
     }
 }
 
-// === 連動模組排程 ===
+// === 連動好感度模組排程  ===
 async function postAffectionLeaderboard(client, channelId, limit = 10) {
     if (!channelId) {
         console.error(`${colors.red}[SCHEDULER]${colors.reset} 錯誤：未提供有效的頻道 ID 來發送排行榜。`);
         return;
     }
     try {
+        const channel = await client.channels.fetch(channelId);
+        if (!channel || !channel.isTextBased() || !channel.guild) {
+            console.error(`${colors.red}[SCHEDULER]${colors.reset} 錯誤：找不到頻道、頻道不是文字頻道或頻道不在伺服器中。`);
+            return;
+        }
+
         const leaderboard = affectionManager.getAffectionLeaderboard(limit);
         if (leaderboard.length === 0) return;
 
         const sortedUsers = leaderboard.sort((a, b) => b.affection - a.affection).slice(0, limit);
         const embed = new EmbedBuilder().setTitle('💖 好感度排行榜 💖').setColor('#FF69B4').setTimestamp();
         
+        // 從頻道取得伺服器物件
+        const guild = channel.guild;
+
         const leaderboardEntries = await Promise.all(
             sortedUsers.map(async (user, index) => {
-                let displayName = `使用者 (ID: ...${user.userId.slice(-4)})`;
+                let displayName = `未知的使用者`;
                 try {
-                    const member = await client.users.fetch(user.userId);
-                    displayName = member.displayName || member.username;
-                } catch {}
+                    // *** 修改點：從 guild.members 而不是 client.users 獲取成員 ***
+                    const member = await guild.members.fetch(user.userId);
+                    // 現在的 displayName 會優先顯示伺服器暱稱
+                    displayName = member.displayName;
+                } catch {
+                    // 如果找不到成員 (例如已離開伺服器)，嘗試抓取全域使用者名稱作為備用
+                    try {
+                        const fetchedUser = await client.users.fetch(user.userId);
+                        displayName = fetchedUser.displayName || fetchedUser.username;
+                    } catch {
+                        displayName = `使用者 (ID: ...${user.userId.slice(-4)})`;
+                    }
+                }
                 const rankIcons = ['🥇', '🥈', '🥉'];
                 const rankIcon = index < 3 ? rankIcons[index] : `${index + 1}.`;
                 return `${rankIcon} **${displayName}** - ${user.affection} 點好感度`;
@@ -99,10 +118,8 @@ async function postAffectionLeaderboard(client, channelId, limit = 10) {
         );
         embed.setDescription(leaderboardEntries.join('\n\n'));
 
-        const channel = await client.channels.fetch(channelId);
-        if (channel && channel.isTextBased()) {
-            await channel.send({ embeds: [embed] });
-        }
+        await channel.send({ embeds: [embed] });
+
     } catch (error) {
         console.error(`${colors.red}[SCHEDULER]${colors.reset} 執行好感度排行榜任務時發生錯誤:`, error);
     }
