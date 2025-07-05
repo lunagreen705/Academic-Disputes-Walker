@@ -17,6 +17,7 @@ const personaManager = require("./utils/ai/personaManager");
 const botManager = require("./utils/normal/botManager");
 const libraryManager = require('./utils/normal/libraryManager');
 const { getAuth, saveToken, CLIENT_SECRET_PATH } = require('./utils/auth/oauth2.js'); 
+const schedulerManager = require('./utils/normal/schedulerManager');
 
 //========== 連線設定 ==========
 
@@ -99,21 +100,32 @@ client.once("ready", async () => {
   console.log(`${colors.cyan}[ MUSIC ]${colors.reset} ${colors.green}Riffy Music System Ready 🎵${colors.reset}`);
   console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.green}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
   client.riffy.init(client.user.id);
+  
 
-  try {
-    // 連接資料庫
-    await connectToDatabase();
-    console.log(`${colors.cyan}[ DATABASE ]${colors.reset} ${colors.green}MongoDB資料庫已連線 ✅${colors.reset}`);
-    deckManager.loadDecks();
-    console.log(`${colors.cyan}[ DECKS ]${colors.reset} ${colors.green}牌堆系統已準備就緒 ✅${colors.reset}`);
-    console.log(`${colors.cyan}[ AFFECTION ]${colors.reset} ${colors.green}好感度系統已準備就緒 ✅${colors.reset}`);
-    console.log(`${colors.cyan}[ AI ]${colors.reset} ${colors.green}AI系統已準備就緒 ✅${colors.reset}`);
-    console.log(`${colors.cyan}[ MANAGER ]${colors.reset} ${colors.green}管理系統已準備就緒 ✅${colors.reset}`);
-    console.log(`${colors.cyan}[ LIBRARY ]${colors.reset} ${colors.green}圖書館系統已準備就緒 ✅${colors.reset}`);
-  } catch (err) {
-    console.error(`${colors.red}[ DATABASE ] MongoDB連線失敗，可能影響部分功能：${err.message}${colors.reset}`);
-  }
-});
+    try {
+            // 初始化所有需要資料庫或其他前置作業的模組
+            await connectToDatabase();
+            console.log(`${colors.cyan}[ DATABASE ]${colors.reset} ${colors.green}MongoDB 資料庫已連線 ✅${colors.reset}`);
+            
+            deckManager.loadDecks(); // 牌堆系統
+            // affectionManager 和其他模組在 require 時已自行初始化，此處可選擇性加入日誌
+            console.log(`${colors.cyan}[ SYSTEMS ]${colors.reset} ${colors.green}所有主要功能模組已準備就緒 ✅${colors.reset}`);
+            
+            // =========================================================
+            // ===             初始化排程器 (正確的位置)             ===
+            // =========================================================
+            console.log(`${colors.cyan}[ SCHEDULER ]${colors.reset} ${colors.yellow}正在初始化排程任務...${colors.reset}`);
+            const taskActionFunctions = {
+                // 如果您有自訂的排程任務，請在這裡定義 action 名稱與函式的對應
+                // 例如: dailyMessage: (args) => { /* ... */ }
+            };
+            await schedulerManager.initializeScheduler(client, taskActionFunctions);
+
+        } catch (err) {
+            console.error(`${colors.red}[ ERROR ] 準備就緒過程中發生錯誤：${err.message}${colors.reset}`);
+        }
+    });
+
 
 // ========== Voice Packets  ==========
 

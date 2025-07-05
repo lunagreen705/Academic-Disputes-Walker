@@ -251,6 +251,29 @@ function getRandomResponse(level, isSecretReveal = false) {
 
     return responses[Math.floor(Math.random() * responses.length)];
 }
+// === (新增) 排行榜功能 ===
+/**
+ * 獲取好感度排行榜資料
+ * @param {number} limit - 要回傳的用戶數量上限
+ * @returns {Array<{userId: string, affection: number}>} - 已排序的用戶好感度陣列
+ */
+function getAffectionLeaderboard(limit) {
+    // 1. 將 userAffectionData 物件轉換為陣列
+    //    Object.entries() 會將 { 'user1': { affection: 10 }, 'user2': { affection: 20 } }
+    //    轉換為 [ ['user1', { affection: 10 }], ['user2', { affection: 20 }] ]
+    const usersArray = Object.entries(userAffectionData).map(([userId, data]) => {
+        return {
+            userId: userId,
+            affection: data.affection || 0
+        };
+    });
+
+    // 2. 根據好感度由高到低排序
+    usersArray.sort((a, b) => b.affection - a.affection);
+
+    // 3. 根據傳入的 limit 參數回傳指定數量的用戶
+    return usersArray.slice(0, limit);
+}
 
 // === 匯出模組 ===
 module.exports = {
@@ -261,4 +284,5 @@ module.exports = {
     getAffection,
     getAffectionLevel,
     getRandomResponse,
+    getAffectionLeaderboard,
 };

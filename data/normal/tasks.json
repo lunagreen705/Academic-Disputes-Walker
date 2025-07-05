@@ -1,0 +1,14 @@
+[
+  {
+    "id": "affectionLeaderboardPush",
+    "name": "每週五好感度排行榜推送",
+    "enabled": true,
+    "cronExpression": "0 17 * * 5",  
+    "timezone": "Asia/Taipei",
+    "action": "sendAffectionLeaderboard",
+    "args": {
+      "limit": 10,
+      "channelId": "你的排行榜頻道ID" 
+    }
+  }
+]

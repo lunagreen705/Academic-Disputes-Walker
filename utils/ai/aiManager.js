@@ -61,7 +61,7 @@ const personaName = getPersona(sessionId) || "bigteacher";
 
   } catch (error) {
     console.error("[AI Manager] AI 呼叫錯誤：", error);
-    return "抱歉，AI 目前無法回應，請稍後再試。";
+    return "目前無法回應，稍後再試。";
   }
 }
 
