@@ -83,42 +83,43 @@ module.exports = async (client, interaction) => {
 //                      【排程處理 - 下拉選單】
 // =================================================================
 else if (interaction.isStringSelectMenu()) {
-    // 【修正點 3】統一對所有下拉選單互動先 deferUpdate
-    await interaction.deferUpdate().catch(() => {}); 
+    await interaction.deferUpdate().catch(() => {});
 
-    const customId = interaction.customId;
-    // 【修正點 4】更正 customId 的解析方式，確保 userId 從 customId 中正確提取
-    const parts = customId.split(':'); 
-    if (parts.length < 2) { // 基本檢查 customId 格式
+    const customId = interaction.customId;
+    const parts = customId.split(':');
+
+    if (parts.length < 2) {
         console.error(`[ERROR] Invalid customId format for select menu: ${customId}`);
         await interaction.followUp({ content: lang.errors.unknownSelectMenu, ephemeral: true }).catch(console.error);
         return;
     }
-    const actionType = parts[0]; 
-    const userIdFromCustomId = parts[1]; // 這裡才是從 customId 中取出的 userId
 
-    if (actionType.startsWith('delete-task-menu') || actionType.startsWith('toggle-task-menu') || actionType.startsWith('edit-task-menu')) {
-        const taskCommand = client.commands.get('task'); 
-        
-        if (taskCommand && typeof taskCommand.handleSelectMenu === "function") {
-            try {
-                // 將 client, interaction, actionType, 和正確提取的 userId 傳遞過去
-                await taskCommand.handleSelectMenu(client, interaction, actionType, userIdFromCustomId); 
-            } catch (e) {
-                console.error(`❌ task 選單處理函數在 interactionCreate 中發生錯誤: ${e.stack || e}`);
-                // 由於已經 deferUpdate，這裡始終使用 followUp
-                await interaction.followUp({ content: lang.errors.generalSelectMenuError, ephemeral: true }).catch(console.error);
-            }
-        } else {
-            console.error(`[ERROR] Task command or handleSelectMenu not found for customId: ${customId}`);
-            await interaction.followUp({ content: lang.errors.selectMenuHandlerNotFound, ephemeral: true }).catch(console.error);
-        }
-        return;
-    } else {
-        console.warn(`[WARN] Unhandled select menu interaction with customId: ${customId}`);
-        await interaction.followUp({ content: lang.errors.unknownSelectMenu, ephemeral: true }).catch(console.error);
-        return;
-    }
+    const actionType = parts[0];
+    const userIdFromCustomId = parts[1];
+
+    if (
+        actionType === 'delete-task-menu' || 
+        actionType === 'toggle-task-menu' || 
+        actionType === 'edit-task-menu'
+    ) {
+        const taskCommand = client.commands.get('task');
+        if (taskCommand && typeof taskCommand.handleSelectMenu === "function") {
+            try {
+                await taskCommand.handleSelectMenu(client, interaction, actionType, userIdFromCustomId);
+            } catch (e) {
+                console.error(`❌ task 選單處理函數在 interactionCreate 中發生錯誤: ${e.stack || e}`);
+                await interaction.followUp({ content: lang.errors.generalSelectMenuError, ephemeral: true }).catch(console.error);
+            }
+        } else {
+            console.error(`[ERROR] Task command or handleSelectMenu not found for customId: ${customId}`);
+            await interaction.followUp({ content: lang.errors.selectMenuHandlerNotFound, ephemeral: true }).catch(console.error);
+        }
+        return;
+    } else {
+        console.warn(`[WARN] Unhandled select menu interaction with customId: ${customId}`);
+        await interaction.followUp({ content: lang.errors.unknownSelectMenu, ephemeral: true }).catch(console.error);
+        return;
+    }
 }
 // =================================================================
 //                      【Modal 提交處理】
