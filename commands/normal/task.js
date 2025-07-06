@@ -232,92 +232,97 @@ module.exports = {
     },
 
     // 這個是處理 interactionCreate 事件中，下拉選單互動的函式
-    handleSelectMenu: async (client, interaction, actionType, userIdFromCustomId) => {
-        const selectedTaskId = interaction.values[0];
+    async function handleSelectMenu(client, interaction, actionType, userIdFromCustomId) {
+  console.log(`[DEBUG] handleSelectMenu 被呼叫，actionType=${actionType}, userId=${userIdFromCustomId}`);
 
-        if (interaction.user.id !== userIdFromCustomId) {
-            // 注意：這裡直接 reply，因為 handleSelectMenu 可能在 deferUpdate 之後或之前被呼叫。
-            // 為了避免 InteractionAlreadyReplied，我們應該檢查互動是否已被回覆或延遲。
-            if (interaction.deferred || interaction.replied) {
-                return interaction.followUp({ content: '❌ 您無權操作此提醒。', ephemeral: true });
-            } else {
-                return interaction.reply({ content: '❌ 您無權操作此提醒。', ephemeral: true });
-            }
-        }
+  if (interaction.user.id !== userIdFromCustomId) {
+    const replyMethod = interaction.deferred || interaction.replied ? 'followUp' : 'reply';
+    return interaction[replyMethod]({
+      content: '❌ 您無權操作此提醒。',
+      ephemeral: true,
+    }).catch(console.error);
+  }
 
-        // 重要：只有當 actionType 不是 'edit-task-menu' 時，才在這裡 deferUpdate
-        // 因為 'edit-task-menu' 將直接使用 showModal 作為回覆，而不能預先 deferUpdate
-        if (actionType !== 'edit-task-menu') {
-            await interaction.deferUpdate(); 
-        }
+  const selectedTaskId = interaction.values?.[0];
+  if (!selectedTaskId) {
+    return interaction.followUp({
+      content: '❌ 您未選擇任何提醒。',
+      ephemeral: true,
+    }).catch(console.error);
+  }
 
-        switch (actionType) {
-            case 'delete-task-menu':
-                const deleteSuccess = await schedulerManager.deleteTask(client, client.taskActionFunctions, selectedTaskId, userIdFromCustomId);
-                await interaction.followUp({ content: deleteSuccess ? `✅ 提醒 \`${selectedTaskId}\` 已成功刪除。` : `❌ 操作失敗，找不到該提醒或您無權刪除。`, ephemeral: true });
-                break;
+  const userTasks = schedulerManager.getTasksByUserId(userIdFromCustomId);
+  const currentTask = userTasks.find(t => t.id === selectedTaskId);
 
-            case 'toggle-task-menu':
-                const currentTask = schedulerManager.getTasksByUserId(userIdFromCustomId).find(task => task.id === selectedTaskId);
-                if (currentTask) {
-                    const newEnabledState = !currentTask.enabled;
-                    const toggleSuccess = await schedulerManager.addOrUpdateTask(client, client.taskActionFunctions, {
-                        ...currentTask,
-                        enabled: newEnabledState
-                    });
-                    await interaction.followUp({ content: toggleSuccess ? `✅ 提醒 \`${selectedTaskId}\` 已成功${newEnabledState ? '啟用' : '暫停'}。` : `❌ 操作失敗。`, ephemeral: true });
-                } else {
-                    await interaction.followUp({ content: '❌ 找不到該提醒。', ephemeral: true });
-                }
-                break;
+  if (!currentTask) {
+    return interaction.followUp({
+      content: '❌ 找不到該提醒。',
+      ephemeral: true,
+    }).catch(console.error);
+  }
 
-            case 'edit-task-menu':
-                // 不需要再次 require，因為這些類別已經在檔案開頭引入
-                // const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
-                const taskToEdit = schedulerManager.getTasksByUserId(userIdFromCustomId).find(task => task.id === selectedTaskId);
+  if (actionType === 'delete-task-menu') {
+    const deleteSuccess = await schedulerManager.deleteTask(client, client.taskActionFunctions, selectedTaskId, userIdFromCustomId);
+    const msg = deleteSuccess
+      ? `✅ 提醒 \`${selectedTaskId}\` 已成功刪除。`
+      : `❌ 操作失敗，找不到該提醒或您無權刪除。`;
 
-                if (!taskToEdit) {
-                    // 如果找不到任務，由於 interactionCreate.js 可能沒有 deferUpdate，這裡可以直接 reply
-                    // 或根據 interaction.deferred / interaction.replied 判斷
-                    if (interaction.deferred || interaction.replied) {
-                        return interaction.followUp({ content: '❌ 找不到要編輯的提醒。', ephemeral: true });
-                    } else {
-                        return interaction.reply({ content: '❌ 找不到要編輯的提醒。', ephemeral: true });
-                    }
-                }
+    if (msg.trim()) {
+      return interaction.followUp({ content: msg, ephemeral: true }).catch(console.error);
+    }
+  }
 
-                const modal = new ModalBuilder()
-                    .setCustomId(`edit-task-modal:${selectedTaskId}:${userIdFromCustomId}`)
-                    .setTitle(`編輯提醒: ${taskToEdit.name}`);
+  else if (actionType === 'toggle-task-menu') {
+    const newEnabled = !currentTask.enabled;
+    const updateSuccess = await schedulerManager.addOrUpdateTask(client, client.taskActionFunctions, {
+      ...currentTask,
+      enabled: newEnabled,
+    });
+    const msg = updateSuccess
+      ? `✅ 提醒 \`${selectedTaskId}\` 已成功${newEnabled ? '啟用' : '暫停'}。`
+      : `❌ 操作失敗，請稍後再試。`;
 
-                const messageInput = new TextInputBuilder()
-                    .setCustomId('editMessageInput')
-                    .setLabel('新的提醒內容')
-                    .setStyle(TextInputStyle.Paragraph)
-                    .setRequired(true)
-                    .setValue(taskToEdit.args.message.replace('⏰ **排程提醒**：\n\n>>> ', '')); 
+    if (msg.trim()) {
+      return interaction.followUp({ content: msg, ephemeral: true }).catch(console.error);
+    }
+  }
 
-                const whenInput = new TextInputBuilder()
-                    .setCustomId('editWhenInput')
-                    .setLabel('新的提醒時間 (例如: 明天早上9點)')
-                    .setStyle(TextInputStyle.Short)
-                    .setRequired(true)
-                    .setPlaceholder('例如: 明天早上9點, 每天20:30, 10分鐘後'); 
+  else if (actionType === 'edit-task-menu') {
+    const modal = new ModalBuilder()
+      .setCustomId(`edit-task-modal:${selectedTaskId}:${userIdFromCustomId}`)
+      .setTitle(`編輯提醒: ${currentTask.name}`);
 
-                const firstActionRow = new ActionRowBuilder().addComponents(messageInput);
-                const secondActionRow = new ActionRowBuilder().addComponents(whenInput);
+    const msgInput = new TextInputBuilder()
+      .setCustomId('editMessageInput')
+      .setLabel('新的提醒內容')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true)
+      .setValue(currentTask.args.message.replace('⏰ **排程提醒**：\n\n>>> ', ''));
 
-                modal.addComponents(firstActionRow, secondActionRow);
+    const whenInput = new TextInputBuilder()
+      .setCustomId('editWhenInput')
+      .setLabel('新的提醒時間')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setPlaceholder('例如: 明天早上9點, 每週五20:00');
 
-                await interaction.showModal(modal); 
-                break;
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(msgInput),
+      new ActionRowBuilder().addComponents(whenInput)
+    );
 
-            default:
-                // 如果是其他未知的操作，由於 interactionCreate.js 已經 deferUpdate，這裡使用 followUp
-                await interaction.followUp({ content: '❌ 未知的提醒操作。', ephemeral: true });
-                break;
-        }
-    },
+    // 直接開啟 Modal，不使用 deferUpdate() 或 reply()
+    return interaction.showModal(modal).catch(console.error);
+  }
+
+  else {
+    // 防範未知 actionType
+    return interaction.followUp({
+      content: '❌ 未知的提醒操作。',
+      ephemeral: true,
+    }).catch(console.error);
+  }
+}
 
     // 這個是處理 interactionCreate 事件中，Modal 提交的函式
     handleModalSubmit: async (client, interaction, actionType, taskId, userIdFromCustomId) => {
