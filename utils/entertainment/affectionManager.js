@@ -9,9 +9,9 @@ const GH_USERNAME = process.env.GH_USERNAME;
 const GH_REPO     = process.env.GH_REPO;
 
 // === 路徑設定 ===
-const DATA_FILE      = path.join(__dirname, '../../data/affection/user_affection.json');
-const GH_FILE_PATH   = 'data/affection/user_affection.json';
-const RESPONSE_FILE  = path.join(__dirname, '../../data/affection/affectionResponses.json');
+const DATA_FILE      = path.join(__dirname, '../../data/entertainment/affection/user_affection.json');
+const GH_FILE_PATH   = 'data/entertainment/affection/user_affection.json';
+const RESPONSE_FILE  = path.join(__dirname, '../../data/entertainment/affection/affectionResponses.json');
 
 // === 資料容器 ===
 let userAffectionData   = {};
