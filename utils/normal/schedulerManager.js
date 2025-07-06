@@ -12,11 +12,11 @@ const GH_USERNAME = process.env.GH_USERNAME;
 const GH_REPO = process.env.GH_REPO;
 
 // === 路徑設定 (區分自動任務和個人任務) ===
-const AUTOTASKS_FILE_LOCAL = path.join(__dirname, '../../data/normal/autotasks.json');
-const GH_AUTOTASKS_PATH = 'data/normal/autotasks.json';
+const AUTOTASKS_FILE_LOCAL = path.join(__dirname, '../../data/normal/task/autotasks.json');
+const GH_AUTOTASKS_PATH = 'data/normal/task/autotasks.json';
 
-const PERSONALTASKS_FILE_LOCAL = path.join(__dirname, '../../data/normal/personaltasks.json');
-const GH_PERSONALTASKS_PATH = 'data/normal/personaltasks.json';
+const PERSONALTASKS_FILE_LOCAL = path.join(__dirname, '../../data/normal/task/personaltasks.json');
+const GH_PERSONALTASKS_PATH = 'data/normal/task/personaltasks.json';
 
 // === 資料容器 (區分兩種類型) ===
 let autoTasksConfig = [];
