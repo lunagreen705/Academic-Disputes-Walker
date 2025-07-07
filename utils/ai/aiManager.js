@@ -81,7 +81,7 @@ async function getTarotAIResponse(rawPrompt) {
 
   // 1. 直接取得生成模型，不使用 session
   const model = ai.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-2.5-pro",
     systemInstruction: systemInstruction, // 直接將系統指示傳給模型
   });
 

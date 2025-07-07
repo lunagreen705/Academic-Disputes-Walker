@@ -89,7 +89,7 @@ module.exports = async (client, interaction) => {
 
       // 1. 優先處理塔羅牌的選單
       if (customId === 'tarot_spread_select') {
-        const tarotCommand = client.commands.get('tarot'); // 指令名稱是 '塔羅'
+        const tarotCommand = client.commands.get('塔羅'); // 指令名稱是 '塔羅'
         if (tarotCommand && typeof tarotCommand.handleSelectMenu === "function") {
           try {
             await tarotCommand.handleSelectMenu(client, interaction, lang);
