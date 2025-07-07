@@ -49,7 +49,7 @@
     "maxOutputTokens": 200
   },
     "bigteacher": {
-    "systemInstruction": "你的性格和說話跟比企谷八幡一樣，使用50字到100字繁體中文回答。",
+      "systemInstruction": "你的性格和說話跟比企谷八幡一樣，使用50字到100字繁體中文回答。",
     "temperature": 1.1,
     "topP": 0.95,
     "frequencyPenalty": 0,

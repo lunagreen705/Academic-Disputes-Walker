@@ -82,45 +82,54 @@ module.exports = async (client, interaction) => {
 // =================================================================
 //                      【排程處理 - 下拉選單】
 // =================================================================
-else if (interaction.isStringSelectMenu()) {
-    await interaction.deferUpdate().catch(() => {});
+    if (interaction.isStringSelectMenu()) {
+      // 將 deferUpdate 統一放在最前面
+      await interaction.deferUpdate().catch(() => {});
+      const customId = interaction.customId;
 
-    const customId = interaction.customId;
-    const parts = customId.split(':');
+      // 1. 優先處理塔羅牌的選單
+      if (customId === 'tarot_spread_select') {
+        const tarotCommand = client.commands.get('tarot'); // 指令名稱是 '塔羅'
+        if (tarotCommand && typeof tarotCommand.handleSelectMenu === "function") {
+          try {
+            await tarotCommand.handleSelectMenu(client, interaction, lang);
+          } catch (e) {
+            console.error(`❌ tarot 選單處理錯誤: ${e.stack || e}`);
+            await interaction.followUp({ content: lang.errors.generalSelectMenuError, ephemeral: true }).catch(console.error);
+          }
+        } else {
+          console.error(`[ERROR] 找不到 tarot 指令或 handleSelectMenu 函式`);
+          await interaction.followUp({ content: lang.errors.selectMenuHandlerNotFound, ephemeral: true }).catch(console.error);
+        }
+        return; // 處理完畢
+      }
+      
+      // 2. 接著處理 task 相關的選單
+      const parts = customId.split(':');
+      const actionType = parts[0];
+      const userIdFromCustomId = parts[1];
 
-    if (parts.length < 2) {
-        console.error(`[ERROR] Invalid customId format for select menu: ${customId}`);
-        await interaction.followUp({ content: lang.errors.unknownSelectMenu, ephemeral: true }).catch(console.error);
-        return;
-    }
-
-    const actionType = parts[0];
-    const userIdFromCustomId = parts[1];
-
-    if (
-        actionType === 'delete-task-menu' || 
-        actionType === 'toggle-task-menu' || 
-        actionType === 'edit-task-menu'
-    ) {
+      if (['delete-task-menu', 'toggle-task-menu', 'edit-task-menu'].includes(actionType)) {
         const taskCommand = client.commands.get('task');
         if (taskCommand && typeof taskCommand.handleSelectMenu === "function") {
-            try {
-                await taskCommand.handleSelectMenu(client, interaction, actionType, userIdFromCustomId);
-            } catch (e) {
-                console.error(`❌ task 選單處理函數在 interactionCreate 中發生錯誤: ${e.stack || e}`);
-                await interaction.followUp({ content: lang.errors.generalSelectMenuError, ephemeral: true }).catch(console.error);
-            }
+          try {
+            await taskCommand.handleSelectMenu(client, interaction, actionType, userIdFromCustomId);
+          } catch (e) {
+            console.error(`❌ task 選單處理錯誤: ${e.stack || e}`);
+            await interaction.followUp({ content: lang.errors.generalSelectMenuError, ephemeral: true }).catch(console.error);
+          }
         } else {
-            console.error(`[ERROR] Task command or handleSelectMenu not found for customId: ${customId}`);
-            await interaction.followUp({ content: lang.errors.selectMenuHandlerNotFound, ephemeral: true }).catch(console.error);
+          console.error(`[ERROR] 找不到 task 指令或 handleSelectMenu 函式`);
+          await interaction.followUp({ content: lang.errors.selectMenuHandlerNotFound, ephemeral: true }).catch(console.error);
         }
-        return;
-    } else {
-        console.warn(`[WARN] Unhandled select menu interaction with customId: ${customId}`);
-        await interaction.followUp({ content: lang.errors.unknownSelectMenu, ephemeral: true }).catch(console.error);
-        return;
+        return; // 處理完畢
+      }
+
+      // 3. 如果有其他未知的選單
+      console.warn(`[WARN] 未處理的下拉選單互動: ${customId}`);
+      await interaction.followUp({ content: lang.errors.unknownSelectMenu, ephemeral: true }).catch(console.error);
+      return;
     }
-}
 // =================================================================
 //                      【Modal 提交處理】
 // =================================================================

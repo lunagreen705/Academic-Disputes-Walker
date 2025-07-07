@@ -11,7 +11,7 @@ const sessions = new Map();
 function getOrCreateSession(id) {
   let session = sessions.get(id);
   if (!session) {
-    session = ai.chats.create({ model: "gemini-2.5-pro" });
+    session = ai.chats.create({ model: "gemini-2.5-flash" });
     sessions.set(id, session);
   }
   return session;
@@ -64,5 +64,47 @@ const personaName = getPersona(sessionId) || "bigteacher";
     return "目前無法回應，稍後再試。";
   }
 }
+// --- ✨ 新增的、獨立給塔羅使用的函式 ---
+/**
+ * 獲取塔羅牌解讀的回應。
+ * 此函式為單次請求，不包含任何對話歷史紀錄。
+ * @param {string} rawPrompt - 使用者的問題，通常包含抽到的牌卡。
+ * @returns {Promise<string>} - AI 生成的塔羅解讀內容。
+ */
+async function getTarotAIResponse(rawPrompt) {
+  const personaName = "tarot";
+  const personaConfig = aiConfig[personaName];
 
-module.exports = { getAIResponse };
+  // 取得系統指示與設定
+  const systemInstruction = personaConfig.systemInstruction;
+  const maxOutputTokens = personaConfig.maxOutputTokens;
+
+  // 1. 直接取得生成模型，不使用 session
+  const model = ai.getGenerativeModel({
+    model: "gemini-2.5-flash",
+    systemInstruction: systemInstruction, // 直接將系統指示傳給模型
+  });
+
+  console.log("[AI Manager] Sending Tarot request to Gemini...");
+
+  try {
+    // 2. 使用 generateContent 進行單次請求
+    const result = await model.generateContent(rawPrompt, { maxOutputTokens });
+    const response = await result.response;
+    const text = response.text();
+    
+    console.log("[AI Manager] Tarot API response received.");
+    
+    return text || "🔮 牌卡沉默了，請稍後再試。";
+
+  } catch (error) {
+    console.error("[AI Manager] Tarot AI call error:", error);
+    return "目前無法解讀牌意，宇宙的能量似乎有些混亂。";
+  }
+}
+
+// 將新舊函式一起匯出
+module.exports = { 
+  getAIResponse,
+  getTarotAIResponse 
+};
