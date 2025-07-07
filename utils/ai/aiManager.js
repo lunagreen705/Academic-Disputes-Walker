@@ -6,6 +6,8 @@ const aiConfig = require("../../data/ai/persona.json");
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
+// --- 日常對話使用函式 ---
+
 const sessions = new Map();
 
 function getOrCreateSession(id) {
@@ -72,7 +74,7 @@ const personaName = getPersona(sessionId) || "bigteacher";
  * @returns {Promise<string>} - AI 生成的塔羅解讀內容。
  */
 async function getTarotAIResponse(rawPrompt) {
-  const personaName = "tarot";
+  const personaName = "bro";
   const personaConfig = aiConfig[personaName];
 
   // 取得系統指示與設定
