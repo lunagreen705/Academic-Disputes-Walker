@@ -121,7 +121,7 @@ module.exports = {
             });
 
         } catch (e) {
-            console.error('❌ 執行 /tarot 指令時發生錯誤:', e);
+            console.error('❌ 執行指令時發生錯誤:', e);
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({ content: `執行指令時發生錯誤: ${e.message}`, ephemeral: true });
             }

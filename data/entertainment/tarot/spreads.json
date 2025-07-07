@@ -1,4 +1,12 @@
 {
+      "one_card": {
+    "name": "單張牌陣",
+    "description": "一個日常的牌陣，適合簡單的問題。",
+    "cards_to_draw": 1,
+    "positions": [
+      { "position_name": "答案", "description": "狀況。" }
+    ]
+  },
   "three_card": {
     "name": "時間之流 (三牌陣)",
     "description": "一個快速了解狀況的牌陣，代表過去、現在與未來。",
@@ -16,15 +24,6 @@
         "position_name": "未來",
         "description": "代表此問題可能發展的方向或最終結果。"
       }
-    ]
-  },
-  "celtic_cross": {
-    "name": "凱爾特十字牌陣",
-    "description": "一個深入且全面的牌陣，適合分析複雜的問題。",
-    "cards_to_draw": 10,
-    "positions": [
-      { "position_name": "現況", "description": "問題的核心狀況。" },
-      { "position_name": "阻礙", "description": "面臨的挑戰與困難。" }
     ]
   }
 }
