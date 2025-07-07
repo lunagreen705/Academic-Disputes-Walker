@@ -68,7 +68,7 @@ const personaName = getPersona(sessionId) || "bigteacher";
 }
 // --- 塔羅使用函式 ---
 /**
- * 獲取塔羅牌解讀的回應。
+ * 獲取塔羅牌解讀的回應（使用 @google/genai）。
  * 此函式為單次請求，不包含任何對話歷史紀錄。
  * @param {string} rawPrompt - 使用者的問題，通常包含抽到的牌卡。
  * @returns {Promise<string>} - AI 生成的塔羅解讀內容。
@@ -77,26 +77,30 @@ async function getTarotAIResponse(rawPrompt) {
   const personaName = "bro";
   const personaConfig = aiConfig[personaName];
 
-  // 取得系統指示與設定
-  const systemInstruction = personaConfig.systemInstruction;
-  const maxOutputTokens = personaConfig.maxOutputTokens;
-
-  // 1. 直接取得生成模型，不使用 session
-  const model = ai.getGenerativeModel({
-    model: "gemini-2.5-pro",
-    systemInstruction: systemInstruction, // 直接將系統指示傳給模型
-  });
+  const systemInstruction = personaConfig.systemInstruction || "你是一位帥氣的塔羅師，請用繁體中文提供靈性且專業的解讀。";
+  const maxOutputTokens = personaConfig.maxOutputTokens || 500;
 
   console.log("[AI Manager] Sending Tarot request to Gemini...");
 
   try {
-    // 2. 使用 generateContent 進行單次請求
-    const result = await model.generateContent(rawPrompt, { maxOutputTokens });
-    const response = await result.response;
-    const text = response.text();
-    
+    const result = await ai.models.generateContent({
+      model: "models/gemini-1.5-pro",
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `${systemInstruction}\n\n${rawPrompt}` }],
+        },
+      ],
+      generationConfig: {
+        maxOutputTokens: maxOutputTokens,
+        temperature: 0.7,
+      },
+    });
+
+    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
     console.log("[AI Manager] Tarot API response received.");
-    
+
     return text || "🔮 牌卡沉默了，請稍後再試。";
 
   } catch (error) {
@@ -104,6 +108,8 @@ async function getTarotAIResponse(rawPrompt) {
     return "目前無法解讀牌意，宇宙的能量似乎有些混亂。";
   }
 }
+  
+  
 
 // 將新舊函式一起匯出
 module.exports = { 
