@@ -65,7 +65,7 @@ function buildPrompt(question, spread, drawnCards) {
 }
 
 module.exports = {
-    name: "tarot",
+    name: "塔羅",
     description: "進行一次塔羅牌占卜，尋求宇宙的指引。",
     permissions: "0x0000000000000800",
 
