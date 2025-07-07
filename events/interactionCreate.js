@@ -91,7 +91,7 @@ module.exports = async (client, interaction) => {
 
       // 1. 優先處理塔羅牌的選單
       if (customId === 'tarot_spread_select') {
-        const tarotCommand = client.commands.get('tarot'); 
+        const tarotCommand = client.commands.get('塔羅'); 
         if (tarotCommand && typeof tarotCommand.handleSelectMenu === "function") {
           try {
             // 現在 tarot.js 裡的 handleSelectMenu 將會是第一次回應，不再有衝突
