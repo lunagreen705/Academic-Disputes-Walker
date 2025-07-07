@@ -82,16 +82,19 @@ module.exports = async (client, interaction) => {
 // =================================================================
 //                      【排程處理 - 下拉選單】
 // =================================================================
-    if (interaction.isStringSelectMenu()) {
-      // 將 deferUpdate 統一放在最前面
-      await interaction.deferUpdate().catch(() => {});
+     if (interaction.isStringSelectMenu()) {
+      // ✨【修正】✨ 移除這一行通用的 deferUpdate。
+      // 讓每個指令的 handleSelectMenu 函式自己決定何時以及如何回應。
+      // await interaction.deferUpdate().catch(() => {}); // <--- 刪除或註解掉此行
+
       const customId = interaction.customId;
 
       // 1. 優先處理塔羅牌的選單
       if (customId === 'tarot_spread_select') {
-        const tarotCommand = client.commands.get('塔羅'); // 指令名稱是 '塔羅'
+        const tarotCommand = client.commands.get('tarot'); 
         if (tarotCommand && typeof tarotCommand.handleSelectMenu === "function") {
           try {
+            // 現在 tarot.js 裡的 handleSelectMenu 將會是第一次回應，不再有衝突
             await tarotCommand.handleSelectMenu(client, interaction, lang);
           } catch (e) {
             console.error(`❌ tarot 選單處理錯誤: ${e.stack || e}`);
