@@ -64,7 +64,7 @@ const personaName = getPersona(sessionId) || "bigteacher";
     return "目前無法回應，稍後再試。";
   }
 }
-// --- ✨ 新增的、獨立給塔羅使用的函式 ---
+// --- 塔羅使用函式 ---
 /**
  * 獲取塔羅牌解讀的回應。
  * 此函式為單次請求，不包含任何對話歷史紀錄。

@@ -1,10 +1,7 @@
 const { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder } = require('discord.js');
-
-// 1. 引入正確的函式
-// 將 getAIResponse 更換為專為塔羅設計的 getTarotAIResponse
 const { getTarotAIResponse } = require('../../utils/ai/aiManager'); 
-const allCards = require('../../data/tarot/cards.json'); 
-const allSpreads = require('../../data/tarot/spreads.json');
+const allCards = require('../../data/entertainment/tarot/cards.json'); 
+const allSpreads = require('../../data/entertainment/tarot/spreads.json');
 
 // 將牌陣 JSON 物件轉換為下拉選單的選項格式
 const spreadOptions = Object.keys(allSpreads).map(key => ({
