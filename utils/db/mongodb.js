@@ -2,26 +2,27 @@
 const { MongoClient } = require('mongodb');
 require('dotenv').config(); // 確保你可以從 .env 檔案讀取環境變數
 const config = require("../../config.js"); // 你的本地設定檔
-const colors = require('../../UI/colors/colors'); // 用於控制台顏色輸出
+const colors = require('../../UI/colors/colors');
 
 const mongoURI = process.env.mongodbUri || config.mongodbUri; // 從環境變數或本地設定檔獲取 MongoDB URI
 let client; // MongoDB 連線客戶端實例
 
 // --- 音樂功能相關變數 ---
-let musicDb; // 指向 "Academic-Disputes-music" 資料庫
-let playlistCollection; // "SongPlayLists" 集合
-let autoplayCollection; // "AutoplaySettings" 集合
+let musicDb;
+let playlistCollection;
+let autoplayCollection;
 // ------------------------------------
 
 // --- TRPG CoC 跑團相關變數 ---
-let trpgDb; // 指向 "TRPG-CoC-Records" 資料庫
-let cocCharacterCollection; // "CoCCharacters" 集合
-let trpgSessionLogCollection; // "TRPGSessions" 集合
+let trpgDb;
+let cocCharacterCollection;
+let trpgSessionLogCollection;
+let trpgLogStateCollection; // <--- 新增這一行：用於儲存日誌狀態
 // ------------------------------------
 
 // --- Google OAuth2 Token 相關變數 ---
-let googleDb; // 指向 'google' 資料庫
-let googleTokensCollection; // 指向 'token' 集合
+let googleDb;
+let googleTokensCollection;
 // ------------------------------------
 
 /**
@@ -31,18 +32,16 @@ let googleTokensCollection; // 指向 'token' 集合
 async function connectToDatabase() {
     if (!mongoURI) {
         console.warn("\x1b[33m[ WARNING ]\x1b[0m MongoDB URI is not defined in the configuration. Please set 'mongodbUri' in your .env file or config.js.");
-        return; // 如果沒有 URI，則不嘗試連接
+        return;
     }
 
-    // 如果客戶端實例不存在，則創建一個新的
     if (!client) {
         client = new MongoClient(mongoURI);
     }
 
     try {
-        // 只有當客戶端尚未連接或連接已被銷毀時才重新連接
         if (!client.topology || client.topology.isDestroyed()) {
-            await client.connect(); // 建立與 MongoDB 集群的單一連接
+            await client.connect();
         }
 
         // --- 初始化音樂功能資料庫和集合 ---
@@ -54,26 +53,24 @@ async function connectToDatabase() {
         trpgDb = client.db("TRPG-CoC-Records");
         cocCharacterCollection = trpgDb.collection("CoCCharacters");
         trpgSessionLogCollection = trpgDb.collection("TRPGSessions");
+        trpgLogStateCollection = trpgDb.collection("TRPGLogStates"); // <--- 新增這一行：初始化集合
 
         // --- 初始化 Google OAuth2 Token 相關資料庫和集合 ---
-        // *** 根據你的實際截圖修正資料庫和集合名稱 ***
-        googleDb = client.db("google"); // 使用你實際的資料庫名稱 'google'
-        googleTokensCollection = googleDb.collection("token"); // 使用你實際的集合名稱 'token'
+        googleDb = client.db("google");
+        googleTokensCollection = googleDb.collection("token");
 
         // --- 連線成功日誌 ---
         console.log('\n' + '─'.repeat(40));
         console.log(`${colors.magenta}${colors.bright}🕸️  DATABASE CONNECTION${colors.reset}`);
         console.log('─'.repeat(40));
         console.log('\x1b[36m[ DATABASE ]\x1b[0m', '\x1b[32mConnected to MongoDB ✅\x1b[0m');
-        console.log('\x1b[36m[ DATABASE ]\x1b[0m', `  - Music DB: "${musicDb.databaseName}"`);
-        console.log('\x1b[36m[ DATABASE ]\x1b[0m', `  - TRPG DB:  "${trpgDb.databaseName}"`);
-        console.log('\x1b[36m[ DATABASE ]\x1b[0m', `  - Google Auth DB:  "${googleDb.databaseName}"`); // 更新這裡的日誌顯示
+        console.log('\x1b[36m[ DATABASE ]\x1b[0m', `  - Music DB: "${musicDb.databaseName}"`);
+        console.log('\x1b[36m[ DATABASE ]\x1b[0m', `  - TRPG DB:  "${trpgDb.databaseName}"`);
+        console.log('\x1b[36m[ DATABASE ]\x1b[0m', `  - Google Auth DB:  "${googleDb.databaseName}"`);
 
     } catch (err) {
-        // --- 連線失敗日誌 ---
         console.warn("\x1b[33m[ WARNING ]\x1b[0m Could not connect to MongoDB. Continuing without database functionality.");
-        console.error("MongoDB Connection Error:", err.message); // 輸出更詳細的錯誤訊息
-        // 將客戶端設為 null，確保下次調用 connectToDatabase 會重新嘗試連接
+        console.error("MongoDB Connection Error:", err.message);
         client = null;
     }
 }
@@ -84,9 +81,7 @@ async function connectToDatabase() {
  * @returns {Object} 包含所有集合的物件
  */
 function getCollections() {
-    // 檢查所有必要的集合是否都已成功初始化
-    if (!playlistCollection || !autoplayCollection || !cocCharacterCollection || !trpgSessionLogCollection || !googleTokensCollection) {
-        // 如果有任何一個集合是 undefined 或 null，則表示 connectToDatabase 未成功完成
+    if (!playlistCollection || !autoplayCollection || !cocCharacterCollection || !trpgSessionLogCollection || !googleTokensCollection || !trpgLogStateCollection) { // <--- 新增檢查
         throw new Error("❌ One or more collections not initialized. Did you forget to call connectToDatabase() or did the connection fail?");
     }
     return {
@@ -97,6 +92,7 @@ function getCollections() {
         // 匯出 TRPG CoC 跑團相關集合
         cocCharacterCollection,
         trpgSessionLogCollection,
+        trpgLogStateCollection, // <--- 新增匯出
 
         // 匯出 Google OAuth2 Token 相關集合
         googleTokensCollection,

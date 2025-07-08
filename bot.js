@@ -1,15 +1,20 @@
-// bot.js
-const { Client, GatewayIntentBits, Collection } = require("discord.js"); // 【修正點 1】引入 Collection
+// bot.js (完整版)
+
+const { Client, GatewayIntentBits, Collection } = require("discord.js");
 const { google } = require('googleapis');
 const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
 const config = require("./config.js");
 const colors = require("./UI/colors/colors");
+
 //========== 載入模組 ==========
 
 const { initializePlayer } = require("./utils/music/player.js");
-const { connectToDatabase } = require("./utils/db/mongodb"); 
+// 【日誌模組整合 1/3】: 引入 getCollections 和 logModule
+const { connectToDatabase, getCollections } = require("./utils/db/mongodb"); 
+const logModule = require("./utils/trpgManager/logManager.js"); // 確保 logModule.js 在此路徑
+// ========================================================
 const deckManager = require("./utils/entertainment/deckManager");
 const affectionManager = require("./utils/entertainment/affectionManager");
 const aiManager = require("./utils/ai/aiManager");
@@ -26,7 +31,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 const client = new Client({
-  intents: Object.values(GatewayIntentBits),
+  intents: Object.values(GatewayIntentBits),
 });
 client.config = config;
 initializePlayer(client);
@@ -35,206 +40,216 @@ initializePlayer(client);
 
 const eventsPath = path.join(__dirname, "events");
 fs.readdir(eventsPath, (err, files) => {
-  if (err) {
-    console.error(`${colors.red}[ ERROR ] 無法讀取事件資料夾：${err.message}${colors.reset}`);
-    return;
-  }
+  if (err) {
+    console.error(`${colors.red}[ ERROR ] 無法讀取事件資料夾：${err.message}${colors.reset}`);
+    return;
+  }
 
-  files.forEach((file) => {
-    if (!file.endsWith(".js")) return;
-    const eventPath = path.join(eventsPath, file);
-    const event = require(eventPath);
+  files.forEach((file) => {
+    if (!file.endsWith(".js")) return;
+    const eventPath = path.join(eventsPath, file);
+    const event = require(eventPath);
 
-    try {
-      if (typeof event === "function") {
-        const eventName = file.split(".")[0];
-        client.on(eventName, event.bind(null, client));
-        console.log(`${colors.cyan}[ EVENT ]${colors.reset} 舊式事件載入：${colors.yellow}${eventName}${colors.reset}`);
-      } else if (event.name && typeof event.execute === "function") {
-        client.on(event.name, (...args) => event.execute(client, ...args));
-        console.log(`${colors.cyan}[ EVENT ]${colors.reset} 已載入事件：${colors.yellow}${event.name}${colors.reset}`);
-      } else {
-        console.warn(`${colors.red}[ EVENT ] 格式錯誤，跳過：${file}${colors.reset}`);
-      }
-    } catch (err) {
-      console.error(`${colors.red}[ ERROR ] 載入事件 ${file} 時發生錯誤：${err.message}${colors.reset}`);
-    }
-  });
+    try {
+      if (typeof event === "function") {
+        const eventName = file.split(".")[0];
+        client.on(eventName, event.bind(null, client));
+        console.log(`${colors.cyan}[ EVENT ]${colors.reset} 舊式事件載入：${colors.yellow}${eventName}${colors.reset}`);
+      } else if (event.name && typeof event.execute === "function") {
+        client.on(event.name, (...args) => event.execute(client, ...args));
+        console.log(`${colors.cyan}[ EVENT ]${colors.reset} 已載入事件：${colors.yellow}${event.name}${colors.reset}`);
+      } else {
+        console.warn(`${colors.red}[ EVENT ] 格式錯誤，跳過：${file}${colors.reset}`);
+      }
+    } catch (err) {
+      console.error(`${colors.red}[ ERROR ] 載入事件 ${file} 時發生錯誤：${err.message}${colors.reset}`);
+    }
+  });
 });
 
-// ========== 載入指令  ==========
+// ========== 載入指令  ==========
 
-// 【修正點 2】將 client.commands 初始化為 Discord.js 的 Collection
 client.commands = new Collection(); 
 function loadCommands(dir) {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      loadCommands(path.join(dir, entry.name));
-    } else if (entry.name.endsWith(".js")) {
-      try {
-        const command = require(path.join(dir, entry.name));
-        // 【修正點 3】使用 Collection.set() 來儲存指令
-        client.commands.set(command.name, {
-          name: command.name,
-          description: command.description,
-          options: command.options,
-          autocomplete: command.autocomplete || null,  
-          run: command.run,
-          handleButton: command.handleButton || null,
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      loadCommands(path.join(dir, entry.name));
+    } else if (entry.name.endsWith(".js")) {
+      try {
+        const command = require(path.join(dir, entry.name));
+        client.commands.set(command.name, {
+          name: command.name,
+          description: command.description,
+          options: command.options,
+          autocomplete: command.autocomplete || null,  
+          run: command.run,
+          handleButton: command.handleButton || null,
           handleSelectMenu: command.handleSelectMenu || null,
-        });
-        console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${command.name}${colors.reset}`);
-      } catch (err) {
-        console.error(`${colors.red}[ ERROR ] 無法載入指令 ${entry.name}：${err.message}${colors.reset}`);
-      }
-    }
-  }
+        });
+        console.log(`${colors.cyan}[ COMMAND ]${colors.reset} 已載入指令：${colors.yellow}${command.name}${colors.reset}`);
+      } catch (err) {
+        console.error(`${colors.red}[ ERROR ] 無法載入指令 ${entry.name}：${err.message}${colors.reset}`);
+      }
+    }
+  }
 }
 loadCommands(path.join(__dirname, config.commandsDir));
 
 
-// ========== Bot Ready  ==========
+// ========== Bot Ready  ==========
 
 client.once("ready", async () => {
-  console.log('\n' + '─'.repeat(40));
-  console.log(`${colors.magenta}${colors.bright}🤖 DISCORD BOT STATUS${colors.reset}`);
-  console.log('─'.repeat(40));
-  console.log(`${colors.cyan}[ SYSTEM ]${colors.reset} ${colors.green}Client logged as ${colors.yellow}${client.user.tag}${colors.reset}`);
-  console.log(`${colors.cyan}[ MUSIC ]${colors.reset} ${colors.green}Riffy Music System Ready 🎵${colors.reset}`);
-  console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.green}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
-  client.riffy.init(client.user.id);
-  
-    try {
-        // 初始化所有需要資料庫或其他前置作業的模組
-        await connectToDatabase();
-        console.log(`${colors.cyan}[ DATABASE ]${colors.reset} ${colors.green}MongoDB 資料庫已連線 ✅${colors.reset}`);
-        
-        deckManager.loadDecks(); // 牌堆系統
-        console.log(`${colors.cyan}[ SYSTEMS ]${colors.reset} ${colors.green}所有主要功能模組已準備就緒 ✅${colors.reset}`);
+  console.log('\n' + '─'.repeat(40));
+  console.log(`${colors.magenta}${colors.bright}🤖 DISCORD BOT STATUS${colors.reset}`);
+  console.log('─'.repeat(40));
+  console.log(`${colors.cyan}[ SYSTEM ]${colors.reset} ${colors.green}Client logged as ${colors.yellow}${client.user.tag}${colors.reset}`);
+  console.log(`${colors.cyan}[ MUSIC ]${colors.reset} ${colors.green}Riffy Music System Ready 🎵${colors.reset}`);
+  console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.green}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
+  client.riffy.init(client.user.id);
+  
+    try {
+        // 初始化所有需要資料庫或其他前置作業的模組
+        await connectToDatabase();
+        
+        // 【日誌模組整合 2/3】: 在資料庫連線後，初始化日誌模組
+        // =========================================================
+        // ===            初始化 TRPG 日誌記錄模組               ===
+        // =========================================================
+        try {
+            const collections = getCollections(); // 獲取所有資料庫集合
+            logModule.initialize(collections);    // 將集合傳入日誌模組進行初始化
+        } catch (error) {
+            console.error(`${colors.red}[ ERROR ] 初始化日誌模組失敗: ${error.message}${colors.reset}`);
+            logModule.initialize(null); // 即使失敗也初始化，使其進入安全的僅記憶體模式
+        }
+        // =========================================================
+        
+        deckManager.loadDecks(); // 牌堆系統
+        console.log(`${colors.cyan}[ SYSTEMS ]${colors.reset} ${colors.green}所有主要功能模組已準備就緒 ✅${colors.reset}`);
 
-        // =========================================================
-        // ===             初始化排程器 (正確的位置)             ===
-        // =========================================================
-        console.log(`${colors.cyan}[ SCHEDULER ]${colors.reset} ${colors.yellow}正在初始化排程任務...${colors.reset}`);
-        
-        // 在 client ready 後定義 taskActionFunctions，確保 client 物件可用
-        const taskActionFunctions = {
-            /**
-             * 發送好感度排行榜到指定頻道 (用於 autotasks.json)
-             */
-            'sendAffectionLeaderboard': (task, client) => {
-                const channelId = task.args?.channelId;
-                if (!channelId) {
-                    console.error(`[Action:sendAffectionLeaderboard] 任務 ${task.id} 未在 args 中指定 channelId。`);
-                    return;
-                }
+        // =========================================================
+        // ===            初始化排程器 (正確的位置)             ===
+        // =========================================================
+        console.log(`${colors.cyan}[ SCHEDULER ]${colors.reset} ${colors.yellow}正在初始化排程任務...${colors.reset}`);
+        
+        // 在 client ready 後定義 taskActionFunctions，確保 client 物件可用
+        const taskActionFunctions = {
+            /**
+             * 發送好感度排行榜到指定頻道 (用於 autotasks.json)
+             */
+            'sendAffectionLeaderboard': (task, client) => {
+                const channelId = task.args?.channelId;
+                if (!channelId) {
+                    console.error(`[Action:sendAffectionLeaderboard] 任務 ${task.id} 未在 args 中指定 channelId。`);
+                    return;
+                }
                 // 確保參數順序與 postAffectionLeaderboard 定義匹配：(client, channelId, limit)
-                schedulerManager.postAffectionLeaderboard(client, channelId, task.args?.limit);
-            },
+                schedulerManager.postAffectionLeaderboard(client, channelId, task.args?.limit);
+            },
 
-            /**
-             * 發送私訊給建立任務的使用者 (用於 personaltasks.json)
-             */
-            'sendDirectMessage': async (task, client) => {
-                console.log(`[ACTION] 嘗試向使用者 ID: ${task.userId} 傳送私訊，內容為: ${task.args?.message}`);
-                try {
-                    const user = await client.users.fetch(task.userId);
-                    if (user) {
-                        const message = task.args?.message || `這是一則來自 ${client.user.username} 的排程提醒！`;
-                        await user.send(message);
-                        console.log(`[ACTION] 成功向使用者 ID: ${task.userId} 傳送私訊`);
-                    } else {
-                        console.error(`[ACTION] 找不到使用者 ID: ${task.userId}，無法傳送私訊。`);
-                    }
-                } catch (error) {
-                    console.error(`${colors.red}[Action:sendDirectMessage]${colors.reset} ❌ 發送私訊失敗 (任務ID: ${task.id}, 使用者ID: ${task.userId}):`, error.message);
-                    if (error.code === 50007) { 
-                        console.error(`[Action:sendDirectMessage] 錯誤碼 50007: 這通常表示使用者關閉了來自伺服器成員的私訊，或者機器人被該使用者封鎖了。`);
-                    }
-                }
-            }
-        };
-        
-        client.taskActionFunctions = taskActionFunctions; 
-        
-        await schedulerManager.initializeScheduler(client, taskActionFunctions);
+            /**
+             * 發送私訊給建立任務的使用者 (用於 personaltasks.json)
+             */
+            'sendDirectMessage': async (task, client) => {
+                console.log(`[ACTION] 嘗試向使用者 ID: ${task.userId} 傳送私訊，內容為: ${task.args?.message}`);
+                try {
+                    const user = await client.users.fetch(task.userId);
+                    if (user) {
+                        const message = task.args?.message || `這是一則來自 ${client.user.username} 的排程提醒！`;
+                        await user.send(message);
+                        console.log(`[ACTION] 成功向使用者 ID: ${task.userId} 傳送私訊`);
+                    } else {
+                        console.error(`[ACTION] 找不到使用者 ID: ${task.userId}，無法傳送私訊。`);
+                    }
+                } catch (error) {
+                    console.error(`${colors.red}[Action:sendDirectMessage]${colors.reset} ❌ 發送私訊失敗 (任務ID: ${task.id}, 使用者ID: ${task.userId}):`, error.message);
+                    if (error.code === 50007) { 
+                        console.error(`[Action:sendDirectMessage] 錯誤碼 50007: 這通常表示使用者關閉了來自伺服器成員的私訊，或者機器人被該使用者封鎖了。`);
+                    }
+                }
+            }
+        };
+        
+        client.taskActionFunctions = taskActionFunctions; 
+        
+        await schedulerManager.initializeScheduler(client, taskActionFunctions);
 
-    } catch (err) {
-        console.error(`${colors.red}[ ERROR ] 準備就緒過程中發生錯誤：${err.message}${colors.reset}`);
-    }
+    } catch (err) {
+        console.error(`${colors.red}[ ERROR ] 準備就緒過程中發生錯誤：${err.message}${colors.reset}`);
+    }
 });
 
 
 
-// ========== Voice Packets  ==========
+// ========== Voice Packets  ==========
 
 client.on("raw", (d) => {
-  const { GatewayDispatchEvents } = require("discord.js");
-  if (![GatewayDispatchEvents.VoiceStateUpdate, GatewayDispatchEvents.VoiceServerUpdate].includes(d.t)) return;
-  client.riffy.updateVoiceState(d);
+  const { GatewayDispatchEvents } = require("discord.js");
+  if (![GatewayDispatchEvents.VoiceStateUpdate, GatewayDispatchEvents.VoiceServerUpdate].includes(d.t)) return;
+  client.riffy.updateVoiceState(d);
 });
 
-// ========== 登入 BOT  ==========
+// ========== 登入 BOT  ==========
 
 client.login(config.TOKEN || process.env.TOKEN).catch((e) => {
-  console.log('\n' + '─'.repeat(40));
-  console.log(`${colors.magenta}${colors.bright}🔐 TOKEN VERIFICATION${colors.reset}`);
-  console.log('─'.repeat(40));
-  console.log(`${colors.cyan}[ TOKEN ]${colors.reset} ${colors.red}Authentication Failed ❌${colors.reset}`);
-  console.log(`${colors.gray}Error: Turn On Intents or Reset New Token${colors.reset}`);
+  console.log('\n' + '─'.repeat(40));
+  console.log(`${colors.magenta}${colors.bright}🔐 TOKEN VERIFICATION${colors.reset}`);
+  console.log('─'.repeat(40));
+  console.log(`${colors.cyan}[ TOKEN ]${colors.reset} ${colors.red}Authentication Failed ❌${colors.reset}`);
+  console.log(`${colors.gray}Error: Turn On Intents or Reset New Token${colors.reset}`);
 });
 
 // ========== Express 網頁伺服器 ==========
 
 try {
-    const clientSecretContent = fs.readFileSync(CLIENT_SECRET_PATH, 'utf8');
-    const credentials = JSON.parse(clientSecretContent);
-    const { client_id, client_secret, redirect_uris } = credentials.web || credentials.installed;
-    const REDIRECT_URI = redirect_uris[0]; 
-    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);
+    const clientSecretContent = fs.readFileSync(CLIENT_SECRET_PATH, 'utf8');
+    const credentials = JSON.parse(clientSecretContent);
+    const { client_id, client_secret, redirect_uris } = credentials.web || credentials.installed;
+    const REDIRECT_URI = redirect_uris[0]; 
+    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);
 
-    app.get("/", (req, res) => {
-      const filePath = path.join(__dirname, "index.html");
-      res.sendFile(filePath);
-    });
+    app.get("/", (req, res) => {
+      const filePath = path.join(__dirname, "index.html");
+      res.sendFile(filePath);
+    });
 
-    app.get('/auth/google', (req, res) => {
-      const scopes = [
-        'https://www.googleapis.com/auth/drive',
-        'https://www.googleapis.com/auth/userinfo.profile',
-      ];
-      const authUrl = oAuth2Client.generateAuthUrl({
-        access_type: 'offline',
-        scope: scopes,
-        prompt: 'consent',
-      });
-      res.send(`請訪問以下 URL 進行 Google Drive 權限授權：<a href="${authUrl}">點擊這裡</a>。`);
-    });
+    app.get('/auth/google', (req, res) => {
+      const scopes = [
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/userinfo.profile',
+      ];
+      const authUrl = oAuth2Client.generateAuthUrl({
+        access_type: 'offline',
+        scope: scopes,
+        prompt: 'consent',
+      });
+      res.send(`請訪問以下 URL 進行 Google Drive 權限授權：<a href="${authUrl}">點擊這裡</a>。`);
+    });
 
-    app.get('/oauth2callback', async (req, res) => {
-      const { code } = req.query;
-      if (!code) {
-        return res.status(400).send('Google OAuth2 授權失敗：未收到授權碼。');
-      }
-      try {
-        const { tokens } = await oAuth2Client.getToken(code);
-        oAuth2Client.setCredentials(tokens);
-        await saveToken(tokens);
-        res.send('Google Drive 授權成功！令牌已儲存至資料庫。您可以關閉此頁面。');
-      } catch (error) {
-        console.error('[ERROR] 交換 Google Drive 令牌失敗:', error.message);
-        res.status(500).send(`交換 Google Drive 令牌失敗：${error.message}`);
-      }
-    });
+    app.get('/oauth2callback', async (req, res) => {
+      const { code } = req.query;
+      if (!code) {
+        return res.status(400).send('Google OAuth2 授權失敗：未收到授權碼。');
+      }
+      try {
+        const { tokens } = await oAuth2Client.getToken(code);
+        oAuth2Client.setCredentials(tokens);
+        await saveToken(tokens);
+        res.send('Google Drive 授權成功！令牌已儲存至資料庫。您可以關閉此頁面。');
+      } catch (error) {
+        console.error('[ERROR] 交換 Google Drive 令牌失敗:', error.message);
+        res.status(500).send(`交換 Google Drive 令牌失敗：${error.message}`);
+      }
+    });
 
-    app.listen(port, () => {
-      console.log('\n' + '─'.repeat(40));
-      console.log(`${colors.magenta}${colors.bright}🌐 SERVER STATUS${colors.reset}`);
-      console.log('─'.repeat(40));
-      console.log(`${colors.cyan}[ SERVER ]${colors.reset} ${colors.green}Online ✅${colors.reset}`);
-      console.log(`${colors.cyan}[ PORT ]${colors.reset} ${colors.yellow}http://localhost:${port}${colors.reset}`); 
-    });
+    app.listen(port, () => {
+      console.log('\n' + '─'.repeat(40));
+      console.log(`${colors.magenta}${colors.bright}🌐 SERVER STATUS${colors.reset}`);
+      console.log('─'.repeat(40));
+      console.log(`${colors.cyan}[ SERVER ]${colors.reset} ${colors.green}Online ✅${colors.reset}`);
+      console.log(`${colors.cyan}[ PORT ]${colors.reset} ${colors.yellow}http://localhost:${port}${colors.reset}`); 
+    });
 } catch (error) {
-    console.warn(`${colors.yellow}[OAUTH2]${colors.reset} ⚠️ 未找到 client_secret.json，Google Drive 相關功能將停用。`);
+    console.warn(`${colors.yellow}[OAUTH2]${colors.reset} ⚠️ 未找到 client_secret.json，Google Drive 相關功能將停用。`);
 }
