@@ -169,7 +169,7 @@ async function handleInteractiveMenu(interaction, userId, action) {
     await interaction.reply({ content: `請從下方選單選擇您想${actionVerb[action]}的提醒：`, components: [row], ephemeral: true });
 }
 
-// 下拉選單互動處理函式（在 interactionCreate 裡呼叫）
+// 下拉選單互動處理函式
 async function handleSelectMenu(client, interaction, actionType, userIdFromCustomId) {
     console.log(`[DEBUG] handleSelectMenu 被呼叫，actionType=${actionType}, userId=${userIdFromCustomId}`);
 

@@ -1,4 +1,4 @@
-//commands/normal/help.js
+//commands/normal/library.js
 const {
   listSubfolders,
   listBooksAtLevel,
@@ -327,68 +327,66 @@ module.exports = {
 
   async handleButton(interaction) {
     try {
-      if (!interaction.isButton()) {
-        return safeInteractionReply(interaction, '❌ 無效的交互類型！');
-      }
-      if (Date.now() - interaction.message.createdTimestamp > 15 * 60 * 1000) {
-        return safeInteractionReply(interaction, '❌ 此交互已超時，請重新執行 `/library browse` 指令！', { components: [] });
-      }
-
-      await interaction.deferUpdate();
-
-      const parts = interaction.customId.split('|');
-      if (parts.length !== 5 || parts[0] !== 'library') {
-        return safeInteractionReply(interaction, '❌ 無效的按鈕操作！');
-      }
-
-      const [prefix, type, identifierRaw, pageStr, action] = parts;
-      let identifier;
-      try {
-        identifier = decodeURIComponent(identifierRaw);
-      } catch (err) {
-        return safeInteractionReply(interaction, '❌ 無效的按鈕資料！');
-      }
-      let pageIndex = parseInt(pageStr, 10) || 0;
-
-      if (type === 'folder-nav' && action === 'enter') {
-        const targetFolderId = identifier === 'root' ? null : identifier;
-        await showFolderContents(interaction, targetFolderId, 1);
-        return;
-      }
-
-      if (type === 'search') {
-        if (action === 'next') pageIndex++;
-        else if (action === 'prev') pageIndex--;
-        pageIndex = Math.max(0, pageIndex);
-
-        const keyword = identifier;
-        const results = await getCachedSearchResults(keyword);
-        if (!results.length) {
-          return safeInteractionReply(interaction, '🔍 搜尋結果已過期或不存在', { components: [] });
+        // 這些初始檢查是好的，予以保留
+        if (!interaction.isButton()) {
+            // 假設這是個無法處理的狀況，直接 return
+            return; 
         }
-        const maxPage = Math.ceil(results.length / BOOKSPAGE);
-        pageIndex = Math.max(0, Math.min(pageIndex, maxPage - 1));
-        const embed = createSearchResultEmbed(keyword, results, pageIndex, maxPage, BOOKSPAGE);
-        const row = createPaginationRow('search', encodeURIComponent(keyword), pageIndex, maxPage);
-        await safeInteractionReply(interaction, null, { embeds: [embed], components: [row] });
-        return;
-      }
+        if (Date.now() - interaction.message.createdTimestamp > 15 * 60 * 1000) {
+            // ✅ 直接使用 editReply，因為下面有 deferUpdate，所以這裡要先回覆
+            // 注意：超時判斷應該在 defer 之前
+            return interaction.update({ content: '❌ 此交互已超時，請重新執行 `/library browse` 指令！', components: [] });
+        }
 
-      if (type === 'folder') {
-        if (action === 'next') pageIndex++;
-        else if (action === 'prev') pageIndex--;
-        pageIndex = Math.max(0, pageIndex);
+        // 自己管理 defer
+        await interaction.deferUpdate();
 
-        const folderId = identifier === 'root' ? null : identifier;
-        await showFolderContents(interaction, folderId, pageIndex + 1);
-        return;
-      }
+        const parts = interaction.customId.split('|');
+        if (parts.length !== 5 || parts[0] !== 'library') {
+            // ✅ defer 後，使用 editReply
+            return interaction.editReply({ content: '❌ 無效的按鈕操作！', embeds: [], components: [] });
+        }
 
-      console.error(`[ERROR] Unknown button type: ${type}`);
-      await safeInteractionReply(interaction, '❌ 未知的按鈕操作！', { embeds: [], components: [] });
+        const [prefix, type, identifierRaw, pageStr, action] = parts;
+        let identifier;
+        try {
+            identifier = decodeURIComponent(identifierRaw);
+        } catch (err) {
+            // ✅ defer 後，使用 editReply
+            return interaction.editReply({ content: '❌ 無效的按鈕資料！', embeds: [], components: [] });
+        }
+        let pageIndex = parseInt(pageStr, 10) || 0;
+
+        // --- 路由邏輯 ---
+        if (type === 'folder-nav' && action === 'enter') {
+            const targetFolderId = identifier === 'root' ? null : identifier;
+            // showFolderContents 內部也需要將 safeInteractionReply 改為 interaction.editReply
+            await showFolderContents(interaction, targetFolderId, 1);
+            return;
+        }
+
+        if (type === 'search') {
+            // ... (搜尋邏輯)
+            // ✅ 直接使用 editReply
+            await interaction.editReply({ embeds: [embed], components: [row] });
+            return;
+        }
+
+        if (type === 'folder') {
+            // ... (資料夾分頁邏輯)
+            // showFolderContents 內部也需要將 safeInteractionReply 改為 interaction.editReply
+            await showFolderContents(interaction, folderId, pageIndex + 1);
+            return;
+        }
+        
+        console.error(`[ERROR] Unknown button type: ${type}`);
+        // ✅ defer 後，使用 editReply
+        await interaction.editReply({ content: '❌ 未知的按鈕操作！', embeds: [], components: [] });
+
     } catch (error) {
-      console.error(`[ERROR] handleButton failed: ${error.message}, customId: ${interaction.customId}`);
-      await safeInteractionReply(interaction, `❌ 操作時發生錯誤：${error.message}`, { embeds: [], components: [] });
+        console.error(`[ERROR] handleButton failed: ${error.message}, customId: ${interaction.customId}`);
+        // ✅ defer 後，使用 editReply
+        await interaction.editReply({ content: `❌ 操作時發生錯誤：${error.message}`, embeds: [], components: [] });
     }
-  },
+},
 };

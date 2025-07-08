@@ -72,25 +72,36 @@ module.exports = async (client, interaction) => {
       }
 
       // 【修正點 2】對於其他所有按鈕互動，統一 deferUpdate
-      await interaction.deferUpdate().catch(() => {}); 
+      //await interaction.deferUpdate().catch(() => {}); 
 
-      if (customId.startsWith("library|")) {
+     if (customId.startsWith("library|")) {
         const libraryCommand = client.commands.get("library"); 
-        if (libraryCommand && typeof libraryCommand.handleButton === "function") {
+        if (libraryCommand?.handleButton) {
           try {
+            // ✅ 現在 library.js 的 handleButton 是全權負責人
+            // 它需要自己決定何時 reply 或 deferUpdate
             await libraryCommand.handleButton(interaction);
           } catch (e) {
-            console.error(`❌ library handleButton 在 interactionCreate 中發生錯誤: ${e.stack || e}`);
-            await interaction.followUp({ content: lang.errors.generalButtonError, ephemeral: true }).catch(console.error);
+            console.error(`❌ library handleButton 發生錯誤: ${e.stack || e}`);
+            // 因為我們不知道 library.js 內部是否已回覆，所以要做判斷
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({ content: lang.errors.generalButtonError, ephemeral: true }).catch(console.error);
+            }
           }
         } else {
-          console.error(`[ERROR] Library command or handleButton not found for customId: ${customId}`);
-          await interaction.followUp({ content: lang.errors.buttonHandlerNotFound, ephemeral: true }).catch(console.error);
+          console.error(`[ERROR] 找不到 Library 指令或 handleButton: ${customId}`);
+          // ✅ 因為沒有 defer 過，所以可以直接 reply
+          await interaction.reply({ content: lang.errors.buttonHandlerNotFound, ephemeral: true }).catch(console.error);
         }
         return;
-      } else {
-        console.warn(`[WARN] Unhandled button interaction with customId: ${customId}`);
-        await interaction.followUp({ content: lang.errors.unknownButton, ephemeral: true }).catch(console.error);
+      } 
+      
+      // ... 您可能還有其他 'else if' 來處理其他指令的按鈕 ...
+
+      else {
+        console.warn(`[WARN] 未處理的按鈕互動: ${customId}`);
+        // ✅ 對於真正未知的按鈕，直接 reply 錯誤訊息
+        await interaction.reply({ content: lang.errors.unknownButton, ephemeral: true }).catch(console.error);
         return;
       }
     }
