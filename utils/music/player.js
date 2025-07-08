@@ -301,7 +301,6 @@ function setupCollector(client, player, channel, message) {
     const collector = message.createMessageComponentCollector({ filter, time: player.current?.info.length || 600000 }); // 以歌曲長度或10分鐘為超時
 
     collector.on('collect', async i => {
-        await i.deferUpdate();
 
         const member = i.member;
         const voiceChannel = member.voice.channel;
