@@ -173,9 +173,11 @@ async function handleInteractiveMenu(interaction, userId, action) {
 async function handleSelectMenu(client, interaction, actionType, userIdFromCustomId) {
     console.log(`[DEBUG] handleSelectMenu 被呼叫，actionType=${actionType}, userId=${userIdFromCustomId}`);
 
+    // --- 1. 先進行所有通用的前置檢查 (此時完全不回應) ---
+
     if (interaction.user.id !== userIdFromCustomId) {
-        const replyMethod = interaction.deferred || interaction.replied ? 'followUp' : 'reply';
-        return interaction[replyMethod]({
+        // 因為尚未 defer，所以這裡必須用 reply
+        return interaction.reply({
             content: '❌ 您無權操作此提醒。',
             ephemeral: true,
         }).catch(console.error);
@@ -183,7 +185,8 @@ async function handleSelectMenu(client, interaction, actionType, userIdFromCusto
 
     const selectedTaskId = interaction.values?.[0];
     if (!selectedTaskId) {
-        return interaction.followUp({
+        // 同樣，直接 reply
+        return interaction.reply({
             content: '❌ 您未選擇任何提醒。',
             ephemeral: true,
         }).catch(console.error);
@@ -193,39 +196,17 @@ async function handleSelectMenu(client, interaction, actionType, userIdFromCusto
     const currentTask = userTasks.find(t => t.id === selectedTaskId);
 
     if (!currentTask) {
-        return interaction.followUp({
+        // 同樣，直接 reply
+        return interaction.reply({
             content: '❌ 找不到該提醒。',
             ephemeral: true,
         }).catch(console.error);
     }
 
-    if (actionType === 'delete-task-menu') {
-        const deleteSuccess = await schedulerManager.deleteTask(client, client.taskActionFunctions, selectedTaskId, userIdFromCustomId);
-        const msg = deleteSuccess
-            ? `✅ 提醒 \`${selectedTaskId}\` 已成功刪除。`
-            : `❌ 操作失敗，找不到該提醒或您無權刪除。`;
+    // --- 2. 根據 actionType 決定如何回應 ---
 
-        if (msg.trim()) {
-            return interaction.followUp({ content: msg, ephemeral: true }).catch(console.error);
-        }
-    }
-
-    else if (actionType === 'toggle-task-menu') {
-        const newEnabled = !currentTask.enabled;
-        const updateSuccess = await schedulerManager.addOrUpdateTask(client, client.taskActionFunctions, {
-            ...currentTask,
-            enabled: newEnabled,
-        });
-        const msg = updateSuccess
-            ? `✅ 提醒 \`${selectedTaskId}\` 已成功${newEnabled ? '啟用' : '暫停'}。`
-            : `❌ 操作失敗，請稍後再試。`;
-
-        if (msg.trim()) {
-            return interaction.followUp({ content: msg, ephemeral: true }).catch(console.error);
-        }
-    }
-
-    else if (actionType === 'edit-task-menu') {
+    if (actionType === 'edit-task-menu') {
+        // 對於 Modal，直接顯示，這本身就是一種回應，不需要 defer
         const modal = new ModalBuilder()
             .setCustomId(`edit-task-modal:${selectedTaskId}:${userIdFromCustomId}`)
             .setTitle(`編輯提醒: ${currentTask.name}`);
@@ -249,14 +230,37 @@ async function handleSelectMenu(client, interaction, actionType, userIdFromCusto
             new ActionRowBuilder().addComponents(whenInput)
         );
 
-        // 直接開啟 Modal，不使用 deferUpdate() 或 reply()
         return interaction.showModal(modal).catch(console.error);
     }
 
-    else {
-        return interaction.followUp({
+    // --- 3. 對於所有其他需要時間處理的操作，現在才延遲回應 ---
+
+    await interaction.deferReply({ ephemeral: true });
+
+    if (actionType === 'delete-task-menu') {
+        const deleteSuccess = await schedulerManager.deleteTask(client, client.taskActionFunctions, selectedTaskId, userIdFromCustomId);
+        const msg = deleteSuccess
+            ? `✅ 提醒 \`${selectedTaskId}\` 已成功刪除。`
+            : `❌ 操作失敗，找不到該提醒或您無權刪除。`;
+        
+        // 使用 editReply 更新 "正在思考..." 的訊息，比 followUp 更合適
+        return interaction.editReply({ content: msg }).catch(console.error);
+
+    } else if (actionType === 'toggle-task-menu') {
+        const newEnabled = !currentTask.enabled;
+        const updateSuccess = await schedulerManager.addOrUpdateTask(client, client.taskActionFunctions, {
+            ...currentTask,
+            enabled: newEnabled,
+        });
+        const msg = updateSuccess
+            ? `✅ 提醒 \`${selectedTaskId}\` 已成功${newEnabled ? '啟用' : '暫停'}。`
+            : `❌ 操作失敗，請稍後再試。`;
+            
+        return interaction.editReply({ content: msg }).catch(console.error);
+
+    } else {
+        return interaction.editReply({
             content: '❌ 未知的提醒操作。',
-            ephemeral: true,
         }).catch(console.error);
     }
 }
