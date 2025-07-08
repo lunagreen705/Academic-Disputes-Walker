@@ -20,7 +20,7 @@ module.exports = async (client) => {
 
     const defaultActivity = {
         name: config.activityName,
-        type: ActivityType[config.activityType.toUpperCase()]
+        type: ActivityType.Listening
     };
 
     async function updateStatus() {
@@ -45,7 +45,7 @@ module.exports = async (client) => {
 
         client.user.setActivity({
             name: `🎸 ${trackName}`,
-            type: ActivityType.Listening
+            type: ActivityType.playing
         });
     }
 
