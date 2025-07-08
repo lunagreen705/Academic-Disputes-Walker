@@ -1,1 +1,16 @@
-[]
+[
+  {
+    "id": "37da9908",
+    "name": "r",
+    "cronExpression": "0 8 9 7 *",
+    "action": "sendDirectMessage",
+    "enabled": true,
+    "timezone": "Asia/Taipei",
+    "userId": "329999695390965760",
+    "args": {
+      "message": "⏰ **排程提醒**：\n\n>>> r"
+    },
+    "occurrence_count": 1,
+    "executedCount": 0
+  }
+]
