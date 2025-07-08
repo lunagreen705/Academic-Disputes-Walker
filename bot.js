@@ -138,10 +138,10 @@ client.once("ready", async () => {
             /**
              * 發送好感度排行榜到指定頻道 (用於 autotasks.json)
              */
-            'sendAffectionLeaderboard': (task, client) => {
+            'sendautomessage': (task, client) => {
                 const channelId = task.args?.channelId;
                 if (!channelId) {
-                    console.error(`[Action:sendAffectionLeaderboard] 任務 ${task.id} 未在 args 中指定 channelId。`);
+                    console.error(`[Action:sendautomessage] 任務 ${task.id} 未在 args 中指定 channelId。`);
                     return;
                 }
                 // 確保參數順序與 postAffectionLeaderboard 定義匹配：(client, channelId, limit)

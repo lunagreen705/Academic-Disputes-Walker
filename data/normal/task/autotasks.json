@@ -5,7 +5,7 @@
     "enabled": true,
     "cronExpression": "0 12 * * 7",  
     "timezone": "Asia/Taipei",
-    "action": "sendAffectionLeaderboard",
+    "action": "sendautomessage",
     "args": {
       "limit": 10,
       "channelId": "1146286703741505679" 
