@@ -1,11 +1,11 @@
-//commands/normal/task.js
+// commands/normal/task.js 
 const { 
-  EmbedBuilder, 
-  StringSelectMenuBuilder, 
-  ActionRowBuilder, 
-  ModalBuilder, 
-  TextInputBuilder, 
-  TextInputStyle 
+    EmbedBuilder, 
+    StringSelectMenuBuilder, 
+    ActionRowBuilder, 
+    ModalBuilder, 
+    TextInputBuilder, 
+    TextInputStyle 
 } = require('discord.js');
 const schedulerManager = require('../../utils/normal/schedulerManager'); 
 const config = require("../../config.js");
@@ -13,60 +13,49 @@ const chrono = require('chrono-node');
 const { DateTime } = require('luxon');
 const { randomUUID } = require('crypto');
 
-// 建立自訂中文解析器，提高中文時間解析準確度
+// --- 時間解析相關函式 (保持不變) ---
 const customChrono = chrono.zh.casual.clone();
-
-// 將中文時間轉換成 cron 表達式
 function parseWhenToCron(whenStr) {
-    const nowInTaipei = DateTime.now().setZone('Asia/Taipei').toJSDate();
-
-    if (/每天/.test(whenStr)) {
-        const parsedResult = customChrono.parse(whenStr, nowInTaipei, { forwardDate: true });
-        if (!parsedResult || parsedResult.length === 0) return null;
-        
-        const hour = parsedResult[0].start.get('hour');
-        const minute = parsedResult[0].start.get('minute');
-        return `${minute} ${hour} * * *`;
-    }
-    const weeklyMatch = whenStr.match(/每(週|星期)([一二三四五六日])/);
-    if (weeklyMatch) {
-        const dayOfWeekMap = { '日': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6 };
-        const dayOfWeek = dayOfWeekMap[weeklyMatch[2]];
-        
-        const parsedResult = customChrono.parse(whenStr, nowInTaipei, { forwardDate: true });
-        if (!parsedResult || parsedResult.length === 0) return null;
-
-        const hour = parsedResult[0].start.get('hour');
-        const minute = parsedResult[0].start.get('minute');
-        return `${minute} ${hour} * * ${dayOfWeek}`;
-    }
-
-    const results = customChrono.parse(whenStr, nowInTaipei, { forwardDate: true });
-    if (results.length === 0) return null;
-
-    const targetDate = results[0].start.date();
-    return `${targetDate.getMinutes()} ${targetDate.getHours()} ${targetDate.getDate()} ${targetDate.getMonth() + 1} *`;
+    // ... 您的時間解析邏輯完全不需要修改 ...
+    const nowInTaipei = DateTime.now().setZone('Asia/Taipei').toJSDate();
+    if (/每天/.test(whenStr)) {
+        const parsedResult = customChrono.parse(whenStr, nowInTaipei, { forwardDate: true });
+        if (!parsedResult || parsedResult.length === 0) return null;
+        const hour = parsedResult[0].start.get('hour');
+        const minute = parsedResult[0].start.get('minute');
+        return `${minute} ${hour} * * *`;
+    }
+    const weeklyMatch = whenStr.match(/每(週|星期)([一二三四五六日])/);
+    if (weeklyMatch) {
+        const dayOfWeekMap = { '日': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6 };
+        const dayOfWeek = dayOfWeekMap[weeklyMatch[2]];
+        const parsedResult = customChrono.parse(whenStr, nowInTaipei, { forwardDate: true });
+        if (!parsedResult || parsedResult.length === 0) return null;
+        const hour = parsedResult[0].start.get('hour');
+        const minute = parsedResult[0].start.get('minute');
+        return `${minute} ${hour} * * ${dayOfWeek}`;
+    }
+    const results = customChrono.parse(whenStr, nowInTaipei, { forwardDate: true });
+    if (results.length === 0) return null;
+    const targetDate = results[0].start.date();
+    return `${targetDate.getMinutes()} ${targetDate.getHours()} ${targetDate.getDate()} ${targetDate.getMonth() + 1} *`;
 }
 
-// 設定提醒指令的處理函式
-async function handleSet(interaction, userId) {
-    const { client, options } = interaction;
-    await interaction.deferReply({ ephemeral: true });
 
+// --- 子指令處理函式 (已修改) ---
+
+async function handleSet(interaction, userId) {
+    // ✅ 移除 deferReply，因為 interactionCreate.js 會處理
+    const { client, options } = interaction;
     const message = options.getString('message');
     const whenStr = options.getString('when');
-
-    let isRecurring = false;
-    if (whenStr.includes('每天') || whenStr.includes('每週') || whenStr.includes('每星期')) {
-        isRecurring = true;
-    }
-
+    const isRecurring = /每天|每週|每星期/.test(whenStr);
     const cronExpression = parseWhenToCron(whenStr);
 
     if (!cronExpression) {
-        return interaction.followUp({ 
+        // ✅ 將 followUp 改為 editReply
+        return interaction.editReply({ 
             content: '❌ 無法理解您輸入的時間格式。\n請試試看：`10分鐘後`, `明天早上9點`, `每天晚上10:30` 或 `每週五 20:00`',
-            ephemeral: true
         });
     }
 
@@ -78,12 +67,10 @@ async function handleSet(interaction, userId) {
         enabled: true,
         timezone: 'Asia/Taipei',
         userId: userId,
-        args: { message: `⏰ **排程提醒**：\n\n>>> ${message}` }
+        args: { message: `⏰ **排程提醒**：\n\n>>> ${message}` },
+        // 使用三元運算子簡化
+        occurrence_count: isRecurring ? undefined : 1,
     };
-
-    if (!isRecurring) {
-        taskConfig.occurrence_count = 1;
-    }
 
     const success = await schedulerManager.addOrUpdateTask(client, client.taskActionFunctions, taskConfig);
     
@@ -92,18 +79,20 @@ async function handleSet(interaction, userId) {
             .setColor('#57F287')
             .setTitle('✅ 提醒設定成功！')
             .setDescription(`學術糾紛將會透過私訊提醒您。${!isRecurring ? '\n\n**此提醒將在執行一次後自動刪除。**' : ''}`);
-        await interaction.followUp({ embeds: [successEmbed], ephemeral: true });
+        // ✅ 將 followUp 改為 editReply
+        await interaction.editReply({ embeds: [successEmbed] });
     } else {
-        await interaction.followUp({ content: '❌ 操作失敗，請稍後再試。', ephemeral: true });
+        // ✅ 將 followUp 改為 editReply
+        await interaction.editReply({ content: '❌ 操作失敗，請稍後再試。' });
     }
 }
 
-// 列出所有提醒
 async function handleList(interaction, userId) {
     const userTasks = schedulerManager.getTasksByUserId(userId); 
 
     if (userTasks.length === 0) {
-        return interaction.reply({ content: 'ℹ️ 您目前沒有設定任何個人提醒。', ephemeral: true });
+        // ✅ 將 reply 改為 editReply
+        return interaction.editReply({ content: 'ℹ️ 您目前沒有設定任何個人提醒。' });
     }
 
     const embed = new EmbedBuilder()
@@ -112,248 +101,169 @@ async function handleList(interaction, userId) {
         .setDescription('以下是您設定的所有排程提醒。');
 
     userTasks.forEach(task => {
+        // ... (addFields 邏輯不變) ...
         let occurrenceInfo = '';
-        if (typeof task.occurrence_count === 'number' && task.occurrence_count > 0) {
-            const executed = typeof task.executedCount === 'number' ? task.executedCount : 0;
-            occurrenceInfo = ` (已執行 ${executed}/${task.occurrence_count} 次)`;
-        } else if (task.end_date) {
-            occurrenceInfo = ` (結束日期: ${task.end_date})`;
-        }
-
-        embed.addFields({
-            name: `${task.enabled ? '🟢' : '🔴'} ${task.name}`,
-            value: `ID: \`${task.id}\`\n排程: \`${task.cronExpression}\`${occurrenceInfo}`,
-        });
+        if (typeof task.occurrence_count === 'number' && task.occurrence_count > 0) {
+            const executed = typeof task.executedCount === 'number' ? task.executedCount : 0;
+            occurrenceInfo = ` (已執行 ${executed}/${task.occurrence_count} 次)`;
+        } else if (task.end_date) {
+            occurrenceInfo = ` (結束日期: ${task.end_date})`;
+        }
+        embed.addFields({
+            name: `${task.enabled ? '🟢' : '🔴'} ${task.name}`,
+            value: `ID: \`${task.id}\`\n排程: \`${task.cronExpression}\`${occurrenceInfo}`,
+        });
     });
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    // ✅ 將 reply 改為 editReply
+    await interaction.editReply({ embeds: [embed] });
 }
 
-// 刪除提醒，觸發互動選單
-async function handleDelete(interaction, userId) {
-    await handleInteractiveMenu(interaction, userId, 'delete');
-}
-
-// 暫停/啟用提醒，觸發互動選單
-async function handleToggle(interaction, userId) {
-    await handleInteractiveMenu(interaction, userId, 'toggle');
-}
-
-// 編輯提醒，觸發互動選單
-async function handleEdit(interaction, userId) {
-    await handleInteractiveMenu(interaction, userId, 'edit');
-}
-
-// 共用的互動選單產生函式
+// 共用的互動選單產生函式 (已修改)
 async function handleInteractiveMenu(interaction, userId, action) {
     const userTasks = schedulerManager.getTasksByUserId(userId);
     if (userTasks.length === 0) {
-        return interaction.reply({ content: `ℹ️ 您目前沒有可${action === 'delete' ? '刪除' : action === 'toggle' ? '切換啟用/暫停' : '編輯'}的提醒。`, ephemeral: true });
+        // ✅ 將 reply 改為 editReply
+        return interaction.editReply({ content: `ℹ️ 您目前沒有可${action === 'delete' ? '刪除' : action === 'toggle' ? '切換啟用/暫停' : '編輯'}的提醒。` });
     }
 
     const actionVerb = { delete: '刪除', toggle: '切換啟用/暫停', edit: '編輯' };
-
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId(`${action}-task-menu:${userId}`)
         .setPlaceholder(`請選擇要${actionVerb[action]}的提醒...`)
-        .addOptions(
-            userTasks.map(task => ({
-                label: task.name.substring(0, 100),
-                description: `ID: ${task.id}`,
-                value: task.id,
-                emoji: task.enabled ? '🟢' : '🔴'
-            }))
-        );
+        .addOptions(userTasks.map(task => ({
+            label: task.name.substring(0, 100),
+            description: `ID: ${task.id}`,
+            value: task.id,
+            emoji: task.enabled ? '🟢' : '🔴'
+        })));
 
     const row = new ActionRowBuilder().addComponents(selectMenu);
-    await interaction.reply({ content: `請從下方選單選擇您想${actionVerb[action]}的提醒：`, components: [row], ephemeral: true });
+    // ✅ 將 reply 改為 editReply
+    await interaction.editReply({ content: `請從下方選單選擇您想${actionVerb[action]}的提醒：`, components: [row] });
 }
 
-// 下拉選單互動處理函式
-async function handleSelectMenu(client, interaction, actionType, userIdFromCustomId) {
-    console.log(`[DEBUG] handleSelectMenu 被呼叫，actionType=${actionType}, userId=${userIdFromCustomId}`);
+// 觸發選單的函式 (保持不變)
+async function handleDelete(interaction, userId) { await handleInteractiveMenu(interaction, userId, 'delete'); }
+async function handleToggle(interaction, userId) { await handleInteractiveMenu(interaction, userId, 'toggle'); }
+async function handleEdit(interaction, userId) { await handleInteractiveMenu(interaction, userId, 'edit'); }
+
+
+// --- 元件互動處理函式 (已修改) ---
+
+async function handleSelectMenu(client, interaction, lang) {
+    // ✅ 移除本地的 deferUpdate，因為 interactionCreate.js 會處理
+    const [actionType, userIdFromCustomId] = interaction.customId.split(':');
 
     if (interaction.user.id !== userIdFromCustomId) {
-        const replyMethod = interaction.deferred || interaction.replied ? 'followUp' : 'reply';
-        return interaction[replyMethod]({
-            content: '❌ 您無權操作此提醒。',
-            ephemeral: true,
-        }).catch(console.error);
+        // deferUpdate 後不能 editReply，只能 followUp 一個臨時訊息
+        return interaction.followUp({ content: '❌ 您無權操作此提醒。', ephemeral: true });
     }
 
     const selectedTaskId = interaction.values?.[0];
     if (!selectedTaskId) {
-        return interaction.followUp({
-            content: '❌ 您未選擇任何提醒。',
-            ephemeral: true,
-        }).catch(console.error);
+        // ✅ 使用 update 更新原始訊息，告知操作已取消
+        return interaction.update({ content: '❌ 您未選擇任何提醒，操作已取消。', components: [] });
     }
 
-    const userTasks = schedulerManager.getTasksByUserId(userIdFromCustomId);
-    const currentTask = userTasks.find(t => t.id === selectedTaskId);
-
+    const currentTask = schedulerManager.getTasksByUserId(userIdFromCustomId).find(t => t.id === selectedTaskId);
     if (!currentTask) {
-        return interaction.followUp({
-            content: '❌ 找不到該提醒。',
-            ephemeral: true,
-        }).catch(console.error);
+        return interaction.update({ content: '❌ 找不到該提醒，可能已被刪除。', components: [] });
     }
 
     if (actionType === 'delete-task-menu') {
-        const deleteSuccess = await schedulerManager.deleteTask(client, client.taskActionFunctions, selectedTaskId, userIdFromCustomId);
-        const msg = deleteSuccess
-            ? `✅ 提醒 \`${selectedTaskId}\` 已成功刪除。`
-            : `❌ 操作失敗，找不到該提醒或您無權刪除。`;
-
-        if (msg.trim()) {
-            return interaction.followUp({ content: msg, ephemeral: true }).catch(console.error);
-        }
+        const success = await schedulerManager.deleteTask(client, client.taskActionFunctions, selectedTaskId, userIdFromCustomId);
+        const msg = success ? `✅ 提醒 \`${selectedTaskId}\` 已成功刪除。` : `❌ 操作失敗。`;
+        // ✅ 使用 update 更新原始訊息
+        return interaction.update({ content: msg, components: [] });
     }
 
-    else if (actionType === 'toggle-task-menu') {
+    if (actionType === 'toggle-task-menu') {
         const newEnabled = !currentTask.enabled;
-        const updateSuccess = await schedulerManager.addOrUpdateTask(client, client.taskActionFunctions, {
-            ...currentTask,
-            enabled: newEnabled,
-        });
-        const msg = updateSuccess
-            ? `✅ 提醒 \`${selectedTaskId}\` 已成功${newEnabled ? '啟用' : '暫停'}。`
-            : `❌ 操作失敗，請稍後再試。`;
-
-        if (msg.trim()) {
-            return interaction.followUp({ content: msg, ephemeral: true }).catch(console.error);
-        }
+        const success = await schedulerManager.addOrUpdateTask(client, client.taskActionFunctions, { ...currentTask, enabled: newEnabled });
+        const msg = success ? `✅ 提醒 \`${selectedTaskId}\` 已成功${newEnabled ? '啟用' : '暫停'}。` : `❌ 操作失敗。`;
+        // ✅ 使用 update 更新原始訊息
+        return interaction.update({ content: msg, components: [] });
     }
 
-    else if (actionType === 'edit-task-menu') {
+    if (actionType === 'edit-task-menu') {
         const modal = new ModalBuilder()
             .setCustomId(`edit-task-modal:${selectedTaskId}:${userIdFromCustomId}`)
             .setTitle(`編輯提醒: ${currentTask.name}`);
-
-        const msgInput = new TextInputBuilder()
-            .setCustomId('editMessageInput')
-            .setLabel('新的提醒內容')
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true)
-            .setValue(currentTask.args.message.replace('⏰ **排程提醒**：\n\n>>> ', ''));
-
-        const whenInput = new TextInputBuilder()
-            .setCustomId('editWhenInput')
-            .setLabel('新的提醒時間')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-            .setPlaceholder('例如: 明天早上9點, 每週五20:00');
-
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(msgInput),
-            new ActionRowBuilder().addComponents(whenInput)
-        );
-
-        // 直接開啟 Modal，不使用 deferUpdate() 或 reply()
-        return interaction.showModal(modal).catch(console.error);
-    }
-
-    else {
-        return interaction.followUp({
-            content: '❌ 未知的提醒操作。',
-            ephemeral: true,
-        }).catch(console.error);
+        
+        const msgInput = new TextInputBuilder().setCustomId('editMessageInput').setLabel('新的提醒內容').setStyle(TextInputStyle.Paragraph).setRequired(true).setValue(currentTask.args.message.replace('⏰ **排程提醒**：\n\n>>> ', ''));
+        const whenInput = new TextInputBuilder().setCustomId('editWhenInput').setLabel('新的提醒時間').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('例如: 明天早上9點, 每週五20:00');
+        
+        modal.addComponents(new ActionRowBuilder().addComponents(msgInput), new ActionRowBuilder().addComponents(whenInput));
+        
+        // ✅ showModal 本身就是一種回覆，這是正確的，予以保留
+        return interaction.showModal(modal);
     }
 }
 
-// Modal 提交處理函式
-async function handleModalSubmit(client, interaction, actionType, taskId, userIdFromCustomId) {
-    if (interaction.user.id !== userIdFromCustomId) {
-        return interaction.reply({ content: '❌ 您無權操作此提醒。', ephemeral: true });
-    }
+async function handleModalSubmit(client, interaction, lang) {
+    // ✅ 移除 deferReply，因為 interactionCreate.js 會處理
+    const [actionType, taskId, userIdFromCustomId] = interaction.customId.split(':');
 
-    await interaction.deferReply({ ephemeral: true });
+    if (interaction.user.id !== userIdFromCustomId) {
+        return interaction.editReply({ content: '❌ 您無權操作此提醒。' });
+    }
 
     if (actionType === 'edit-task-modal') {
         const newMessage = interaction.fields.getTextInputValue('editMessageInput');
         const newWhenStr = interaction.fields.getTextInputValue('editWhenInput');
-
         const currentTask = schedulerManager.getTasksByUserId(userIdFromCustomId).find(task => task.id === taskId);
+        
         if (!currentTask) {
-            return interaction.followUp({ content: '❌ 找不到要編輯的提醒。', ephemeral: true });
-        }
-
-        let isRecurring = false;
-        if (newWhenStr.includes('每天') || newWhenStr.includes('每週') || newWhenStr.includes('每星期')) {
-            isRecurring = true;
+            return interaction.editReply({ content: '❌ 找不到要編輯的提醒。' });
         }
 
         const newCronExpression = parseWhenToCron(newWhenStr);
-
         if (!newCronExpression) {
-            return interaction.followUp({ 
-                content: '❌ 無法理解您輸入的新時間格式。\n請試試看：`10分鐘後`, `明天早上9點`, `每天晚上10:30` 或 `每週五 20:00`',
-                ephemeral: true
-            });
+            return interaction.editReply({ content: '❌ 無法理解您輸入的新時間格式。' });
         }
-
+        
+        const isRecurring = /每天|每週|每星期/.test(newWhenStr);
         const updatedTaskConfig = {
             ...currentTask,
             name: newMessage.length > 30 ? newMessage.substring(0, 27) + '...' : newMessage,
             cronExpression: newCronExpression,
-            args: { message: `⏰ **排程提醒**：\n\n>>> ${newMessage}` }
+            args: { message: `⏰ **排程提醒**：\n\n>>> ${newMessage}` },
         };
-
-        if (!isRecurring && currentTask.occurrence_count !== 1) {
-            updatedTaskConfig.occurrence_count = 1;
-        } else if (isRecurring && currentTask.occurrence_count === 1) {
-            delete updatedTaskConfig.occurrence_count;
-        }
+        // 條件式地處理 occurrence_count
+        if (isRecurring) delete updatedTaskConfig.occurrence_count;
+        else updatedTaskConfig.occurrence_count = 1;
 
         const success = await schedulerManager.addOrUpdateTask(client, client.taskActionFunctions, updatedTaskConfig);
 
         if (success) {
-            const successEmbed = new EmbedBuilder()
-                .setColor('#57F287')
-                .setTitle('✅ 提醒編輯成功！')
-                .setDescription(`提醒 \`${taskId}\` 已更新。${!isRecurring ? '\n\n**此提醒將在執行一次後自動刪除。**' : ''}`);
-            await interaction.followUp({ embeds: [successEmbed], ephemeral: true });
+            const successEmbed = new EmbedBuilder().setColor('#57F287').setTitle('✅ 提醒編輯成功！').setDescription(`提醒 \`${taskId}\` 已更新。${!isRecurring ? '\n\n**此提醒將在執行一次後自動刪除。**' : ''}`);
+            await interaction.editReply({ embeds: [successEmbed] });
         } else {
-            await interaction.followUp({ content: '❌ 編輯失敗，請稍後再試。', ephemeral: true });
+            await interaction.editReply({ content: '❌ 編輯失敗，請稍後再試。' });
         }
     } else {
-        await interaction.followUp({ content: '❌ 未知的 Modal 提交操作。', ephemeral: true });
+        await interaction.editReply({ content: '❌ 未知的 Modal 提交操作。' });
     }
 }
 
-// 指令主執行函式
-async function run(client, interaction) {
+
+// --- 指令主體 (已修改) ---
+
+async function run(client, interaction, lang) {
+    // ✅ 移除本地的 try/catch，讓錯誤交給 interactionCreate.js 統一處理
     const subcommand = interaction.options.getSubcommand();
     const { user } = interaction;
 
-    try {
-        switch (subcommand) {
-            case 'set':
-                await handleSet(interaction, user.id);
-                break;
-            case 'list':
-                await handleList(interaction, user.id);
-                break;
-            case 'delete':
-                await handleDelete(interaction, user.id);
-                break;
-            case 'toggle':
-                await handleToggle(interaction, user.id);
-                break;
-            case 'edit': 
-                await handleEdit(interaction, user.id);
-                break;
-            default:
-                await interaction.reply({ content: '❌ 未知的子指令。', ephemeral: true });
-        }
-    } catch (e) {
-        console.error("[Task Command Error]", e);
-        const errorReply = { content: "執行指令時發生未預期的錯誤。", ephemeral: true };
-        if (interaction.replied || interaction.deferred) {
-            await interaction.followUp(errorReply).catch(() => {});
-        } else {
-            await interaction.reply(errorReply).catch(() => {});
-        }
+    switch (subcommand) {
+        case 'set': await handleSet(interaction, user.id); break;
+        case 'list': await handleList(interaction, user.id); break;
+        case 'delete': await handleDelete(interaction, user.id); break;
+        case 'toggle': await handleToggle(interaction, user.id); break;
+        case 'edit': await handleEdit(interaction, user.id); break;
+        default:
+            // ✅ 這裡使用 editReply
+            await interaction.editReply({ content: '❌ 未知的子指令。' });
     }
 }
 
