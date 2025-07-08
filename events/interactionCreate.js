@@ -14,7 +14,18 @@ module.exports = async (client, interaction) => {
 
         const languageFile = path.join(__dirname, `../languages/${config.language}.js`);
         const lang = require(languageFile);
-
+       // ========== 核心優化：統一處理互動的「首次確認」 ==========
+        // 確保任何互動在被進一步處理之前都被確認，防止 InteractionNotReplied 錯誤
+        if (!interaction.deferred && !interaction.replied) {
+            if (interaction.isButton() || interaction.isStringSelectMenu()) {
+                // 對於按鈕和下拉選單，通常使用 deferUpdate
+                await interaction.deferUpdate().catch(() => {});
+            } else if (interaction.isChatInputCommand()) {
+                // 對於斜線指令，在最前端統一 deferReply
+                await interaction.deferReply({ ephemeral: false }).catch(() => {});
+            }
+            // ModalSubmit 也可以在這裡 deferReply，但通常在 modal 提交的處理邏輯內部會自行 deferReply
+        }
         // ========== 按鈕互動處理 ==========
         if (interaction.isButton()) {
             const customId = interaction.customId;
