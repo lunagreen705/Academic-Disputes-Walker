@@ -8,6 +8,7 @@
     "@modelcontextprotocol/sdk": "*",
     "axios": "^1.8.1",
     "discord.js": "^14.15.1",
+    "docx": "^8.5.0",
     "dotenv": "^16.4.7",
     "express": "^4.19.2",
     "mongodb": "^6.12.0",

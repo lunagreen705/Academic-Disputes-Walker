@@ -1,11 +1,10 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits } = require('discord.js'); // 【修正點 1】重新引入 PermissionFlagsBits
 const logModule = require('../../utils/trpgManager/logManager'); // 根據您的結構調整路徑
-const config = require('../../config'); // 【修改點 1】引入設定檔
+const config = require('../../config');
 
 module.exports = {
     name: 'log',
-    description: 'TRPG 日誌記錄相關指令 (僅限擁有者)。', // 修改描述以反映權限
-    // 遵循您的架構，使用物件陣列來定義選項
+    description: 'TRPG 日誌記錄相關指令。',
     options: [
         {
             name: 'new',
@@ -92,6 +91,19 @@ module.exports = {
                 },
             ],
         },
+        {
+            name: 'export',
+            description: '📄 將指定的日誌匯出成 .docx 檔案。',
+            type: 1, // SUB_COMMAND
+            options: [
+                {
+                    name: 'log-name',
+                    description: '要匯出的日誌名稱。',
+                    type: 3, // STRING
+                    required: true,
+                },
+            ],
+        },
     ],
 
     /**
@@ -101,13 +113,17 @@ module.exports = {
      * @param {object} lang - 語言文件
      */
     run: async (client, interaction, lang) => {
-        // 【修改點 2】將權限檢查改為擁有者 ID 檢查
-        if (!config.ownerID.includes(interaction.user.id)) {
+        // 【修正點 2】修正後的權限檢查邏輯
+        const isOwner = config.ownerID.includes(interaction.user.id);
+        const hasPermission = interaction.member.permissions.has(PermissionFlagsBits.ManageMessages);
+
+        // 如果使用者既不是擁有者，也沒有管理訊息的權限，則拒絕
+        if (!isOwner && !hasPermission) {
             return interaction.reply({
                 embeds: [
                     new EmbedBuilder()
                         .setColor('Red')
-                        .setDescription('❌ 只有機器人擁有者才能使用這個指令。')
+                        .setDescription('❌ 您需要「管理訊息」權限或為機器人擁有者才能使用此指令。')
                 ],
                 ephemeral: true,
             });
@@ -116,16 +132,14 @@ module.exports = {
         const subcommand = interaction.options.getSubcommand();
         const logName = interaction.options.getString('log-name') || null;
         
-        // 建立一個適配器 (adapter)，讓 logModule 可以統一處理來自不同來源的請求
         const sourceAdapter = {
             guild: interaction.guild,
             channel: interaction.channel,
             user: interaction.user,
-            interaction: interaction, // 將 interaction 傳入，方便 logModule 進行複雜的回覆
+            interaction: interaction,
         };
 
-        // 將子指令和參數傳遞給我們統一的處理器
-        // logModule 內部會處理回覆，因此這裡不需要再 await
-        logModule.handleLogCommand(sourceAdapter, [subcommand, logName].filter(n => n !== null));
+        // 確保等待後端模組執行完畢
+        await logModule.handleLogCommand(sourceAdapter, [subcommand, logName].filter(n => n !== null));
     }
 };
