@@ -18,7 +18,7 @@ module.exports = {
 {
      name:"musix",
      password:"https://dsc.gg/ajidevserver",
-     host:"lava-v4.ajieblogs.eu.org",
+     host:"lavalinkv4.serenetia.com",
      port:443,
      secure: true
 }
