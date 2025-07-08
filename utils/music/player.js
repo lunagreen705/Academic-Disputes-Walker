@@ -301,6 +301,7 @@ function setupCollector(client, player, channel, message) {
     const collector = message.createMessageComponentCollector({ filter, time: player.current?.info.length || 600000 }); // 以歌曲長度或10分鐘為超時
 
     collector.on('collect', async i => {
+        await i.deferUpdate();
 
         const member = i.member;
         const voiceChannel = member.voice.channel;
@@ -684,6 +685,8 @@ async function showLyrics(channel, player, client) {
     const collector = message.createMessageComponentCollector({ time: track.length > 0 ? track.length + 60000 : 600000 });
 
     collector.on('collect', async i => {
+        await i.deferUpdate();
+        
         const member = i.member;
         const voiceChannel = member.voice.channel;
         const botVoiceChannelId = client.guilds.cache.get(player.guildId)?.members.me?.voice?.channelId;

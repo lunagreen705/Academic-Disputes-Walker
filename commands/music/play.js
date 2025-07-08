@@ -83,7 +83,7 @@ async function play(client, interaction, lang) {
             deaf: true
         });
 
-
+        await interaction.deferReply();
 
         let tracksToQueue = [];
         let isPlaylist = false;

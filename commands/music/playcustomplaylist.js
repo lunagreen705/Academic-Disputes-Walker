@@ -76,6 +76,7 @@ async function playCustomPlaylist(client, interaction, lang) {
             deaf: true
         });
 
+        await interaction.deferReply();
 
         for (const song of playlist.songs) {
             const query = song.url ? song.url : song.name;
