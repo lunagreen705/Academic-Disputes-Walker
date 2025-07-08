@@ -4,7 +4,7 @@ const config = require('../../config');
 
 module.exports = {
   name: 'guilds',
-  description: '列出伺服器或讓機器人離開某個伺服器',
+  description: '伺服器管理',
   options: [
     {
       name: 'list',

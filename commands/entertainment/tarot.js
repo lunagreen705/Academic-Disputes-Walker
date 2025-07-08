@@ -67,7 +67,7 @@ function buildPrompt(question, spread, drawnCards) {
 
 module.exports = {
     name: "塔羅",
-    description: "進行一次塔羅牌占卜，尋求宇宙的指引。",
+    description: "進行塔羅牌占卜，尋求指引。",
     permissions: "0x0000000000000800",
 
     options: [
@@ -83,7 +83,7 @@ module.exports = {
         try {
             let userQuestion = interaction.options.getString('question');
             if (!userQuestion) {
-                userQuestion = "請給我關於我目前整體狀況的綜合指引。";
+                userQuestion = "請給我指引。";
             }
 
             // 將問題存入暫存，以使用者ID為key

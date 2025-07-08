@@ -6,7 +6,7 @@ module.exports = async (client, interaction) => {
     try {
         if (!interaction.guild) {
             return interaction.reply({
-                content: "此指令只能在伺服器中使用。", // 考慮從語言檔案讀取
+                content: "此指令只能在伺服器中使用。", 
                 ephemeral: true,
             }).catch(() => {});
         }

@@ -190,7 +190,7 @@ async function showFolderContents(interaction, folderId, page = 1) {
 // 指令主體
 module.exports = {
   name: 'library',
-  description: '圖書館相關功能指令',
+  description: '圖書館相關功能',
   options: [
     { name: 'browse', description: '瀏覽圖書館', type: 1 },
     {

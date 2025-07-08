@@ -5,7 +5,7 @@ const config = require('../../config');
 
 module.exports = {
     name: 'log',
-    description: 'TRPG 日誌記錄相關指令。',
+    description: 'TRPG日誌記錄相關功能。',
     options: [
         {
             name: 'new',

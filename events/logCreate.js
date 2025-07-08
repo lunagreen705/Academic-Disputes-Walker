@@ -1,8 +1,4 @@
-// ./events/logCreate.js
-
-const logModule = require("../utils/trpgManager/logManager"); // 引入日誌模組，請確保路徑正確
-
-// 定義日誌指令的前綴
+const logModule = require("../utils/trpgManager/logManager"); 
 const LOG_PREFIX = "log";
 const DOT_PREFIX = "/";
 

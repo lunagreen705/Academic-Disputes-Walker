@@ -5,7 +5,7 @@ const deckManager = require('../../utils/entertainment/deckManager.js');
 
 module.exports = {
     name: "draw",
-    description: "從指定的牌堆中抽取一個項目。",
+    description: "從指定牌堆中抽取。",
     permissions: "0x0000000000000800",
 
  options: [
