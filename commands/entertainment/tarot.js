@@ -66,104 +66,122 @@ function buildPrompt(question, spread, drawnCards) {
 }
 
 module.exports = {
-    name: "塔羅",
-    description: "進行一次塔羅牌占卜，尋求宇宙的指引。",
-    permissions: "0x0000000000000800",
-    options: [
-        {
-            name: 'question',
-            description: '你想要問的問題是什麼？（可選，留空則為綜合指引）',
-            type: ApplicationCommandOptionType.String,
-            required: false,
-        }
-    ],
+    name: "塔羅",
+    description: "進行一次塔羅牌占卜，尋求宇宙的指引。",
+    permissions: "0x0000000000000800",
 
-    // run 函式 (已修改)
-    run: async (client, interaction, lang) => {
-        // ✅ 移除本地的 try/catch，讓錯誤向上拋出給 interactionCreate.js 統一處理
-        let userQuestion = interaction.options.getString('question') || "請給我關於我目前整體狀況的綜合指引。";
+    options: [
+        {
+            name: 'question',
+            description: '你想要問的問題是什麼？（可選，留空則為綜合指引）',
+            type: ApplicationCommandOptionType.String,
+            required: false,
+        }
+    ],
 
-        pendingReadings.set(interaction.user.id, userQuestion);
-        
-        setTimeout(() => {
-            if (pendingReadings.has(interaction.user.id)) {
-                pendingReadings.delete(interaction.user.id);
-            }
-        }, 5 * 60 * 1000); 
+    run: async (client, interaction, lang) => {
+        try {
+            let userQuestion = interaction.options.getString('question');
+            if (!userQuestion) {
+                userQuestion = "請給我關於我目前整體狀況的綜合指引。";
+            }
 
-        const embed = new EmbedBuilder()
-            .setColor(config.embedColor || '#8A2BE2')
-            .setTitle('🔮 塔羅占卜')
-            .setDescription(`**你的問題是：**\n> ${userQuestion}\n\n請從下方的選單中，選擇一個你想要的牌陣來進行抽牌。`)
-            .setFooter({ text: '請在 5 分鐘內做出選擇' });
+            // 將問題存入暫存，以使用者ID為key
+            pendingReadings.set(interaction.user.id, userQuestion);
+            
+            // 設定5分鐘後自動清除，避免使用者未選擇而造成記憶體洩漏
+            setTimeout(() => {
+                if (pendingReadings.has(interaction.user.id)) {
+                    pendingReadings.delete(interaction.user.id);
+                }
+            }, 5 * 60 * 1000); 
 
-        const spreadOptions = Object.keys(allSpreads).map(key => ({
-            label: `${allSpreads[key].name} (${allSpreads[key].cards_to_draw}張牌)`,
-            description: allSpreads[key].description.substring(0, 100),
-            value: key,
-        }));
+            const embed = new EmbedBuilder()
+                .setColor(config.embedColor || '#8A2BE2')
+                .setTitle('🔮 塔羅占卜')
+                .setDescription(`**你的問題是：**\n> ${userQuestion}\n\n請從下方的選單中，選擇一個你想要的牌陣來進行抽牌。`)
+                .setFooter({ text: '請在 5 分鐘內做出選擇' });
 
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId('tarot|spread_select') // ✅ 建議為 customId 加上指令名前綴，方便路由
-            .setPlaceholder('點我選擇牌陣...')
-            .addOptions(spreadOptions.slice(0, 25));
+            const spreadOptions = Object.keys(allSpreads).map(key => ({
+                label: `${allSpreads[key].name} (${allSpreads[key].cards_to_draw}張牌)`,
+                description: allSpreads[key].description.substring(0, 100),
+                value: key,
+            }));
 
-        const row = new ActionRowBuilder().addComponents(selectMenu);
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('tarot_spread_select')
+                .setPlaceholder('點我選擇牌陣...')
+                .addOptions(spreadOptions.slice(0, 25)); // 下拉選單最多25個選項
 
-        // ✅ 將 reply 改為 editReply，並設定為公開訊息
-        await interaction.editReply({
-            embeds: [embed],
-            components: [row],
-            ephemeral: false // 如果希望訊息是公開的
-        });
-    },
+            const row = new ActionRowBuilder().addComponents(selectMenu);
 
-    // handleSelectMenu 函式 (已修改)
-    handleSelectMenu: async (client, interaction, lang) => {
-        try {
-            // ✅ 移除本地的 update()，改用 editReply() 來更新介面
-            // interactionCreate.js 已經 deferUpdate 了，這裡直接編輯即可
-            await interaction.editReply({
-                content: '🔮 正在為您洗牌、抽牌並聯繫宇宙智慧，請稍候...',
-                embeds: [],
-                components: []
-            });
+            await interaction.reply({
+                embeds: [embed],
+                components: [row],
+                ephemeral: false
+            });
 
-            const userQuestion = pendingReadings.get(interaction.user.id);
-            if (!userQuestion) {
-                throw new Error("找不到您最初的問題。可能因等待時間過長或機器人重啟，請重新發起占卜。");
-            }
+        } catch (e) {
+            console.error('❌ 執行指令時發生錯誤:', e);
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({ content: `執行指令時發生錯誤: ${e.message}`, ephemeral: true });
+            }
+        }
+    },
 
-            const spreadKey = interaction.values[0];
-            const spread = allSpreads[spreadKey];
-            if (!spread) {
-                throw new Error("找不到對應的牌陣資訊。");
-            }
-            
-            const drawnCards = drawCards(spread.cards_to_draw);
-            const promptForAI = buildPrompt(userQuestion, spread, drawnCards);
-            const aiInterpretation = await getTarotAIResponse(promptForAI);
-            
-            // ... (建立 resultDescription 和 resultEmbed 的邏輯不變) ...
-            let resultDescription = `...`;
-            const resultEmbed = new EmbedBuilder()
-                .setColor('#4E9F3D')
-              // ...
+    handleSelectMenu: async (client, interaction, lang) => {
+        try {
+            // 立即更新訊息，防止超時並提供良好UX
+            await interaction.update({
+                content: '🔮 正在為您洗牌抽牌請稍候...',
+                embeds: [],
+                components: []
+            });
 
-            // ✅ 使用 editReply 更新最終結果
-            await interaction.editReply({ content: '占卜完成！', embeds: [resultEmbed] });
+            const userQuestion = pendingReadings.get(interaction.user.id);
 
-        } catch (e) {
-            console.error("❌ 處理塔羅選單時發生錯誤:", e);
-            // ✅ 錯誤處理也使用 editReply
-            await interaction.editReply({
-                content: `處理您的請求時發生錯誤：\n> ${e.message}`,
-                embeds: [],
-                components: []
-            }).catch(console.error); // 防止在回報錯誤時又出錯
-        } finally {
-            // 這個 finally 區塊寫得很好，確保狀態被清理
-            pendingReadings.delete(interaction.user.id);
-        }
-    }
+            if (!userQuestion) {
+                throw new Error("找不到您最初的問題。可能因為等待時間過長或機器人重啟，請重新發起占卜。");
+            }
+
+            const spreadKey = interaction.values[0];
+            const spread = allSpreads[spreadKey];
+            if (!spread) {
+                throw new Error("找不到對應的牌陣資訊。");
+            }
+            
+            const drawnCards = drawCards(spread.cards_to_draw);
+            const promptForAI = buildPrompt(userQuestion, spread, drawnCards);
+            const aiInterpretation = await getTarotAIResponse(promptForAI);
+            
+            let resultDescription = `**❓ 你的問題：**\n> ${userQuestion}\n\n`;
+            resultDescription += `**🃏 使用的牌陣：**\n> ${spread.name}\n\n`;
+            resultDescription += "**抽出的牌組：**\n";
+            drawnCards.forEach((card, index) => {
+                const position = spread.positions[index].position_name;
+                resultDescription += `> **${position}：** ${card.card.name_zh} (${card.isReversed ? '逆位' : '正位'})\n`;
+            });
+
+            const resultEmbed = new EmbedBuilder()
+                .setColor('#4E9F3D')
+                .setTitle('🔮 塔羅占卜結果')
+                .setDescription(resultDescription)
+                .addFields({ name: '🧠 綜合解讀', value: aiInterpretation || "累了，沒有給出回應。" })
+                .setFooter({ text: `由 ${interaction.user.username} 占卜`, iconURL: interaction.user.displayAvatarURL() })
+                .setTimestamp();
+
+            await interaction.editReply({ content: '占卜完成！', embeds: [resultEmbed] });
+
+        } catch (e) {
+            console.error("❌ 處理塔羅選單時發生錯誤:", e);
+            await interaction.editReply({
+                content: e.message || "處理您的請求時發生錯誤。",
+                embeds: [],
+                components: []
+            }).catch(console.error);
+        } finally {
+            // 無論成功或失敗，最後都從暫存中刪除該次占卜的資料
+            pendingReadings.delete(interaction.user.id);
+        }
+    }
 };

@@ -1,130 +1,190 @@
-// events/interactionCreate.js (最終的統一模型版本)
-
-const { PermissionsBitField } = require("discord.js");
 const config = require("../config.js");
+const { InteractionType } = require("discord.js");
 const path = require("path");
-
-// --- 豁免清單 (方便統一管理) ---
-
-// 1. 由外部系統（如 player.js）全權處理的按鈕 ID
-const EXTERNAL_HANDLED_BUTTON_IDS = new Set([
-    'loopToggle', 'showQueue', 'skipTrack', 'showLyrics', 'clearQueue',
-    'stopTrack', 'pauseTrack', 'resumeTrack', 'volumeUp', 'volumeDown',
-    'stopLyrics', 'fullLyrics', 'deleteLyrics'
-]);
-
-// 2. 會直接彈出 Modal 作為回應的互動 customId 前綴
-//    這些互動有自己的回應方式 (showModal)，不需要我們預先 defer
-const MODAL_TRIGGER_PREFIXES = new Set([
-    'open-edit-modal', // task.js 的按鈕
-    'edit-task-menu'   // task.js 的下拉選單
-]);
-
 
 module.exports = async (client, interaction) => {
     try {
-        // --- 基礎檢查 ---
         if (!interaction.guild) {
-            return interaction.reply({ content: "此指令只能在伺服器中使用。", ephemeral: true }).catch(() => {});
+            return interaction.reply({
+                content: "此指令只能在伺服器中使用。", // 考慮從語言檔案讀取
+                ephemeral: true,
+            }).catch(() => {});
         }
-        
-        const lang = require(path.join(__dirname, `../languages/${config.language}.js`));
-        
-        // ==========================================================
-        // ================== 1. 特殊互動豁免區 =====================
-        // ==========================================================
-        // 在這裡，我們讓特殊互動「提前退出」，不進入下方的統一處理流程
 
-        // --- 自動完成 (Autocomplete) ---
-        if (interaction.isAutocomplete()) {
-            const command = client.commands.get(interaction.commandName);
-            if (command?.autocomplete) await command.autocomplete(interaction, lang);
+        // 載入語言檔案
+        const languageFile = path.join(__dirname, `../languages/${config.language}.js`);
+        const lang = require(languageFile);
+
+        // ============================
+        //      按鈕互動處理
+        // ============================
+        if (interaction.isButton()) {
+            const { customId } = interaction;
+
+            // 音樂按鈕由 player 系統處理，此處直接放行
+            const musicButtonIds = [
+                'loopToggle', 'showQueue', 'skipTrack', 'showLyrics', 'clearQueue',
+                'stopTrack', 'pauseTrack', 'resumeTrack', 'volumeUp', 'volumeDown',
+                'stopLyrics', 'fullLyrics', 'deleteLyrics'
+            ];
+            if (musicButtonIds.includes(customId)) {
+                return;
+            }
+
+            // 處理打開 Modal 的按鈕 (此互動直接顯示 Modal，不需 defer)
+            if (customId.startsWith('open-edit-modal:')) {
+                const parts = customId.split(':');
+                if (parts.length < 3) {
+                    console.error(`[ERROR] Invalid customId format for modal trigger: ${customId}`);
+                    return interaction.reply({ content: lang.errors.unknownButton, ephemeral: true }).catch(console.error);
+                }
+                const taskId = parts[1];
+                const userIdFromCustomId = parts[2];
+                const taskCommand = client.commands.get('task');
+
+                if (taskCommand?.handleModalTriggerButton) {
+                    await taskCommand.handleModalTriggerButton(interaction, taskId, userIdFromCustomId);
+                } else {
+                    console.error(`[ERROR] Task command or handleModalTriggerButton not found.`);
+                    if (!interaction.replied && !interaction.deferred) {
+                       await interaction.reply({ content: lang.errors.buttonHandlerNotFound, ephemeral: true }).catch(console.error);
+                    }
+                }
+                return;
+            }
+
+            // 處理其他指令的按鈕 (例如 'library' 指令)
+            // 注意：具體的 handleButton 函式需要自行處理回應 (reply/update/defer)
+            const commandName = customId.split('|')[0];
+            const command = client.commands.get(commandName);
+
+            if (command?.handleButton) {
+                try {
+                    await command.handleButton(interaction);
+                } catch (e) {
+                    console.error(`❌ ${commandName} handleButton error: ${e.stack || e}`);
+                    // 假設 handleButton 未能回應，則嘗試 followUp
+                    await interaction.followUp({ content: lang.errors.generalButtonError, ephemeral: true }).catch(console.error);
+                }
+            } else {
+                console.warn(`[WARN] Unhandled button interaction: ${customId}`);
+                await interaction.reply({ content: lang.errors.unknownButton, ephemeral: true }).catch(console.error);
+            }
             return;
         }
 
-        // --- 外部系統處理的按鈕 (如音樂機器人) ---
-        if (interaction.isButton() && EXTERNAL_HANDLED_BUTTON_IDS.has(interaction.customId)) {
-            return; // 直接放行，讓 player.js 等外部系統處理
-        }
-        
-        // 從 customId 解析出可能是指令或動作的名稱
-        const customIdPrefix = interaction.customId?.split(/[:|]/)[0];
+        // ============================
+        //      下拉選單互動處理
+        // ============================
+        if (interaction.isStringSelectMenu()) {
+            const { customId } = interaction;
 
-        // --- 觸發 Modal 的互動 ---
-        if ((interaction.isButton() || interaction.isStringSelectMenu()) && MODAL_TRIGGER_PREFIXES.has(customIdPrefix)) {
-            const commandName = customIdPrefix.replace('-menu', '').replace('-modal','');
-            const command = client.commands.get(commandName);
+            // 塔羅牌選單
+            if (customId === 'tarot_spread_select') {
+                const tarotCommand = client.commands.get('塔羅');
+                if (tarotCommand?.handleSelectMenu) {
+                    await tarotCommand.handleSelectMenu(client, interaction, lang);
+                }
+                return;
+            }
+
+            // 任務相關選單
+            const parts = customId.split(':');
+            const actionType = parts[0];
+            const userIdFromCustomId = parts[1];
+            if (['delete-task-menu', 'toggle-task-menu', 'edit-task-menu'].includes(actionType)) {
+                const taskCommand = client.commands.get('task');
+                if (taskCommand?.handleSelectMenu) {
+                    await taskCommand.handleSelectMenu(client, interaction, actionType, userIdFromCustomId);
+                }
+                return;
+            }
             
-            if (interaction.isButton() && command?.handleModalTriggerButton) {
-                 await command.handleModalTriggerButton(interaction, ...interaction.customId.split(':').slice(1));
-            } else if (interaction.isStringSelectMenu() && command?.handleSelectMenu) {
-                 await command.handleSelectMenu(client, interaction, lang);
+            console.warn(`[WARN] Unhandled select menu interaction: ${customId}`);
+            await interaction.reply({ content: lang.errors.unknownSelectMenu, ephemeral: true }).catch(console.error);
+            return;
+        }
+
+        // ============================
+        //      Modal 提交處理
+        // ============================
+        if (interaction.isModalSubmit()) {
+            const { customId } = interaction;
+            const parts = customId.split(':');
+
+            if (parts.length < 3) {
+                console.error(`[ERROR] Invalid customId format for modal submit: ${customId}`);
+                return interaction.reply({ content: lang.errors.unknownModal, ephemeral: true }).catch(console.error);
             }
-            return; // 執行完 showModal 後退出
-        }
 
+            const actionType = parts[0];
+            const taskId = parts[1];
+            const userIdFromCustomId = parts[2];
 
-        // ==========================================================
-        // ================ 2. 統一的互動確認區 =====================
-        // ==========================================================
-        // 對於所有常規互動，在這裡進行唯一的「確認 (Acknowledge)」
-        if (!interaction.replied && !interaction.deferred) {
-            if (interaction.isChatInputCommand() || interaction.isModalSubmit()) {
-                // 對於需要後續回覆詳細內容的互動，使用 deferReply
-                await interaction.deferReply({ ephemeral: true });
-            } else if (interaction.isButton() || interaction.isStringSelectMenu()) {
-                // 對於點擊後更新原訊息的互動，使用 deferUpdate
-                await interaction.deferUpdate();
+            // Modal 提交後的處理可能耗時，先行延遲回應
+            await interaction.deferReply({ ephemeral: true });
+
+            if (actionType.startsWith('edit-task-modal')) {
+                const taskCommand = client.commands.get('task');
+                if (taskCommand?.handleModalSubmit) {
+                    await taskCommand.handleModalSubmit(client, interaction, actionType, taskId, userIdFromCustomId);
+                } else {
+                    await interaction.followUp({ content: lang.errors.modalHandlerNotFound, ephemeral: true }).catch(console.error);
+                }
+            } else {
+                console.warn(`[WARN] Unhandled modal submit: ${customId}`);
+                await interaction.followUp({ content: lang.errors.unknownModal, ephemeral: true }).catch(console.error);
             }
+            return;
         }
 
-        // ==========================================================
-        // ===================== 3. 統一的互動路由區 ====================
-        // ==========================================================
-        // 將已被「確認」的互動，分派給對應的指令檔案
-
-        const commandName = interaction.isChatInputCommand() ? interaction.commandName : customIdPrefix;
-        const command = client.commands.get(commandName);
-
-        if (!command) {
-            console.warn(`[警告] 找不到對應的指令處理器: ${commandName}`);
-            return interaction.editReply({ content: lang.errors.commandNotFound, ephemeral: true }).catch(console.error);
+        // ============================
+        //      自動補全處理
+        // ============================
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
+            const command = client.commands.get(interaction.commandName);
+            if (command?.autocomplete) {
+                try {
+                    await command.autocomplete(interaction);
+                } catch (e) {
+                    console.error(`❌ Autocomplete error:`, e);
+                }
+            }
+            return;
         }
 
-        // --- 路由到具體處理器 ---
-        if (interaction.isChatInputCommand()) {
-            // 可在此加入統一的權限檢查
-            const defaultPermissions = PermissionsBitField.Flags.SendMessages;
+        // ============================
+        //      斜線指令處理
+        // ============================
+        if (interaction.type === InteractionType.ApplicationCommand) {
+            const command = client.commands.get(interaction.commandName);
+            if (!command) {
+                return interaction.reply({ content: lang.errors.commandNotFound, ephemeral: true });
+            }
+
+            // 權限檢查
+            const defaultPermissions = '0x0000000000000800'; // ViewChannel & SendMessages
             const requiredPermissions = command.permissions || defaultPermissions;
             if (!interaction.member.permissions.has(requiredPermissions)) {
-                return interaction.editReply({ content: lang.errors.noPermission, ephemeral: true });
+                return interaction.reply({ content: lang.errors.noPermission, ephemeral: true });
             }
-            await command.run(client, interaction, lang);
-        } else if (interaction.isButton()) {
-            if (command.handleButton) await command.handleButton(interaction, lang);
-        } else if (interaction.isStringSelectMenu()) {
-            if (command.handleSelectMenu) await command.handleSelectMenu(client, interaction, lang);
-        } else if (interaction.isModalSubmit()) {
-            if (command.handleModalSubmit) await command.handleModalSubmit(client, interaction, lang);
+
+            try {
+                await command.run(client, interaction, lang);
+            } catch (e) {
+                console.error(`❌ Command execution error for /${interaction.commandName}: ${e.stack || e}`);
+                const errorMessage = lang.errors.generalError.replace("{error}", e.message);
+
+                // 根據互動是否已回應或延遲，選擇正確的錯誤回覆方式
+                if (interaction.deferred || interaction.replied) {
+                    await interaction.editReply({ content: errorMessage, embeds: [], components: [] }).catch(console.error);
+                } else {
+                    await interaction.reply({ content: errorMessage, ephemeral: true }).catch(console.error);
+                }
+            }
         }
 
     } catch (e) {
-        console.error("❌ 總處理器發生嚴重錯誤:", e.stack || e);
-        // --- 統一的兜底錯誤處理 ---
-        if (interaction && !interaction.isAutocomplete()) { // Autocomplete 不能用 reply/editReply
-            try {
-                const errorMessage = {
-                    content: `處理您的請求時發生了未預期的錯誤，請聯繫管理員。\n錯誤: ${e.message}`,
-                    embeds: [], components: [], ephemeral: true
-                };
-                if (interaction.deferred || interaction.replied) {
-                    await interaction.editReply(errorMessage);
-                } else {
-                    await interaction.reply(errorMessage);
-                }
-            } catch (err) {
-                console.error("❌ 在回報嚴重錯誤時又發生錯誤:", err);
-            }
-        }
+        console.error("❌ A critical error occurred in the interaction handler:", e.stack || e);
     }
 };
