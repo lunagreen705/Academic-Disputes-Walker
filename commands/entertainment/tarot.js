@@ -1,3 +1,4 @@
+//commands/entertainment/tarot.js
 const { EmbedBuilder, ApplicationCommandOptionType, StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
 const { getTarotAIResponse } = require('../../utils/ai/aiManager');
 const allCards = require('../../data/entertainment/tarot/cards.json');

@@ -1,3 +1,4 @@
+//commands/trpg/ti.js
 const sc = require('../../utils/trpgManager/cocManager/sc.js');
 const config = require('../../config.js');
 module.exports = {

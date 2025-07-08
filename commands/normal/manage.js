@@ -1,3 +1,4 @@
+//commands/normal/manage.js
 const { PermissionFlagsBits } = require('discord.js');
 const config = require('../../config');
 

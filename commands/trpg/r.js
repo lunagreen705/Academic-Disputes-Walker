@@ -1,3 +1,4 @@
+//commands/trpg/r.js
 const { ApplicationCommandOptionType } = require('discord.js');
 const { rollDiceR } = require('../../utils/trpgManager/cocManager/dice.js'); 
 

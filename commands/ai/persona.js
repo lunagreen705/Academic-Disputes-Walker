@@ -1,3 +1,4 @@
+//commands/ai/persona.js
 const { EmbedBuilder, ApplicationCommandOptionType } = require('discord.js');
 const personaManager = require('../../utils/ai/personaManager.js');
 const config = require('../../config.js');

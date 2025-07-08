@@ -1,3 +1,4 @@
+//commands/entertainment/draw.js
 const { EmbedBuilder, ApplicationCommandOptionType } = require('discord.js');
 const config = require("../../config.js");
 const deckManager = require('../../utils/entertainment/deckManager.js'); 

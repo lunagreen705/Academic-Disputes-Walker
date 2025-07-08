@@ -1,3 +1,4 @@
+//commands/normal/help.js
 const {
   listSubfolders,
   listBooksAtLevel,

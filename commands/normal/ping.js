@@ -1,3 +1,4 @@
+//commands/normal/ping.js
 const { EmbedBuilder } = require('discord.js');
 const config = require("../../config.js");
 const musicIcons = require('../../UI/icons/musicicons.js');

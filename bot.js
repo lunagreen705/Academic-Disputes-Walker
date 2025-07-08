@@ -1,5 +1,4 @@
-// bot.js (完整版)
-
+// bot.js 
 const { Client, GatewayIntentBits, Collection } = require("discord.js");
 const { google } = require('googleapis');
 const fs = require("fs");
@@ -11,10 +10,9 @@ const colors = require("./UI/colors/colors");
 //========== 載入模組 ==========
 
 const { initializePlayer } = require("./utils/music/player.js");
-// 【日誌模組整合 1/3】: 引入 getCollections 和 logModule
 const { connectToDatabase, getCollections } = require("./utils/db/mongodb"); 
-const logModule = require("./utils/trpgManager/logManager.js"); // 確保 logModule.js 在此路徑
 // ========================================================
+const logModule = require("./utils/trpgManager/logManager.js");
 const deckManager = require("./utils/entertainment/deckManager");
 const affectionManager = require("./utils/entertainment/affectionManager");
 const aiManager = require("./utils/ai/aiManager");
@@ -111,8 +109,6 @@ client.once("ready", async () => {
     try {
         // 初始化所有需要資料庫或其他前置作業的模組
         await connectToDatabase();
-        
-        // 【日誌模組整合 2/3】: 在資料庫連線後，初始化日誌模組
         // =========================================================
         // ===            初始化 TRPG 日誌記錄模組               ===
         // =========================================================
@@ -136,7 +132,7 @@ client.once("ready", async () => {
         // 在 client ready 後定義 taskActionFunctions，確保 client 物件可用
         const taskActionFunctions = {
             /**
-             * 發送好感度排行榜到指定頻道 (用於 autotasks.json)
+             * 發送好感度排行榜到指定頻道 
              */
             'sendautomessage': (task, client) => {
                 const channelId = task.args?.channelId;
@@ -149,7 +145,7 @@ client.once("ready", async () => {
             },
 
             /**
-             * 發送私訊給建立任務的使用者 (用於 personaltasks.json)
+             * 發送私訊給建立任務的使用者 
              */
             'sendDirectMessage': async (task, client) => {
                 console.log(`[ACTION] 嘗試向使用者 ID: ${task.userId} 傳送私訊，內容為: ${task.args?.message}`);

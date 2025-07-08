@@ -1,5 +1,6 @@
-const { EmbedBuilder, PermissionFlagsBits } = require('discord.js'); // 【修正點 1】重新引入 PermissionFlagsBits
-const logModule = require('../../utils/trpgManager/logManager'); // 根據您的結構調整路徑
+//commands/trpg/log.js
+const { EmbedBuilder, PermissionFlagsBits } = require('discord.js'); 
+const logModule = require('../../utils/trpgManager/logManager'); 
 const config = require('../../config');
 
 module.exports = {

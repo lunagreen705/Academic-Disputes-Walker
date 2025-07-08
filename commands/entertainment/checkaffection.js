@@ -1,9 +1,9 @@
-const { EmbedBuilder, ApplicationCommandOptionType } = require('discord.js');
+//commands/entertainment/checkaffection.js
+const { EmbedBuilder } = require('discord.js');
 const config = require("../../config.js");
 const affectionManager = require('../../utils/entertainment/affectionManager.js'); 
 
 module.exports = {
-    // 指令的名稱和描述
     name: "checkaffection",
     description: "查看機器人對你的好感度。",
     permissions: "0x0000000000000800",
@@ -18,7 +18,7 @@ module.exports = {
 
             // 創建並發送嵌入式訊息來回覆用戶
             const embed = new EmbedBuilder()
-                .setColor(config.embedColor || '#0099ff') // 使用你在 config 中定義的顏色，或預設為藍色
+                .setColor(config.embedColor || '#0099ff') 
                 .setTitle(`💖 好感度查詢：${interaction.user.username}`)
                 .setDescription(`學術糾紛對你的的好感度目前為：**${currentAffection} 點**。`);
 
