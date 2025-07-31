@@ -30,6 +30,6 @@
   "author": "SSRR",
   "license": "XX",
   "engines": {
-    "node": "22.12.0"
+    "node": "20.x"
   }
 }
