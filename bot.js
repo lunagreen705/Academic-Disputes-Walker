@@ -25,7 +25,7 @@ const schedulerManager = require('./utils/normal/schedulerManager');
 
 const express = require("express");
 const app = express();
-const port = process.env.PORT || 10000;
+const port = process.env.PORT || 3000;
 
 const client = new Client({
   intents: Object.values(GatewayIntentBits),
