@@ -140,8 +140,8 @@
     "greetCountToday": 1
   },
   "664062748656795649": {
-    "affection": 0,
+    "affection": 1,
     "lastGreetDate": "2025-08-07",
-    "greetCountToday": 0
+    "greetCountToday": 1
   }
 }
