@@ -199,54 +199,65 @@ client.login(config.TOKEN || process.env.TOKEN).catch((e) => {
 // ========== Express 網頁伺服器 ==========
 
 try {
-    const clientSecretContent = fs.readFileSync(CLIENT_SECRET_PATH, 'utf8');
-    const credentials = JSON.parse(clientSecretContent);
-    const { client_id, client_secret, redirect_uris } = credentials.web || credentials.installed;
-    const REDIRECT_URI = redirect_uris[0]; 
-    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);
+  // 讀取並解析 client_secret.json
+  const clientSecretContent = fs.readFileSync(CLIENT_SECRET_PATH, 'utf8');
+  const credentials = JSON.parse(clientSecretContent);
+  const { client_id, client_secret, redirect_uris } = credentials.web || credentials.installed;
+  const REDIRECT_URI = redirect_uris[0];
+  const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);
 
-    app.get("/", (req, res) => {
-      const filePath = path.join(__dirname, "index.html");
-      res.sendFile(filePath);
-    });
+  // 授權範圍
+  const scopes = [
+    'https://www.googleapis.com/auth/drive',
+    'https://www.googleapis.com/auth/userinfo.profile',
+  ];
 
-    app.get('/auth/google', (req, res) => {
-      const scopes = [
-        'https://www.googleapis.com/auth/drive',
-        'https://www.googleapis.com/auth/userinfo.profile',
-      ];
-      const authUrl = oAuth2Client.generateAuthUrl({
-        access_type: 'offline',
-        scope: scopes,
-        prompt: 'consent',
-      });
-      res.send(`請訪問以下 URL 進行 Google Drive 權限授權：<a href="${authUrl}">點擊這裡</a>。`);
-    });
+  // 產生授權連結
+  const authUrl = oAuth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: scopes,
+    prompt: 'consent',
+  });
 
-    app.get('/oauth2callback', async (req, res) => {
-      const { code } = req.query;
-      if (!code) {
-        return res.status(400).send('Google OAuth2 授權失敗：未收到授權碼。');
-      }
-      try {
-        const { tokens } = await oAuth2Client.getToken(code);
-        oAuth2Client.setCredentials(tokens);
-        await saveToken(tokens);
-        res.send('Google Drive 授權成功！令牌已儲存至資料庫。您可以關閉此頁面。');
-      } catch (error) {
-        console.error('[ERROR] 交換 Google Drive 令牌失敗:', error.message);
-        res.status(500).send(`交換 Google Drive 令牌失敗：${error.message}`);
-      }
-    });
+  // 根目錄回傳 index.html
+  app.get("/", (req, res) => {
+    const filePath = path.join(__dirname, "index.html");
+    res.sendFile(filePath);
+  });
 
-    app.listen(port, () => {
-      console.log('\n' + '─'.repeat(40));
-      console.log(`${colors.magenta}${colors.bright}🌐 SERVER STATUS${colors.reset}`);
-      console.log('─'.repeat(40));
-      console.log(`${colors.cyan}[ SERVER ]${colors.reset} ${colors.green}Online ✅${colors.reset}`);
-      console.log(`${colors.cyan}[ PORT ]${colors.reset} ${colors.yellow}http://localhost:${port}${colors.reset}`);
-      console.log(`${colors.cyan}[ OAUTH2 ]${colors.reset} 請使用以下網址進行 Google Drive 授權：\n${colors.yellow}${authUrl}${colors.reset}`);
-    });
+  // OAuth 授權連結路由
+  app.get('/auth/google', (req, res) => {
+    res.send(`請訪問以下 URL 進行 Google Drive 權限授權：<a href="${authUrl}">點擊這裡</a>。`);
+  });
+
+  // 授權回調處理
+  app.get('/oauth2callback', async (req, res) => {
+    const { code } = req.query;
+    if (!code) {
+      return res.status(400).send('Google OAuth2 授權失敗：未收到授權碼。');
+    }
+    try {
+      const { tokens } = await oAuth2Client.getToken(code);
+      oAuth2Client.setCredentials(tokens);
+      // 你自己的儲存函式，存 token 到資料庫或檔案
+      await saveToken(tokens);
+      res.send('Google Drive 授權成功！令牌已儲存至資料庫。您可以關閉此頁面。');
+    } catch (error) {
+      console.error('[ERROR] 交換 Google Drive 令牌失敗:', error.message);
+      res.status(500).send(`交換 Google Drive 令牌失敗：${error.message}`);
+    }
+  });
+
+  // 啟動伺服器，印出授權網址
+  app.listen(port, () => {
+    console.log('\n' + '─'.repeat(40));
+    console.log(`${colors.magenta}${colors.bright}🌐 SERVER STATUS${colors.reset}`);
+    console.log('─'.repeat(40));
+    console.log(`${colors.cyan}[ SERVER ]${colors.reset} ${colors.green}Online ✅${colors.reset}`);
+    console.log(`${colors.cyan}[ PORT ]${colors.reset} ${colors.yellow}http://localhost:${port}${colors.reset}`);
+    console.log(`${colors.cyan}[ OAUTH2 ]${colors.reset} 請使用以下網址進行 Google Drive 授權：\n${colors.yellow}${authUrl}${colors.reset}`);
+  });
+
 } catch (error) {
-    console.warn(`${colors.yellow}[OAUTH2]${colors.reset} ⚠️ 未找到 client_secret.json，Google Drive 相關功能將停用。`);
+  console.warn(`${colors.yellow}[OAUTH2]${colors.reset} ⚠️ 未找到 client_secret.json，Google Drive 相關功能將停用。`);
 }
