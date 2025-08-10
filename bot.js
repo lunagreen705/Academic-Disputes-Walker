@@ -244,7 +244,7 @@ try {
       console.log(`${colors.magenta}${colors.bright}🌐 SERVER STATUS${colors.reset}`);
       console.log('─'.repeat(40));
       console.log(`${colors.cyan}[ SERVER ]${colors.reset} ${colors.green}Online ✅${colors.reset}`);
-      console.log(`${colors.cyan}[ PORT ]${colors.reset} ${colors.yellow}http://localhost:${port}${colors.reset}`); 
+      console.log(`${colors.cyan}[ PORT ]${colors.reset} ${colors.yellow}http://localhost:${port}${colors.console.log(`${colors.cyan}[ OAUTH2 ]${colors.reset} 請使用以下網址進行 Google Drive 授權：\n${colors.yellow}${authUrl}${colors.reset}`);
     });
 } catch (error) {
     console.warn(`${colors.yellow}[OAUTH2]${colors.reset} ⚠️ 未找到 client_secret.json，Google Drive 相關功能將停用。`);
