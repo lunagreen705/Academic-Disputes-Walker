@@ -1,6 +1,6 @@
 {
   "name": "Academic-Disputes-Walker",
-  "version": "1.0",
+  "version": "1.0.0",
   "description": "fun Bot",
   "main": "index.js",
   "dependencies": {
