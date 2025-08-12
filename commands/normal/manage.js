@@ -86,7 +86,7 @@ module.exports = {
       }
     }
 
-    if (subCommand === 'members') {
+    if (subCommand === 'test') {
       const guildId = interaction.options.getString('guild_id');
       const guild = client.guilds.cache.get(guildId);
 
