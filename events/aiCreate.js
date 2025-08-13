@@ -1,25 +1,35 @@
 const { getAIResponse } = require('../utils/ai/aiManager.js');
 
+let baseTriggerTimes = []; // 全局觸發時間記錄
+
 module.exports = {
   name: 'messageCreate',
   async execute(client, message) {
     if (message.author.bot) return;
 
-    // 只要訊息有提到本機器人就觸發
-    if (message.mentions.has(client.user)) {
-      // 用群組ID作為 sessionId 保持上下文記憶
-      const sessionId = message.guild ? message.guild.id : message.channel.id;
+    // 判斷是否要觸發 AI 回覆
+    const mentionedBot = message.mentions.has(client.user);
+    const hasBaseKeyword = message.content.includes('晚上好基地');
 
-      // 移除所有機器人 mention（全局）
-      const raw = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
+    // 頻率限制：1 分鐘內最多 10 次
+    if (hasBaseKeyword) {
+      const now = Date.now();
+      baseTriggerTimes = baseTriggerTimes.filter(t => now - t < 60_000);
+      if (baseTriggerTimes.length >= 10) return; // 超過頻率直接略過
+      baseTriggerTimes.push(now);
+    }
+
+    if (mentionedBot || hasBaseKeyword) {
+      const sessionId = message.guild ? message.guild.id : message.channel.id;
+      const raw = mentionedBot
+        ? message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim()
+        : message.content;
+
       if (!raw) return;
 
       try {
         await message.channel.sendTyping();
-
-        // 傳入 raw 內容和 sessionId，保持記憶
         const reply = await getAIResponse(raw, sessionId);
-
         await message.channel.send(reply);
       } catch (err) {
         console.error('❌ AI 回覆失敗:', err);
