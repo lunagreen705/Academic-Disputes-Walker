@@ -1,5 +1,5 @@
 {
-      "one_card": {
+  "one_card": {
     "name": "單張牌陣",
     "description": "一個日常的牌陣，適合簡單的問題。",
     "cards_to_draw": 1,
@@ -24,6 +24,23 @@
         "position_name": "未來",
         "description": "代表此問題可能發展的方向或最終結果。"
       }
+    ]
+  },
+  "celtic_cross": {
+    "name": "塞爾特十字",
+    "description": "經典且全面的牌陣，適合深入探索各種問題，揭示問題的根源、影響因素、挑戰及最終結果。",
+    "cards_to_draw": 10,
+    "positions": [
+      { "position_name": "現在", "description": "目前的情況與核心議題。" },
+      { "position_name": "挑戰", "description": "目前面臨的主要障礙或對立力量。" },
+      { "position_name": "過去根源", "description": "導致當前情況的深層原因。" },
+      { "position_name": "最近過去", "description": "近期發生、影響現況的事件。" },
+      { "position_name": "目標", "description": "當事人心中期望或追求的方向。" },
+      { "position_name": "近期未來", "description": "不久後可能發生的情況或轉折。" },
+      { "position_name": "自我立場", "description": "當事人的態度、感受或角色。" },
+      { "position_name": "外部環境", "description": "周遭人事物對此情況的影響。" },
+      { "position_name": "希望與恐懼", "description": "潛意識的渴望與不安之處。" },
+      { "position_name": "最終結果", "description": "此情況最可能的最終走向。" }
     ]
   }
 }
