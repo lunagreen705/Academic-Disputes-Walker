@@ -1,6 +1,6 @@
-const { ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
-const config = require('../config.js');
-const musicIcons = require('../UI/icons/musicicons.js');
+const { ApplicationCommandOptionType, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+const config = require('../../config.js');
+const musicIcons = require('../../UI/icons/musicicons.js');
 const SpotifyWebApi = require('spotify-web-api-node');
 const { getData } = require('spotify-url-info')(require('node-fetch'));
 const requesters = new Map();
