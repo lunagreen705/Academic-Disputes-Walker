@@ -6,9 +6,16 @@ const { getData } = require('spotify-url-info')(require('node-fetch'));
 const requesters = new Map();
 
 const spotifyApi = new SpotifyWebApi({
-    clientId: config.spotifyClientId,
-    clientSecret: config.spotifyClientSecret,
+    clientId: process.env.spotifyClientId,
+    clientSecret: process.env.spotifyClientSecret,
 });
+
+// Helper function to format track duration from milliseconds to mm:ss
+function formatDuration(ms) {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2,'0')}`;
+}
 
 async function getSpotifyPlaylistTracks(playlistId) {
     try {
@@ -42,37 +49,26 @@ async function getSpotifyPlaylistTracks(playlistId) {
 
 async function play(client, interaction, lang) {
     try {
-        const query = interaction.options.getString('name');
-
+        // --- 基本檢查 ---
         if (!interaction.member.voice.channelId) {
             const embed = new EmbedBuilder()
                 .setColor('#ff0000')
-                .setAuthor({
-                    name: lang.play.embed.error,
-                    iconURL: musicIcons.alertIcon,
-                    url: config.SupportServer
-                })
+                .setAuthor({ name: lang.play.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.play.embed.noVoiceChannel);
-
-            await interaction.reply({ embeds: [embed], ephemeral: true });
-            return;
+            return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
         if (!client.riffy.nodes || client.riffy.nodes.size === 0) {
             const embed = new EmbedBuilder()
                 .setColor('#ff0000')
-                .setAuthor({
-                    name: lang.play.embed.error,
-                    iconURL: musicIcons.alertIcon,
-                    url: config.SupportServer
-                })
+                .setAuthor({ name: lang.play.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.play.embed.noLavalinkNodes);
-
-            await interaction.reply({ embeds: [embed], ephemeral: true });
-            return;
+            return interaction.reply({ embeds: [embed], ephemeral: true });
         }
+
+        await interaction.deferReply();
 
         const player = client.riffy.createConnection({
             guildId: interaction.guildId,
@@ -81,11 +77,11 @@ async function play(client, interaction, lang) {
             deaf: true
         });
 
-        await interaction.deferReply();
-
+        const query = interaction.options.getString('name');
         let tracksToQueue = [];
         let isPlaylist = false;
 
+        // --- Spotify URL 處理 ---
         if (query.includes('spotify.com')) {
             try {
                 const spotifyData = await getData(query);
@@ -95,84 +91,172 @@ async function play(client, interaction, lang) {
                     tracksToQueue.push(trackName);
                 } else if (spotifyData.type === 'playlist') {
                     isPlaylist = true;
-                    const playlistId = query.split('/playlist/')[1].split('?')[0];
-                    tracksToQueue = await getSpotifyPlaylistTracks(playlistId);
+                    const match = query.match(/playlist\/([a-zA-Z0-9]+)(\?|$)/);
+                    if (match) {
+                        const playlistId = match[1];
+                        tracksToQueue = await getSpotifyPlaylistTracks(playlistId);
+                    }
                 }
             } catch (err) {
                 console.error('Error fetching Spotify data:', err);
-                await interaction.followUp({ content: "❌ Failed to fetch Spotify data." });
-                return;
+                return interaction.followUp({ content: "❌ Failed to fetch Spotify data." });
             }
         } else {
+            // --- Riffy resolve ---
             const resolve = await client.riffy.resolve({ query, requester: interaction.user.username });
+            const { loadType, tracks, playlistInfo } = resolve;
 
-            if (!resolve || typeof resolve !== 'object' || !Array.isArray(resolve.tracks)) {
-                throw new TypeError('Invalid response from Riffy');
-            }
-
-            if (resolve.loadType === 'playlist') {
+            if (loadType === 'playlist') {
                 isPlaylist = true;
-                for (const track of resolve.tracks) {
+                for (const track of tracks) {
                     track.info.requester = interaction.user.username;
                     player.queue.add(track);
                     requesters.set(track.info.uri, interaction.user.username);
                 }
-            } else if (resolve.loadType === 'search' || resolve.loadType === 'track') {
-                const track = resolve.tracks.shift();
+
+                if (!player.playing && !player.paused) player.play();
+
+                const playlistEmbed = new EmbedBuilder()
+                    .setColor(config.embedColor)
+                    .setAuthor({ name: "播放列表已加入佇列", iconURL: musicIcons.playlistIcon, url: config.SupportServer })
+                    .setDescription(`**${playlistInfo.name}** 中的 **${tracks.length}** 首歌曲已成功加入。`)
+                    .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon });
+
+                const msg = await interaction.followUp({ embeds: [playlistEmbed] });
+                setTimeout(() => { msg.delete().catch(() => {}); }, 10000);
+                return;
+            } else if (loadType === 'track') {
+                const track = tracks.shift();
                 track.info.requester = interaction.user.username;
                 player.queue.add(track);
                 requesters.set(track.info.uri, interaction.user.username);
-            } else {
+
+                if (!player.playing && !player.paused) player.play();
+
+                const trackEmbed = new EmbedBuilder()
+                    .setColor(config.embedColor)
+                    .setAuthor({ name: "已加入佇列", iconURL: musicIcons.beats2Icon, url: config.SupportServer })
+                    .setDescription(`[${track.info.title}](${track.info.uri})`)
+                    .addFields(
+                        { name: '演唱者', value: track.info.author, inline: true },
+                        { name: '時長', value: `\`${formatDuration(track.info.length)}\``, inline: true }
+                    )
+                    .setFooter({ text: `由 ${interaction.user.username} 點播`, iconURL: interaction.user.displayAvatarURL() });
+
+                const msg = await interaction.followUp({ embeds: [trackEmbed] });
+                setTimeout(() => { msg.delete().catch(() => {}); }, 10000);
+                return;
+            } else if (loadType === 'search') {
+                if (!tracks.length) {
+                    const errorEmbed = new EmbedBuilder()
+                        .setColor(config.embedColor)
+                        .setAuthor({ name: lang.play.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
+                        .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
+                        .setDescription(lang.play.embed.noResults);
+                    await interaction.followUp({ embeds: [errorEmbed] });
+                    return;
+                }
+
+                const searchResults = tracks.slice(0, 10);
+
+                const options = searchResults.map((track, index) => ({
+                    label: track.info.title.length > 95 ? `${track.info.title.slice(0, 95)}...` : track.info.title,
+                    value: index.toString(),
+                    description: `[${formatDuration(track.info.length)}] - ${track.info.author}`,
+                }));
+
+                const selectMenu = new StringSelectMenuBuilder()
+                    .setCustomId('music-select-menu')
+                    .setPlaceholder('從這裡選擇一首歌...')
+                    .addOptions(options);
+
+                const row = new ActionRowBuilder().addComponents(selectMenu);
+
+                const searchEmbed = new EmbedBuilder()
+                    .setColor(config.embedColor)
+                    .setAuthor({ name: "請選擇要播放的歌曲", iconURL: musicIcons.searchIcon, url: config.SupportServer })
+                    .setDescription(`這是關於 "${query}" 的搜尋結果，請在 60 秒內選擇一首歌曲。`)
+                    .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon });
+
+                const reply = await interaction.followUp({ embeds: [searchEmbed], components: [row] });
+
+                const filter = (i) => i.user.id === interaction.user.id;
+                const collector = reply.createMessageComponentCollector({ filter, time: 60000, max: 1 });
+
+                collector.on('collect', async (i) => {
+                    const selectedIndex = parseInt(i.values[0]);
+                    const selectedTrack = searchResults[selectedIndex];
+
+                    selectedTrack.info.requester = interaction.user.username;
+                    player.queue.add(selectedTrack);
+                    requesters.set(selectedTrack.info.uri, interaction.user.username);
+
+                    if (!player.playing && !player.paused) player.play();
+
+                    const successEmbed = new EmbedBuilder()
+                        .setColor(config.embedColor)
+                        .setAuthor({ name: "已加入佇列", iconURL: musicIcons.beats2Icon, url: config.SupportServer })
+                        .setDescription(`[${selectedTrack.info.title}](${selectedTrack.info.uri})`)
+                        .addFields(
+                            { name: '演唱者', value: selectedTrack.info.author, inline: true },
+                            { name: '時長', value: `\`${formatDuration(selectedTrack.info.length)}\``, inline: true }
+                        )
+                        .setFooter({ text: `由 ${interaction.user.username} 點播`, iconURL: interaction.user.displayAvatarURL() });
+
+                    await i.update({ embeds: [successEmbed], components: [] });
+                    setTimeout(() => { i.delete().catch(() => {}); }, 10000);
+                });
+
+                collector.on('end', (collected, reason) => {
+                    if (reason === 'time' && collected.size === 0) {
+                        const timeoutEmbed = new EmbedBuilder()
+                            .setColor('#ff0000')
+                            .setAuthor({ name: "操作逾時", iconURL: musicIcons.alertIcon, url: config.SupportServer })
+                            .setDescription('你沒有在時間內選擇歌曲，請重新使用 `/play` 指令。');
+                        reply.edit({ embeds: [timeoutEmbed], components: [] });
+                    }
+                });
+
+                return;
+            } else if (loadType === 'empty') {
                 const errorEmbed = new EmbedBuilder()
                     .setColor(config.embedColor)
-                    .setAuthor({
-                        name: lang.play.embed.error,
-                        iconURL: musicIcons.alertIcon,
-                        url: config.SupportServer
-                    })
+                    .setAuthor({ name: lang.play.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                     .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                     .setDescription(lang.play.embed.noResults);
-
-                const errMsg = await interaction.followUp({ embeds: [errorEmbed] });
-                setTimeout(() => errMsg.delete().catch(() => { }), 3000);
+                await interaction.followUp({ embeds: [errorEmbed] });
                 return;
             }
         }
 
-        let queuedTracks = 0;
-
+        // --- Spotify playlist track queue ---
         for (const trackQuery of tracksToQueue) {
             const resolve = await client.riffy.resolve({ query: trackQuery, requester: interaction.user.username });
             if (resolve.tracks.length > 0) {
                 const trackInfo = resolve.tracks[0];
                 player.queue.add(trackInfo);
                 requesters.set(trackInfo.uri, interaction.user.username);
-                queuedTracks++;
             }
         }
 
         if (!player.playing && !player.paused) player.play();
 
-        const randomEmbed = new EmbedBuilder()
+        const queuedEmbed = new EmbedBuilder()
             .setColor(config.embedColor)
-            .setAuthor({
-                name: lang.play.embed.requestUpdated,
-                iconURL: musicIcons.beats2Icon,
-                url: config.SupportServer
-            })
-            .setDescription(
-                isPlaylist
-                    ? `✅ 已將 **${queuedTracks} 首歌曲** 加入隊列`
-                    : lang.play.embed.successProcessed
-            )
+            .setAuthor({ name: "播放列表已加入佇列", iconURL: musicIcons.playlistIcon, url: config.SupportServer })
+            .setDescription(`已將 **${tracksToQueue.length}** 首 Spotify 歌曲加入佇列`)
             .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon });
 
-        const msg = await interaction.followUp({ embeds: [randomEmbed] });
-        setTimeout(() => msg.delete().catch(() => { }), 3000);
+        const msg = await interaction.followUp({ embeds: [queuedEmbed] });
+        setTimeout(() => { msg.delete().catch(() => {}); }, 10000);
 
     } catch (error) {
         console.error('Error processing play command:', error);
-        await interaction.followUp({ content: "❌ An error occurred while processing the request." });
+        if (interaction.deferred || interaction.replied) {
+            await interaction.followUp({ content: "❌ 處理你的請求時發生錯誤。", ephemeral: true });
+        } else {
+            await interaction.reply({ content: "❌ 處理你的請求時發生錯誤。", ephemeral: true });
+        }
     }
 }
 
