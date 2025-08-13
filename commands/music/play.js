@@ -192,7 +192,17 @@ async function play(client, interaction, lang) {
                     .setFooter({ text: `由 ${interaction.user.username} 點播`, iconURL: interaction.user.displayAvatarURL() });
                 
                 // 更新訊息並移除選單
-                await i.update({ embeds: [successEmbed], components: [] });
+         // 更新訊息，顯示已加入佇列
+await i.update({ embeds: [successEmbed], components: [] });
+
+// 設定十秒後刪除這則訊息
+setTimeout(async () => {
+    try {
+        await i.delete(); // 刪除訊息
+    } catch (err) {
+        console.error('刪除訊息失敗:', err);
+    }
+}, 10000); // 10000 毫秒 = 10 秒
             });
 
             collector.on('end', (collected, reason) => {
