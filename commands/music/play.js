@@ -180,43 +180,56 @@ async function play(client, interaction, lang) {
 
                 const reply = await interaction.followUp({ embeds: [searchEmbed], components: [row] });
 
-                const filter = (i) => i.user.id === interaction.user.id;
-                const collector = reply.createMessageComponentCollector({ filter, time: 60000, max: 1 });
+                // --- 搜尋選單 collector ---
+const filter = (i) => i.user.id === interaction.user.id;
+const collector = reply.createMessageComponentCollector({ filter, time: 60000, max: 1 });
 
-                collector.on('collect', async (i) => {
-                    const selectedIndex = parseInt(i.values[0]);
-                    const selectedTrack = searchResults[selectedIndex];
+collector.on('collect', async (i) => {
+    try {
+        await i.deferUpdate().catch(() => {}); // 保護 interaction 不會過期
 
-                    selectedTrack.info.requester = interaction.user.username;
-                    player.queue.add(selectedTrack);
-                    requesters.set(selectedTrack.info.uri, interaction.user.username);
+        const selectedIndex = parseInt(i.values[0]);
+        const selectedTrack = searchResults[selectedIndex];
 
-                    if (!player.playing && !player.paused) player.play();
+        selectedTrack.info.requester = interaction.user.username;
+        player.queue.add(selectedTrack);
+        requesters.set(selectedTrack.info.uri, interaction.user.username);
 
-                    const successEmbed = new EmbedBuilder()
-                        .setColor(config.embedColor)
-                        .setAuthor({ name: "已加入佇列", iconURL: musicIcons.beats2Icon, url: config.SupportServer })
-                        .setDescription(`[${selectedTrack.info.title}](${selectedTrack.info.uri})`)
-                        .addFields(
-                            { name: '演唱者', value: selectedTrack.info.author, inline: true },
-                            { name: '時長', value: `\`${formatDuration(selectedTrack.info.length)}\``, inline: true }
-                        )
-                        .setFooter({ text: `由 ${interaction.user.username} 點播`, iconURL: interaction.user.displayAvatarURL() });
+        if (!player.playing && !player.paused) player.play();
 
-                    await i.update({ embeds: [successEmbed], components: [] });
-                    setTimeout(() => { i.delete().catch(() => {}); }, 10000);
-                });
+        const successEmbed = new EmbedBuilder()
+            .setColor(config.embedColor)
+            .setAuthor({ name: "已加入佇列", iconURL: musicIcons.beats2Icon, url: config.SupportServer })
+            .setDescription(`[${selectedTrack.info.title}](${selectedTrack.info.uri})`)
+            .addFields(
+                { name: '演唱者', value: selectedTrack.info.author, inline: true },
+                { name: '時長', value: `\`${formatDuration(selectedTrack.info.length)}\``, inline: true }
+            )
+            .setFooter({ text: `由 ${interaction.user.username} 點播`, iconURL: interaction.user.displayAvatarURL() });
 
-                collector.on('end', (collected, reason) => {
-                    if (reason === 'time' && collected.size === 0) {
-                        const timeoutEmbed = new EmbedBuilder()
-                            .setColor('#ff0000')
-                            .setAuthor({ name: "操作逾時", iconURL: musicIcons.alertIcon, url: config.SupportServer })
-                            .setDescription('你沒有在時間內選擇歌曲，請重新使用 `/play` 指令。');
-                        reply.edit({ embeds: [timeoutEmbed], components: [] });
-                    }
-                });
+        // 更新訊息
+        await i.editReply({ embeds: [successEmbed], components: [] }).catch(() => {});
 
+        // 三秒後自動刪除訊息
+        setTimeout(() => {
+            i.message.delete().catch(() => {});
+        }, 3000);
+
+    } catch (err) {
+        console.error('Error handling select menu:', err);
+    }
+});
+
+collector.on('end', (collected, reason) => {
+    if (reason === 'time' && collected.size === 0) {
+        const timeoutEmbed = new EmbedBuilder()
+            .setColor('#ff0000')
+            .setAuthor({ name: "操作逾時", iconURL: musicIcons.alertIcon, url: config.SupportServer })
+            .setDescription('你沒有在時間內選擇歌曲，請重新使用 `/play` 指令。');
+
+        reply.edit({ embeds: [timeoutEmbed], components: [] }).catch(() => {});
+    }
+});
                 return;
             } else if (loadType === 'empty') {
                 const errorEmbed = new EmbedBuilder()
