@@ -151,7 +151,7 @@ async function loadAndScheduleTasks(client, taskActionFunctions) {
                 try {
                     await actualTaskFunction(task, client); // 執行實際任務
 
-                    // === 【新增邏輯】處理任務執行次數和過期 ===
+             
                     // 僅針對個人任務進行狀態更新和刪除
                     const personalTaskIndex = personalTasksConfig.findIndex(t => t.id === task.id && t.userId === task.userId);
                     if (personalTaskIndex !== -1) {
