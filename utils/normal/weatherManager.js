@@ -34,16 +34,17 @@ async function getAirQuality(city) {
         const res = await fetch(url);
         const data = await res.json();
 
-        if (!data.records || !data.records.records) return null;
+        if (!data.records || !data.records.location) return null;
 
-        const record = data.records.records.find(r => r.County.includes(city));
+        // 精準匹配縣市名稱
+        const record = data.records.location.find(r => r.County.trim() === city.trim());
         if (!record) return null;
 
         return {
             location: record.County,
-            AQI: record.AQI,
-            PM25: record['PM2.5'],
-            status: record.Status
+            AQI: record.AQI || 'N/A',
+            PM25: record['PM2.5'] || 'N/A',
+            status: record.Status || 'N/A'
         };
     } catch (err) {
         console.error("AirQuality API Error:", err);
