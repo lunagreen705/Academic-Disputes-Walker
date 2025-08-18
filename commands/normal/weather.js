@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const cwa = require('../utils/normal/weatherManager.js'); // 路徑依專案調整
+const cwa = require('../../utils/normal/weatherManager.js'); // 路徑依專案調整
 
 module.exports = {
     name: '氣象',
