@@ -3,12 +3,23 @@
     "id": "affectionLeaderboardPush",
     "name": "每週好感度排行榜推送",
     "enabled": true,
-    "cronExpression": "0 12 * * 7",  
+    "cronExpression": "0 12 * * 7",
     "timezone": "Asia/Taipei",
     "action": "sendautomessage",
     "args": {
       "limit": 10,
-      "channelId": "1146286703741505679" 
+      "channelId": "1146286703741505679"
+    }
+  },
+  {
+    "id": "weatherAirQualityPush",
+    "name": "每日三市天氣空品推送",
+    "enabled": true,
+    "cronExpression": "30 15 * * *",
+    "timezone": "Asia/Taipei",
+    "action": "postWeatherAndAirQuality",
+    "args": {
+      "channelId": "1146286703741505679"
     }
   }
 ]

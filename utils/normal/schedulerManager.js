@@ -5,6 +5,7 @@ const cron = require('node-cron');
 const { EmbedBuilder } = require('discord.js');
 const colors = require("../../UI/colors/colors"); 
 const affectionManager = require('../../utils/entertainment/affectionManager');
+const { getWeather, getAirQuality } = require('../../utils/normal/weatherManager');
 
 // === GitHub 環境設定 ===
 const GH_TOKEN = process.env.GH_TOKEN;
@@ -124,7 +125,60 @@ async function postAffectionLeaderboard(client, channelId, limit = 10) {
         console.error(`${colors.red}[SCHEDULER]${colors.reset} 執行好感度排行榜任務時發生錯誤:`, error);
     }
 }
+//=== 連動天氣模組排程  ===
+async function postWeatherAndAirQuality(client, channelId) {
+  if (!channelId) {
+    console.error(`${colors.red}[SCHEDULER]${colors.reset} 錯誤：未提供頻道 ID。`);
+    return;
+  }
 
+  try {
+    const channel = await client.channels.fetch(channelId);
+    if (!channel?.isTextBased() || !channel.guild) {
+      console.error(`${colors.red}[SCHEDULER]${colors.reset} 錯誤：頻道不存在或非文字頻道。`);
+      return;
+    }
+
+    // 要查詢的三個城市
+    const cities = ["臺北市", "臺中市", "高雄市"];
+
+    const results = await Promise.all(
+      cities.map(async (city) => {
+        const weather = await getWeather(city);
+        const airQualityList = await getAirQuality(city);
+
+        // 只取第一個監測站
+        const air = airQualityList && airQualityList.length > 0 ? airQualityList[0] : null;
+
+        return { city, weather, air };
+      })
+    );
+
+    // 建 Embed
+    const embed = new EmbedBuilder()
+      .setTitle("🌤 三大城市 天氣 & 空品速報")
+      .setColor("#1E90FF")
+      .setTimestamp();
+
+    const desc = results.map(({ city, weather, air }) => {
+      if (!weather) return `**${city}**\n❌ 天氣資料取得失敗`;
+
+      const w = `天氣：${weather.description}，氣溫 ${weather.minTemp}°C ~ ${weather.maxTemp}°C，降雨機率 ${weather.rain}%`;
+      const a = air
+        ? `空品（${air.site}）：AQI ${air.AQI}（${air.status}），PM2.5 ${air.PM25}`
+        : `空品：❌ 資料取得失敗`;
+
+      return `**${city}**\n${w}\n${a}`;
+    }).join("\n\n");
+
+    embed.setDescription(desc);
+
+    await channel.send({ embeds: [embed] });
+    console.log(`${colors.green}[SCHEDULER]${colors.reset} 已發送三市天氣＋空品資訊`);
+  } catch (err) {
+    console.error(`${colors.red}[SCHEDULER]${colors.reset} 發送 天氣＋空品 任務失敗：`, err);
+  }
+}
 // === 核心排程邏輯 ===
 async function loadAndScheduleTasks(client, taskActionFunctions) {
     // 停止所有現有任務以重新載入
@@ -303,4 +357,5 @@ module.exports = {
     deleteTask,
     getTasksByUserId,
     postAffectionLeaderboard,
+    postWeatherAndAirQuality,
 };
