@@ -15,7 +15,7 @@
     "id": "WeatherAndAirQuality",
     "name": "每日天氣空品推送",
     "enabled": true,
-    "cronExpression": "0 16 * * *",
+    "cronExpression": "5 16 * * *",
     "timezone": "Asia/Taipei",
     "action": "weatherAirQualityPush",
     "args": {

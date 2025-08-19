@@ -91,22 +91,29 @@ async function getTyphoon() {
         const res = await fetch(url);
         const data = await res.json();
 
-        if (!data.records || !data.records.typhoon?.length) return null;
+        const cyclones = data.records?.tropicalCyclones?.tropicalCyclone;
+        if (!cyclones || cyclones.length === 0) return null;
 
-        const latest = data.records.typhoon[0];
+        const latestCyclone = cyclones[0];
+        const fixes = latestCyclone.analysisData?.fix;
+        if (!fixes || fixes.length === 0) return null;
+
+        const latestFix = fixes[fixes.length - 1]; // 取最新一筆分析資料
+        const [lon, lat] = latestFix.coordinate.split(',').map(Number);
+
         return {
-            name: latest.typhoonName,
-            enName: latest.typhoonEnName,
-            status: latest.typhoonStatus,
-            lat: latest.typhoonLat,
-            lon: latest.typhoonLon,
-            windSpeed: latest.maxWindSpeed
+            name: latestCyclone.typhoonName || latestCyclone.cwaTyphoonName,
+            status: latestCyclone.typhoonStatus || 'N/A',
+            lat,
+            lon,
+            windSpeed: latestFix.maxWindSpeed
         };
     } catch (err) {
         console.error("Typhoon API Error:", err);
         return null;
     }
 }
+
 
 module.exports = {
     getWeather,
