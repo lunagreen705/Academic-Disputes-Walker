@@ -6,7 +6,7 @@ module.exports = async (client, interaction) => {
     try {
         if (!interaction.guild) {
             return interaction.reply({
-                content: "此指令只能在伺服器中使用。", 
+                content: "此指令只能在伺服器中使用。",
                 ephemeral: true,
             }).catch(() => {});
         }
@@ -31,12 +31,15 @@ module.exports = async (client, interaction) => {
                 return;
             }
 
-            // 處理打開 Modal 的按鈕 (此互動直接顯示 Modal，不需 defer)
+            // Modal 開啟按鈕
             if (customId.startsWith('open-edit-modal:')) {
                 const parts = customId.split(':');
                 if (parts.length < 3) {
                     console.error(`[ERROR] Invalid customId format for modal trigger: ${customId}`);
-                    return interaction.reply({ content: lang.errors.unknownButton, ephemeral: true }).catch(console.error);
+                    return interaction.reply({
+                        content: lang.errors?.unknownButton || "⚠️ 未知的按鈕互動。",
+                        ephemeral: true
+                    }).catch(console.error);
                 }
                 const taskId = parts[1];
                 const userIdFromCustomId = parts[2];
@@ -47,14 +50,16 @@ module.exports = async (client, interaction) => {
                 } else {
                     console.error(`[ERROR] Task command or handleModalTriggerButton not found.`);
                     if (!interaction.replied && !interaction.deferred) {
-                       await interaction.reply({ content: lang.errors.buttonHandlerNotFound, ephemeral: true }).catch(console.error);
+                        await interaction.reply({
+                            content: lang.errors?.buttonHandlerNotFound || "⚠️ 找不到按鈕處理程式。",
+                            ephemeral: true
+                        }).catch(console.error);
                     }
                 }
                 return;
             }
 
-            // 處理其他指令的按鈕 (例如 'library' 指令)
-            // 注意：具體的 handleButton 函式需要自行處理回應 (reply/update/defer)
+            // 其他指令的按鈕
             const commandName = customId.split('|')[0];
             const command = client.commands.get(commandName);
 
@@ -63,12 +68,17 @@ module.exports = async (client, interaction) => {
                     await command.handleButton(interaction);
                 } catch (e) {
                     console.error(`❌ ${commandName} handleButton error: ${e.stack || e}`);
-                    // 假設 handleButton 未能回應，則嘗試 followUp
-                    await interaction.followUp({ content: lang.errors.generalButtonError, ephemeral: true }).catch(console.error);
+                    await interaction.followUp({
+                        content: lang.errors?.generalButtonError || "⚠️ 按鈕執行錯誤。",
+                        ephemeral: true
+                    }).catch(console.error);
                 }
             } else {
                 console.warn(`[WARN] Unhandled button interaction: ${customId}`);
-                await interaction.reply({ content: lang.errors.unknownButton, ephemeral: true }).catch(console.error);
+                await interaction.reply({
+                    content: lang.errors?.unknownButton || "⚠️ 未知的按鈕互動。",
+                    ephemeral: true
+                }).catch(console.error);
             }
             return;
         }
@@ -78,6 +88,11 @@ module.exports = async (client, interaction) => {
         // ============================
         if (interaction.isStringSelectMenu()) {
             const { customId } = interaction;
+
+            // --- 音樂系統選單交給 play.js 的 collector 處理 ---
+            if (customId === "music-select-menu") {
+                return;
+            }
 
             // 塔羅牌選單
             if (customId === 'tarot_spread_select') {
@@ -99,9 +114,13 @@ module.exports = async (client, interaction) => {
                 }
                 return;
             }
-            
+
+            // Fallback
             console.warn(`[WARN] Unhandled select menu interaction: ${customId}`);
-            await interaction.reply({ content: lang.errors.unknownSelectMenu, ephemeral: true }).catch(console.error);
+            await interaction.reply({
+                content: lang.errors?.unknownSelectMenu || "⚠️ 未知的選單互動。",
+                ephemeral: true
+            }).catch(console.error);
             return;
         }
 
@@ -114,14 +133,16 @@ module.exports = async (client, interaction) => {
 
             if (parts.length < 3) {
                 console.error(`[ERROR] Invalid customId format for modal submit: ${customId}`);
-                return interaction.reply({ content: lang.errors.unknownModal, ephemeral: true }).catch(console.error);
+                return interaction.reply({
+                    content: lang.errors?.unknownModal || "⚠️ 未知的 Modal。",
+                    ephemeral: true
+                }).catch(console.error);
             }
 
             const actionType = parts[0];
             const taskId = parts[1];
             const userIdFromCustomId = parts[2];
 
-            // Modal 提交後的處理可能耗時，先行延遲回應
             await interaction.deferReply({ ephemeral: true });
 
             if (actionType.startsWith('edit-task-modal')) {
@@ -129,11 +150,17 @@ module.exports = async (client, interaction) => {
                 if (taskCommand?.handleModalSubmit) {
                     await taskCommand.handleModalSubmit(client, interaction, actionType, taskId, userIdFromCustomId);
                 } else {
-                    await interaction.followUp({ content: lang.errors.modalHandlerNotFound, ephemeral: true }).catch(console.error);
+                    await interaction.followUp({
+                        content: lang.errors?.modalHandlerNotFound || "⚠️ 找不到 Modal 處理程式。",
+                        ephemeral: true
+                    }).catch(console.error);
                 }
             } else {
                 console.warn(`[WARN] Unhandled modal submit: ${customId}`);
-                await interaction.followUp({ content: lang.errors.unknownModal, ephemeral: true }).catch(console.error);
+                await interaction.followUp({
+                    content: lang.errors?.unknownModal || "⚠️ 未知的 Modal。",
+                    ephemeral: true
+                }).catch(console.error);
             }
             return;
         }
@@ -159,27 +186,39 @@ module.exports = async (client, interaction) => {
         if (interaction.type === InteractionType.ApplicationCommand) {
             const command = client.commands.get(interaction.commandName);
             if (!command) {
-                return interaction.reply({ content: lang.errors.commandNotFound, ephemeral: true });
+                return interaction.reply({
+                    content: lang.errors?.commandNotFound || "⚠️ 指令不存在。",
+                    ephemeral: true
+                });
             }
 
-            // 權限檢查
-            const defaultPermissions = '0x0000000000000800'; // ViewChannel & SendMessages
+            const defaultPermissions = '0x0000000000000800';
             const requiredPermissions = command.permissions || defaultPermissions;
             if (!interaction.member.permissions.has(requiredPermissions)) {
-                return interaction.reply({ content: lang.errors.noPermission, ephemeral: true });
+                return interaction.reply({
+                    content: lang.errors?.noPermission || "⚠️ 你沒有權限使用此指令。",
+                    ephemeral: true
+                });
             }
 
             try {
                 await command.run(client, interaction, lang);
             } catch (e) {
                 console.error(`❌ Command execution error for /${interaction.commandName}: ${e.stack || e}`);
-                const errorMessage = lang.errors.generalError.replace("{error}", e.message);
+                const errorMessage = lang.errors?.generalError?.replace("{error}", e.message) 
+                    || `⚠️ 指令執行錯誤：${e.message}`;
 
-                // 根據互動是否已回應或延遲，選擇正確的錯誤回覆方式
                 if (interaction.deferred || interaction.replied) {
-                    await interaction.editReply({ content: errorMessage, embeds: [], components: [] }).catch(console.error);
+                    await interaction.editReply({
+                        content: errorMessage,
+                        embeds: [],
+                        components: []
+                    }).catch(console.error);
                 } else {
-                    await interaction.reply({ content: errorMessage, ephemeral: true }).catch(console.error);
+                    await interaction.reply({
+                        content: errorMessage,
+                        ephemeral: true
+                    }).catch(console.error);
                 }
             }
         }
