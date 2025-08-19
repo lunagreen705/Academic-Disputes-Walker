@@ -98,28 +98,48 @@ module.exports = {
             return interaction.editReply({ embeds: [embed] });
         }
 
-        // 空氣品質
-        if (subCommand === '空氣') {
-            const city = interaction.options.getString('城市');
-            const aqiData = await cwa.getAirQuality(city);
-            if (!aqiData) {
-                return interaction.editReply({ content: `❌ 找不到 **${city}** 的空氣品質資訊。` });
-            }
+   // 空氣品質
+if (subCommand === '空氣') {
+    const city = interaction.options.getString('城市');
+    const aqiData = await cwa.getAirQuality(city);
 
-            const embed = new EmbedBuilder()
-                .setColor('#66cc66')
-                .setTitle(`🌬️ ${aqiData.location} 空氣品質`)
-                .addFields(
-                    { name: 'AQI 指數', value: aqiData.AQI, inline: true },
-                    { name: 'PM2.5', value: aqiData.PM25, inline: true },
-                    { name: '狀態', value: aqiData.status, inline: true }
-                )
-                .setTimestamp()
-                .setFooter({ text: '資料來源：中央氣象署' });
+    if (!aqiData || aqiData.length === 0) {
+        return interaction.editReply({ content: `❌ 找不到 **${city}** 的空氣品質資訊。` });
+    }
 
-            return interaction.editReply({ embeds: [embed] });
-        }
+    // 如果只有一個測站，就單筆顯示
+    if (aqiData.length === 1) {
+        const record = aqiData[0];
+        const embed = new EmbedBuilder()
+            .setColor('#66cc66')
+            .setTitle(`🌬️ ${record.location} - ${record.site} 空氣品質`)
+            .addFields(
+                { name: 'AQI 指數', value: String(record.AQI), inline: true },
+                { name: 'PM2.5', value: String(record.PM25), inline: true },
+                { name: '狀態', value: record.status, inline: true }
+            )
+            .setTimestamp()
+            .setFooter({ text: '資料來源：環境部開放資料平台' });
 
+        return interaction.editReply({ embeds: [embed] });
+    }
+
+    // 如果有多個測站，就列出多筆（避免 embed 爆炸，最多顯示 5 筆）
+    const embeds = aqiData.slice(0, 5).map(record =>
+        new EmbedBuilder()
+            .setColor('#66cc66')
+            .setTitle(`🌬️ ${record.location} - ${record.site} 空氣品質`)
+            .addFields(
+                { name: 'AQI 指數', value: String(record.AQI), inline: true },
+                { name: 'PM2.5', value: String(record.PM25), inline: true },
+                { name: '狀態', value: record.status, inline: true }
+            )
+            .setFooter({ text: '資料來源：環境部開放資料平台' })
+            .setTimestamp()
+    );
+
+    return interaction.editReply({ embeds });
+}
         // 地震速報
         if (subCommand === '地震') {
             const eqData = await cwa.getEarthquake();

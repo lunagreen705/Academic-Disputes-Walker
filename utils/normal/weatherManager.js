@@ -1,6 +1,7 @@
 const fetch = require('node-fetch');
 
 const API_KEY = process.env.WEATHER_API || '你的APIKey';
+const API2_KEY = process.env.MOENV_API || '你的APIKey';
 
 // ---------- 天氣 ----------
 async function getWeather(city) {
@@ -30,22 +31,29 @@ async function getWeather(city) {
 // ---------- 空氣品質 ----------
 async function getAirQuality(city) {
     try {
-        const url = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/AQX_P_432?Authorization=${API_KEY}`;
+        const url = `https://data.moenv.gov.tw/api/v2/aqx_p_432?language=zh&api_key=${API2_KEY}`;
         const res = await fetch(url);
         const data = await res.json();
 
-        if (!data.records || !data.records.location) return null;
+        if (!data.records) return null;
 
-        // 精準匹配縣市名稱
-        const record = data.records.location.find(r => r.County.trim() === city.trim());
-        if (!record) return null;
+        // 縣市名稱正規化（台/臺）
+        const normalize = str => str.replace("台", "臺").trim();
 
-        return {
-            location: record.County,
-            AQI: record.AQI || 'N/A',
-            PM25: record['PM2.5'] || 'N/A',
-            status: record.Status || 'N/A'
-        };
+        // 找出符合縣市的所有測站
+        const records = data.records.filter(r => normalize(r.county) === normalize(city));
+
+        if (!records.length) return null;
+
+        // 統一處理欄位，避免 undefined
+        return records.map(r => ({
+            site: r.sitename || "未知測站",
+            location: r.county || city,
+            AQI: r.aqi || "N/A",
+            PM25: r["pm2.5"] || "N/A",
+            status: r.status || "N/A",
+            publishTime: r.publishtime || "未知時間"
+        }));
     } catch (err) {
         console.error("AirQuality API Error:", err);
         return null;
