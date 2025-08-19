@@ -15,9 +15,9 @@
     "id": "weatherAirQualityPush",
     "name": "每日三市天氣空品推送",
     "enabled": true,
-    "cronExpression": "30 15 * * *",
+    "cronExpression": "45 15 * * *",
     "timezone": "Asia/Taipei",
-    "action": "postWeatherAndAirQuality",
+    "action": "sendautomessage",
     "args": {
       "channelId": "1146286703741505679"
     }
