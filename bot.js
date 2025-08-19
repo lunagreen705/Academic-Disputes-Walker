@@ -131,17 +131,31 @@ client.once("ready", async () => {
         
         // 在 client ready 後定義 taskActionFunctions，確保 client 物件可用
         const taskActionFunctions = {
-            /**
-             * 發送好感度排行榜到指定頻道 
-             */
-            'sendautomessage': (task, client) => {
-                const channelId = task.args?.channelId;
-                if (!channelId) {
-                    console.error(`[Action:sendautomessage] 任務 ${task.id} 未在 args 中指定 channelId。`);
-                    return;
-                }
-                // 確保參數順序與 postAffectionLeaderboard 定義匹配：(client, channelId, limit)
-                schedulerManager.postAffectionLeaderboard(client, channelId, task.args?.limit);
+         /**
+     * 發送好感度排行榜到指定頻道
+     * @param {Object} task - 任務設定 (包含 args、id、name 等)
+     * @param {Client} client - Discord 客戶端
+     */
+    'affectionLeaderboardPush': (task, client) => {
+        // 從任務設定中取得頻道 ID
+        const channelId = task.args?.channelId;
+
+        // 調用 schedulerManager 裡的函式發送排行榜
+        // limit 用來指定顯示前幾名
+        schedulerManager.postAffectionLeaderboard(client, channelId, task.args?.limit);
+    },
+
+    /**
+     * 發送三個城市的天氣與空氣品質資訊
+     * @param {Object} task - 任務設定
+     * @param {Client} client - Discord 客戶端
+     */
+    'weatherAirQualityPush': (task, client) => {
+        // 從任務設定中取得頻道 ID
+        const channelId = task.args?.channelId;
+
+        // 調用 schedulerManager 裡的函式發送天氣和空品
+        schedulerManager.postWeatherAndAirQuality(client, channelId);
             },
 
             /**
