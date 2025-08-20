@@ -10,11 +10,18 @@ const spotifyApi = new SpotifyWebApi({
     clientSecret: process.env.spotifyClientSecret,
 });
 
-// Helper function to format track duration from milliseconds to mm:ss
+// --- 工具函數 ---
 function formatDuration(ms) {
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2,'0')}`;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// Lavalink 相容 v3/v4
+function getTracksFromResolve(resolve) {
+    if (Array.isArray(resolve.tracks)) return resolve.tracks;   // 舊版
+    if (Array.isArray(resolve.data)) return resolve.data;       // 新版
+    return [];
 }
 
 async function getSpotifyPlaylistTracks(playlistId) {
@@ -24,7 +31,7 @@ async function getSpotifyPlaylistTracks(playlistId) {
 
         let tracks = [];
         let offset = 0;
-        let limit = 100;
+        const limit = 100;
         let total = 0;
 
         do {
@@ -81,7 +88,7 @@ async function play(client, interaction, lang) {
         let tracksToQueue = [];
         let isPlaylist = false;
 
-        // --- Spotify URL 處理 ---
+        // --- Spotify URL ---
         if (query.includes('spotify.com')) {
             try {
                 const spotifyData = await getData(query);
@@ -102,9 +109,10 @@ async function play(client, interaction, lang) {
                 return interaction.followUp({ content: "❌ Failed to fetch Spotify data." });
             }
         } else {
-            // --- Riffy resolve ---
+            // --- Lavalink resolve ---
             const resolve = await client.riffy.resolve({ query, requester: interaction.user.username });
-            const { loadType, tracks, playlistInfo } = resolve;
+            const { loadType, playlistInfo } = resolve;
+            const tracks = getTracksFromResolve(resolve);
 
             if (loadType === 'playlist') {
                 isPlaylist = true;
@@ -158,7 +166,6 @@ async function play(client, interaction, lang) {
                 }
 
                 const searchResults = tracks.slice(0, 10);
-
                 const options = searchResults.map((track, index) => ({
                     label: track.info.title.length > 95 ? `${track.info.title.slice(0, 95)}...` : track.info.title,
                     value: index.toString(),
@@ -180,56 +187,49 @@ async function play(client, interaction, lang) {
 
                 const reply = await interaction.followUp({ embeds: [searchEmbed], components: [row] });
 
-                // --- 搜尋選單 collector ---
-const filter = (i) => i.user.id === interaction.user.id;
-const collector = reply.createMessageComponentCollector({ filter, time: 60000, max: 1 });
+                // 選單收集
+                const filter = (i) => i.user.id === interaction.user.id;
+                const collector = reply.createMessageComponentCollector({ filter, time: 60000, max: 1 });
 
-collector.on('collect', async (i) => {
-    try {
-        await i.deferUpdate().catch(() => {}); // 保護 interaction 不會過期
+                collector.on('collect', async (i) => {
+                    try {
+                        await i.deferUpdate().catch(() => {});
+                        const selectedIndex = parseInt(i.values[0]);
+                        const selectedTrack = searchResults[selectedIndex];
 
-        const selectedIndex = parseInt(i.values[0]);
-        const selectedTrack = searchResults[selectedIndex];
+                        selectedTrack.info.requester = interaction.user.username;
+                        player.queue.add(selectedTrack);
+                        requesters.set(selectedTrack.info.uri, interaction.user.username);
 
-        selectedTrack.info.requester = interaction.user.username;
-        player.queue.add(selectedTrack);
-        requesters.set(selectedTrack.info.uri, interaction.user.username);
+                        if (!player.playing && !player.paused) player.play();
 
-        if (!player.playing && !player.paused) player.play();
+                        const successEmbed = new EmbedBuilder()
+                            .setColor(config.embedColor)
+                            .setAuthor({ name: "已加入佇列", iconURL: musicIcons.beats2Icon, url: config.SupportServer })
+                            .setDescription(`[${selectedTrack.info.title}](${selectedTrack.info.uri})`)
+                            .addFields(
+                                { name: '演唱者', value: selectedTrack.info.author, inline: true },
+                                { name: '時長', value: `\`${formatDuration(selectedTrack.info.length)}\``, inline: true }
+                            )
+                            .setFooter({ text: `由 ${interaction.user.username} 點播`, iconURL: interaction.user.displayAvatarURL() });
 
-        const successEmbed = new EmbedBuilder()
-            .setColor(config.embedColor)
-            .setAuthor({ name: "已加入佇列", iconURL: musicIcons.beats2Icon, url: config.SupportServer })
-            .setDescription(`[${selectedTrack.info.title}](${selectedTrack.info.uri})`)
-            .addFields(
-                { name: '演唱者', value: selectedTrack.info.author, inline: true },
-                { name: '時長', value: `\`${formatDuration(selectedTrack.info.length)}\``, inline: true }
-            )
-            .setFooter({ text: `由 ${interaction.user.username} 點播`, iconURL: interaction.user.displayAvatarURL() });
+                        await i.editReply({ embeds: [successEmbed], components: [] }).catch(() => {});
+                        setTimeout(() => { i.message.delete().catch(() => {}); }, 3000);
+                    } catch (err) {
+                        console.error('Error handling select menu:', err);
+                    }
+                });
 
-        // 更新訊息
-        await i.editReply({ embeds: [successEmbed], components: [] }).catch(() => {});
+                collector.on('end', (collected, reason) => {
+                    if (reason === 'time' && collected.size === 0) {
+                        const timeoutEmbed = new EmbedBuilder()
+                            .setColor('#ff0000')
+                            .setAuthor({ name: "操作逾時", iconURL: musicIcons.alertIcon, url: config.SupportServer })
+                            .setDescription('你沒有在時間內選擇歌曲，請重新使用 `/play` 指令。');
 
-        // 三秒後自動刪除訊息
-        setTimeout(() => {
-            i.message.delete().catch(() => {});
-        }, 3000);
-
-    } catch (err) {
-        console.error('Error handling select menu:', err);
-    }
-});
-
-collector.on('end', (collected, reason) => {
-    if (reason === 'time' && collected.size === 0) {
-        const timeoutEmbed = new EmbedBuilder()
-            .setColor('#ff0000')
-            .setAuthor({ name: "操作逾時", iconURL: musicIcons.alertIcon, url: config.SupportServer })
-            .setDescription('你沒有在時間內選擇歌曲，請重新使用 `/play` 指令。');
-
-        reply.edit({ embeds: [timeoutEmbed], components: [] }).catch(() => {});
-    }
-});
+                        reply.edit({ embeds: [timeoutEmbed], components: [] }).catch(() => {});
+                    }
+                });
                 return;
             } else if (loadType === 'empty') {
                 const errorEmbed = new EmbedBuilder()
@@ -245,10 +245,11 @@ collector.on('end', (collected, reason) => {
         // --- Spotify playlist track queue ---
         for (const trackQuery of tracksToQueue) {
             const resolve = await client.riffy.resolve({ query: trackQuery, requester: interaction.user.username });
-            if (resolve.tracks.length > 0) {
-                const trackInfo = resolve.tracks[0];
+            const tracks = getTracksFromResolve(resolve);
+            if (tracks.length > 0) {
+                const trackInfo = tracks[0];
                 player.queue.add(trackInfo);
-                requesters.set(trackInfo.uri, interaction.user.username);
+                requesters.set(trackInfo.info.uri, interaction.user.username);
             }
         }
 
