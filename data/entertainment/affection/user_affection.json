@@ -17,11 +17,11 @@
   "627912547672260629": {
     "affection": 67,
     "lastGreetDate": "2025-08-21",
-    "greetCountToday": 2
+    "greetCountToday": 1
   },
   "536441757697703937": {
-    "affection": 64,
-    "lastGreetDate": "2025-08-21",
+    "affection": 63,
+    "lastGreetDate": "2025-08-19",
     "greetCountToday": 1
   },
   "1011155256505274418": {
@@ -45,8 +45,8 @@
     "greetCountToday": 1
   },
   "588366639414902784": {
-    "affection": 8,
-    "lastGreetDate": "2025-08-19",
+    "affection": 9,
+    "lastGreetDate": "2025-08-21",
     "greetCountToday": 1
   },
   "851335430220546088": {
@@ -110,8 +110,8 @@
     "greetCountToday": 3
   },
   "456754459381334016": {
-    "affection": 6,
-    "lastGreetDate": "2025-08-21",
+    "affection": 5,
+    "lastGreetDate": "2025-08-19",
     "greetCountToday": 1
   },
   "1351815357752541187": {
@@ -140,8 +140,8 @@
     "greetCountToday": 1
   },
   "664062748656795649": {
-    "affection": 4,
-    "lastGreetDate": "2025-08-21",
+    "affection": 3,
+    "lastGreetDate": "2025-08-14",
     "greetCountToday": 1
   }
 }
