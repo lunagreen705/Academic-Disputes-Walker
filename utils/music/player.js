@@ -224,18 +224,26 @@ client.riffy.on("nodeDisconnect", (node, reason) => {
             const previousTrack = player.current;
             const nextTrack = await player.autoplay(previousTrack || player);
 
-            if (!nextTrack) {
-                if (channel) await channel.send("⚠️ **播放歌單已耗盡，無意義的連線將被中止**").catch(console.error);
-                if (!player.destroyed) player.destroy();
-            }
-        } else {
-            if (channel) await channel.send("🎶 **歌單終止，自動播放功能亦隨之熄滅。你準備好面對寂靜了嗎？**").catch(console.error);
-            if (!player.destroyed) player.destroy();
+        try {
+    if (!nextTrack) {
+        if (channel) {
+            const msg = await channel.send("⚠️ **播放歌單已耗盡，無意義的連線將被中止**").catch(console.error);
+            if (msg) setTimeout(() => msg.delete().catch(() => {}), 3000);
         }
-    } catch (error) {
-        console.error("Error handling autoplay or queue end:", error);
         if (!player.destroyed) player.destroy();
-        if (channel) await channel.send("👾**已無曲目可用，自動播放失效。我將撤退至以太之中**").catch(console.error);
+    } else {
+        if (channel) {
+            const msg = await channel.send("🎶 **歌單終止，自動播放功能亦隨之熄滅。你準備好面對寂靜了嗎？**").catch(console.error);
+            if (msg) setTimeout(() => msg.delete().catch(() => {}), 3000);
+        }
+        if (!player.destroyed) player.destroy();
+    }
+} catch (error) {
+    console.error("Error handling autoplay or queue end:", error);
+    if (!player.destroyed) player.destroy();
+    if (channel) {
+        const msg = await channel.send("👾**已無曲目可用，自動播放失效。我將撤退至以太之中**").catch(console.error);
+        if (msg) setTimeout(() => msg.delete().catch(() => {}), 3000);
     }
 });
 }
