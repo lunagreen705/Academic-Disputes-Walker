@@ -167,9 +167,9 @@ async function play(client, interaction, lang) {
 
                 const searchResults = tracks.slice(0, 10);
                 const options = searchResults.map((track, index) => ({
-                    label: track.info.title.length > 95 ? `${track.info.title.slice(0, 95)}...` : track.info.title,
+                    label: track.info.title.length > 100 ? `${track.info.title.slice(0, 95)}...` : track.info.title,
                     value: index.toString(),
-                    description: `[${formatDuration(track.info.length)}] - ${track.info.author}`,
+                    description: `[${formatDuration(track.info.length)}] - ${track.info.author}`
                 }));
 
                 const selectMenu = new StringSelectMenuBuilder()
@@ -187,7 +187,6 @@ async function play(client, interaction, lang) {
 
                 const reply = await interaction.followUp({ embeds: [searchEmbed], components: [row] });
 
-                // 選單收集
                 const filter = (i) => i.user.id === interaction.user.id;
                 const collector = reply.createMessageComponentCollector({ filter, time: 60000, max: 1 });
 
@@ -220,14 +219,9 @@ async function play(client, interaction, lang) {
                     }
                 });
 
-                collector.on('end', (collected, reason) => {
+                collector.on('end', async (collected, reason) => {
                     if (reason === 'time' && collected.size === 0) {
-                        const timeoutEmbed = new EmbedBuilder()
-                            .setColor('#ff0000')
-                            .setAuthor({ name: "操作逾時", iconURL: musicIcons.alertIcon, url: config.SupportServer })
-                            .setDescription('你沒有在時間內選擇歌曲，請重新使用 `/play` 指令。');
-
-                        reply.edit({ embeds: [timeoutEmbed], components: [] }).catch(() => {});
+                        await reply.delete().catch(() => {});
                     }
                 });
                 return;
