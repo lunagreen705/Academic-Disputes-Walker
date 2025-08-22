@@ -48,6 +48,18 @@ function initializePlayer(client) {
         reconnectTimeout: 5000,
         reconnectTries: Infinity
     }));
+
+    client.riffy = new Riffy(client, nodes, {
+        send: (payload) => {
+            const guildId = payload.d.guild_id;
+            if (!guildId) return;
+
+            const guild = client.guilds.cache.get(guildId);
+            if (guild) guild.shard.send(payload);
+        },
+        defaultSearchPlatform: "ytmsearch",
+        restVersion: "v4",
+    });
 client.riffy.on("nodeDisconnect", (node, reason) => {
     console.log(`[ LAVALINK ] Node ${node.name} disconnected ❌ | ${reason || "Unknown reason"}`);
     
@@ -64,19 +76,6 @@ client.riffy.on("nodeDisconnect", (node, reason) => {
     };
     setTimeout(tryReconnect, 5000);
 });
-
-    client.riffy = new Riffy(client, nodes, {
-        send: (payload) => {
-            const guildId = payload.d.guild_id;
-            if (!guildId) return;
-
-            const guild = client.guilds.cache.get(guildId);
-            if (guild) guild.shard.send(payload);
-        },
-        defaultSearchPlatform: "ytmsearch",
-        restVersion: "v4",
-    });
-
     client.riffy.on("nodeConnect", node => {
         console.log(`${colors.cyan}[ LAVALINK ]${colors.reset} ${colors.green}Node ${node.name} Connected ✅${colors.reset}`);
     });
