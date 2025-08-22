@@ -48,6 +48,22 @@ function initializePlayer(client) {
         reconnectTimeout: 5000,
         reconnectTries: Infinity
     }));
+client.riffy.on("nodeDisconnect", (node, reason) => {
+    console.log(`[ LAVALINK ] Node ${node.name} disconnected ❌ | ${reason || "Unknown reason"}`);
+    
+    let attempts = 0;
+    const tryReconnect = async () => {
+        try {
+            attempts++;
+            await node.connect();
+            console.log(`[ LAVALINK ] Node ${node.name} reconnected ✅ (after ${attempts} attempts)`);
+        } catch (err) {
+            console.error(`[ LAVALINK ] Node ${node.name} reconnect failed ❌ | ${err.message}`);
+            setTimeout(tryReconnect, 5000);
+        }
+    };
+    setTimeout(tryReconnect, 5000);
+});
 
     client.riffy = new Riffy(client, nodes, {
         send: (payload) => {
