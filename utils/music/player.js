@@ -228,10 +228,16 @@ client.riffy.on("nodeDisconnect", (node, reason) => {
                 if (channel) await channel.send("⚠️ **播放歌單已耗盡，無意義的連線將被中止**").catch(console.error);
                 if (!player.destroyed) player.destroy();
             }
-        } else {
-            if (channel) await channel.send("🎶 **歌單終止，自動播放功能亦隨之熄滅。你準備好面對寂靜了嗎？**").catch(console.error);
-            if (!player.destroyed) player.destroy();
-        }
+} else {
+    if (channel) {
+        channel.send("🎶 **歌單終止，自動播放功能亦隨之熄滅。你準備好面對寂靜了嗎？**")
+            .then(msg => {
+                setTimeout(() => msg.delete().catch(console.error), 3000); // 3秒後刪除
+            })
+            .catch(console.error);
+    }
+    if (!player.destroyed) player.destroy();
+}
     } catch (error) {
         console.error("Error handling autoplay or queue end:", error);
         if (!player.destroyed) player.destroy();
