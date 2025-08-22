@@ -245,7 +245,7 @@ client.riffy.on("nodeDisconnect", (node, reason) => {
         const msg = await channel.send("👾**已無曲目可用，自動播放失效。我將撤退至以太之中**").catch(console.error);
         if (msg) setTimeout(() => msg.delete().catch(() => {}), 3000);
     }
-}
+}); 
 
 async function cleanupPreviousTrackMessages(channel, guildId) {
     const messages = guildTrackMessages.get(guildId) || [];
