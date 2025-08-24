@@ -2,6 +2,8 @@ const { ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
 const { getCollections } = require('../../utils/db/mongodb.js');
 const config = require("../../config.js");
 const musicIcons = require('../../UI/icons/musicicons.js');
+const SpotifyWebApi = require('spotify-web-api-node');
+const { getData } = require('spotify-url-info')(require('node-fetch'));
 
 /**
  * 清理 YouTube URL
@@ -66,7 +68,7 @@ async function playCustomPlaylist(client, interaction, lang) {
             return;
         }
 
-        // 建立連線
+        // 建立 Lavalink 連線
         const player = await client.riffy.createConnection({
             guildId: interaction.guildId,
             voiceChannel: interaction.member.voice.channelId,
@@ -80,22 +82,82 @@ async function playCustomPlaylist(client, interaction, lang) {
 
         for (const song of playlist.songs) {
             try {
-                let query = cleanYouTubeURL(song.url || song.name);
+                let query = song.url || song.name;
 
+                // --- Spotify 處理 ---
+                if (query.includes('spotify.com')) {
+                    const spotifyApi = new SpotifyWebApi({
+                        clientId: process.env.spotifyClientId,
+                        clientSecret: process.env.spotifyClientSecret,
+                    });
+
+                    try {
+                        const spotifyData = await getData(query);
+
+                        // 單曲
+                        if (spotifyData.type === 'track') {
+                            query = `${spotifyData.name} - ${spotifyData.artists.map(a => a.name).join(', ')}`;
+                        }
+
+                        // 歌單
+                        else if (spotifyData.type === 'playlist') {
+                            const match = query.match(/playlist\/([a-zA-Z0-9]+)(\?|$)/);
+                            if (match) {
+                                const playlistId = match[1];
+
+                                const data = await spotifyApi.clientCredentialsGrant();
+                                spotifyApi.setAccessToken(data.body.access_token);
+
+                                let offset = 0;
+                                const limit = 100;
+                                let total = 0;
+                                let tracksInPlaylist = [];
+
+                                do {
+                                    const response = await spotifyApi.getPlaylistTracks(playlistId, { limit, offset });
+                                    total = response.body.total;
+                                    offset += limit;
+
+                                    for (const item of response.body.items) {
+                                        if (item.track && item.track.name && item.track.artists) {
+                                            tracksInPlaylist.push(`${item.track.name} - ${item.track.artists.map(a => a.name).join(', ')}`);
+                                        }
+                                    }
+                                } while (tracksInPlaylist.length < total);
+
+                                // 加入整個 Spotify 歌單
+                                for (const t of tracksInPlaylist) {
+                                    const resolve = await client.riffy.resolve({ query: t, requester: interaction.user.username });
+                                    const track = resolve?.tracks?.[0];
+                                    if (track) {
+                                        player.queue.add(track);
+                                        tracksAdded++;
+                                    }
+                                }
+                                continue; // 已處理 Spotify 歌單，不再解析下面
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Spotify 解析失敗:', err);
+                        continue;
+                    }
+                }
+
+                // --- YouTube 或其他 URL ---
+                query = cleanYouTubeURL(query);
                 const resolve = await client.riffy.resolve({ query, requester: interaction.user.username });
 
                 if (!resolve?.tracks?.length) {
-                    console.log('Failed to resolve:', query, resolve);
+                    console.log('無法解析歌曲:', query);
                     continue;
                 }
 
                 const track = resolve.tracks.shift();
                 player.queue.add(track);
-                console.log('Added track:', track.info.title);
                 tracksAdded++;
 
             } catch (err) {
-                console.error(`Failed to resolve song "${song.name || song.url}":`, err);
+                console.error('解析播放清單歌曲失敗:', song.name || song.url, err);
             }
         }
 
@@ -103,7 +165,7 @@ async function playCustomPlaylist(client, interaction, lang) {
 
         if (tracksAdded > 0) {
             if (!player.playing && !player.paused && player.queue.length > 0) player.play();
-            player.volume.set(50); // 設定音量 50%
+            player.volume.set(50); // 預設音量 50%
         } else {
             const embed = new EmbedBuilder()
                 .setColor('#ff0000')
