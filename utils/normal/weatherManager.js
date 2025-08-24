@@ -70,17 +70,18 @@ async function getEarthquake() {
         const latest = data.records?.Earthquake?.[0];
         if (!latest) return null;
 
-        return {
-            date: latest.EarthquakeInfo?.OriginTime ?? 'N/A',
-            dateLocal: latest.EarthquakeInfo?.OriginTime
-                ? new Date(latest.EarthquakeInfo.OriginTime).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
-                : 'N/A',
-            location: latest.Location ?? '未知地點',
-            magnitude: latest.MagnitudeValue ?? 'N/A',
-            depth: latest.FocalDepth ?? 'N/A',
-            intensity: latest.AreaDesc ?? 'N/A',
-            report: latest.ReportContent ?? ''
-        };
+      return {
+    date: info.OriginTime || 'N/A',
+    dateLocal: info.OriginTime
+        ? new Date(info.OriginTime).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
+        : 'N/A',
+    location: epicenter.Location || '未知地點',
+    magnitude: info.EarthquakeMagnitude?.MagnitudeValue ?? 'N/A',
+    depth: info.FocalDepth ?? 'N/A',
+    report: latest.ReportContent ?? '',
+    reportImage: latest.ReportImageURI ?? null,
+    shakemap: latest.ShakemapImageURI ?? null
+};
     } catch (err) {
         console.error("Earthquake API Error:", err);
         return null;
