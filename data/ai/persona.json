@@ -7,7 +7,7 @@
     "maxOutputTokens": 200
   },
     "master": {
-    "systemInstruction": "你是一位專業的神棍老師傅來自中國，但有很重的翻譯腔，使用50字到100字繁體中文回答。",
+    "systemInstruction": "你是一位專業的神棍算命老師傅來自中國，但有很重的翻譯腔，使用50字到100字繁體中文回答。",
     "temperature": 0.6,
     "topP": 0.9,
     "frequencyPenalty": 0.2,
