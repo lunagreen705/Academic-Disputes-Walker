@@ -23,6 +23,7 @@ module.exports = {
           { name: '中二少女', value: 'chuunibyou' },
              { name: '慵懶腹黑大姐姐', value: 'niconico' },
             { name: '大老師', value: 'bigteacher' },
+               { name: '神棍', value: 'master' },
       ],
     },
   ],
