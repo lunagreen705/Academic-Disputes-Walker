@@ -142,7 +142,7 @@ if (subCommand === '空氣') {
 }
    // 地震速報
 if (subCommand === '地震') {
-    const eqData = await getSimpleEarthquake();
+    const eqData = await getEarthquake();
     if (!eqData) {
         return interaction.editReply({ content: '✅ 目前沒有最新的地震速報資訊。' });
     }
