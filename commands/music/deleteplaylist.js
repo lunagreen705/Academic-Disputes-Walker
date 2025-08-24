@@ -1,10 +1,12 @@
 const { ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
-const { playlistCollection } = require('../../utils/db/mongodb.js');
+const { getCollections } = require('../../utils/db/mongodb.js');
 const musicIcons = require('../../UI/icons/musicicons.js');
 const config = require('../../config.js');
 
 async function deletePlaylist(client, interaction, lang) {
     try {
+        const { playlistCollection } = getCollections(); // ✅ 安全取得集合
+
         const playlistName = interaction.options.getString('name');
         const userId = interaction.user.id;
 

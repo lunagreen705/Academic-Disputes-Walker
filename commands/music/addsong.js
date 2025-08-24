@@ -1,10 +1,13 @@
 const { ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
-const { playlistCollection } = require('../../utils/db/mongodb.js');
+const { getCollections } = require('../../utils/db/mongodb.js');
 const musicIcons = require('../../UI/icons/musicicons.js');
 const config = require('../../config.js');
 
 async function addSong(client, interaction, lang) {
     try {
+        // ✅ 取得集合（每次呼叫命令時）
+        const { playlistCollection } = getCollections();
+
         const playlistName = interaction.options.getString('playlist');
         const songInput = interaction.options.getString('input');
         const userId = interaction.user.id;
@@ -61,7 +64,9 @@ async function addSong(client, interaction, lang) {
                 iconURL: musicIcons.correctIcon,
                 url: config.SupportServer
             })
-            .setDescription(lang.addsong.embed.songAddedDescription.replace("{songInput}", songInput).replace("{playlistName}", playlistName))
+            .setDescription(lang.addsong.embed.songAddedDescription
+                .replace("{songInput}", songInput)
+                .replace("{playlistName}", playlistName))
             .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
             .setTimestamp();
 

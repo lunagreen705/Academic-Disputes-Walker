@@ -1,10 +1,12 @@
 const { ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
-const { playlistCollection } = require('../../utils/db/mongodb.js');
+const { getCollections } = require('../../utils/db/mongodb.js');
 const musicIcons = require('../../UI/icons/musicicons.js');
 const config = require('../../config.js');
 
 async function createPlaylist(client, interaction, lang) {
     try {
+        const { playlistCollection } = getCollections(); // ✅ 取得集合
+
         const playlistName = interaction.options.getString('name');
         const isPrivate = interaction.options.getBoolean('private');
         const userId = interaction.user.id;

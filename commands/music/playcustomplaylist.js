@@ -1,21 +1,18 @@
 const { ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
-const { playlistCollection } = require('../../utils/db/mongodb.js');
+const { getCollections } = require('../../utils/db/mongodb.js');
 const config = require("../../config.js");
 const musicIcons = require('../../UI/icons/musicicons.js');
 
 async function playCustomPlaylist(client, interaction, lang) {
     try {
+        const { playlistCollection } = getCollections(); // ✅ 安全取得集合
         const playlistName = interaction.options.getString('name');
         const userId = interaction.user.id;
 
         if (!interaction.member.voice.channelId) {
             const embed = new EmbedBuilder()
                 .setColor('#ff0000')
-                .setAuthor({ 
-                    name: lang.playCustomPlaylist.embed.error, 
-                    iconURL: musicIcons.alertIcon,
-                    url: config.SupportServer
-                })
+                .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.noVoiceChannel);
 
@@ -27,11 +24,7 @@ async function playCustomPlaylist(client, interaction, lang) {
         if (!playlist) {
             const embed = new EmbedBuilder()
                 .setColor('#ff0000')
-                .setAuthor({ 
-                    name: lang.playCustomPlaylist.embed.error, 
-                    iconURL: musicIcons.alertIcon,
-                    url: config.SupportServer
-                })
+                .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.playlistNotFound);
 
@@ -42,11 +35,7 @@ async function playCustomPlaylist(client, interaction, lang) {
         if (playlist.isPrivate && playlist.userId !== userId) {
             const embed = new EmbedBuilder()
                 .setColor('#ff0000')
-                .setAuthor({ 
-                    name: lang.playCustomPlaylist.embed.accessDenied, 
-                    iconURL: musicIcons.alertIcon,
-                    url: config.SupportServer
-                })
+                .setAuthor({ name: lang.playCustomPlaylist.embed.accessDenied, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.noPermission);
 
@@ -54,14 +43,10 @@ async function playCustomPlaylist(client, interaction, lang) {
             return;
         }
 
-        if (!playlist.songs.length) {
+        if (!playlist.songs || !playlist.songs.length) {
             const embed = new EmbedBuilder()
                 .setColor('#ff0000')
-                .setAuthor({ 
-                    name: lang.playCustomPlaylist.embed.error, 
-                    iconURL: musicIcons.alertIcon,
-                    url: config.SupportServer
-                })
+                .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.emptyPlaylist);
 
@@ -79,30 +64,20 @@ async function playCustomPlaylist(client, interaction, lang) {
         await interaction.deferReply();
 
         for (const song of playlist.songs) {
-            const query = song.url ? song.url : song.name;
-            const resolve = await client.riffy.resolve({ query: query, requester: interaction.user.username });
-            if (!resolve || typeof resolve !== 'object') {
-                throw new TypeError('Resolve response is not an object');
-            }
+            try {
+                const query = song.url || song.name;
+                const resolve = await client.riffy.resolve({ query, requester: interaction.user.username });
 
-            const { loadType, tracks } = resolve;
-            if (loadType === 'track' || loadType === 'search') {
-                const track = tracks.shift();
-                track.info.requester = interaction.user.username;
-                player.queue.add(track);
-            } else {
-                const errorEmbed = new EmbedBuilder()
-                    .setColor(config.embedColor)
-                    .setAuthor({ 
-                        name: lang.playCustomPlaylist.embed.error, 
-                        iconURL: musicIcons.alertIcon,
-                        url: config.SupportServer
-                    })
-                    .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
-                    .setDescription(lang.playCustomPlaylist.embed.errorResolvingSong);
+                if (!resolve || typeof resolve !== 'object') continue;
 
-                await interaction.editReply({ embeds: [errorEmbed] });
-                return;
+                const { loadType, tracks } = resolve;
+                if ((loadType === 'track' || loadType === 'search') && tracks.length) {
+                    const track = tracks.shift();
+                    track.info.requester = interaction.user.username;
+                    player.queue.add(track);
+                }
+            } catch (err) {
+                console.error(`Failed to resolve song "${song.name || song.url}":`, err);
             }
         }
 
@@ -110,11 +85,7 @@ async function playCustomPlaylist(client, interaction, lang) {
 
         const embed = new EmbedBuilder()
             .setColor(config.embedColor)
-            .setAuthor({
-                name: lang.playCustomPlaylist.embed.playingPlaylist,
-                iconURL: musicIcons.beats2Icon,
-                url: config.SupportServer
-            })
+            .setAuthor({ name: lang.playCustomPlaylist.embed.playingPlaylist, iconURL: musicIcons.beats2Icon, url: config.SupportServer })
             .setDescription(lang.playCustomPlaylist.embed.playlistPlaying.replace("{playlistName}", playlistName))
             .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon });
 
@@ -124,11 +95,7 @@ async function playCustomPlaylist(client, interaction, lang) {
         console.error('Error playing custom playlist:', error);
         const errorEmbed = new EmbedBuilder()
             .setColor('#ff0000')
-            .setAuthor({ 
-                name: lang.playCustomPlaylist.embed.error, 
-                iconURL: musicIcons.alertIcon,
-                url: config.SupportServer
-            })
+            .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
             .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
             .setDescription(lang.playCustomPlaylist.embed.errorPlayingPlaylist);
 
@@ -145,12 +112,7 @@ module.exports = {
     description: '播放自訂歌單',
     permissions: '0x0000000000000800',
     options: [
-        {
-            name: 'name',
-            description: '輸入歌單名字',
-            type: ApplicationCommandOptionType.String,
-            required: true
-        }
+        { name: 'name', description: '輸入歌單名字', type: ApplicationCommandOptionType.String, required: true }
     ],
     run: playCustomPlaylist
 };

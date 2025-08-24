@@ -1,10 +1,13 @@
 const { ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
-const { playlistCollection } = require('../../utils/db/mongodb.js');
+const { getCollections } = require('../../utils/db/mongodb.js');
 const musicIcons = require('../../UI/icons/musicicons.js');
 const config = require('../../config.js');
 
 async function toggleAutoplay(client, interaction, lang) {
     try {
+        // ✅ 取得集合
+        const { autoplayCollection } = getCollections();
+
         const enable = interaction.options.getBoolean('enable');
         const guildId = interaction.guild.id;
 

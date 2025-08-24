@@ -1,10 +1,13 @@
 const { EmbedBuilder } = require('discord.js');
-const { playlistCollection } = require('../../utils/db/mongodb.js');
+const { getCollections } = require('../../utils/db/mongodb.js');
 const musicIcons = require('../../UI/icons/musicicons.js');
 const config = require('../../config.js');
 
 async function allPlaylists(client, interaction, lang) {
     try {
+        // ✅ 取得集合
+        const { playlistCollection } = getCollections();
+
         const playlists = await playlistCollection.find({ isPrivate: false }).toArray();
 
         if (!playlists.length) {
