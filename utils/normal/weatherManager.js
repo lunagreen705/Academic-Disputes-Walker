@@ -60,7 +60,6 @@ async function getAirQuality(city) {
     }
 }
 
-// ---------- 地震速報 ----------
 async function getEarthquake() {
     try {
         const url = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization=${API_KEY}&limit=1&format=JSON`;
@@ -70,23 +69,27 @@ async function getEarthquake() {
         const latest = data.records?.Earthquake?.[0];
         if (!latest) return null;
 
-      return {
-    date: info.OriginTime || 'N/A',
-    dateLocal: info.OriginTime
-        ? new Date(info.OriginTime).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
-        : 'N/A',
-    location: epicenter.Location || '未知地點',
-    magnitude: info.EarthquakeMagnitude?.MagnitudeValue ?? 'N/A',
-    depth: info.FocalDepth ?? 'N/A',
-    report: latest.ReportContent ?? '',
-    reportImage: latest.ReportImageURI ?? null,
-    shakemap: latest.ShakemapImageURI ?? null
-};
+        const info = latest.EarthquakeInfo || {};
+        const epicenter = info.Epicenter || {};
+
+        return {
+            date: info.OriginTime || 'N/A',
+            dateLocal: info.OriginTime
+                ? new Date(info.OriginTime).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
+                : 'N/A',
+            location: epicenter.Location || '未知地點',
+            magnitude: info.EarthquakeMagnitude?.MagnitudeValue ?? 'N/A',
+            depth: info.FocalDepth ?? 'N/A',
+            report: latest.ReportContent ?? '',
+            reportImage: latest.ReportImageURI ?? null,
+            shakemap: latest.ShakemapImageURI ?? null
+        };
     } catch (err) {
         console.error("Earthquake API Error:", err);
         return null;
     }
 }
+
 
 // ---------- 颱風 ----------
 async function getTyphoon() {
