@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const cwa = require('../../utils/normal/weatherManager.js'); // 路徑依專案調整
+const cwa = require('../../utils/normal/weatherManager.js'); 
 
 // 🔽 台灣縣市清單 (中央氣象署格式)
 const cityChoices = [
@@ -140,23 +140,26 @@ if (subCommand === '空氣') {
 
     return interaction.editReply({ embeds });
 }
-   // 地震速報
+  // 地震速報
 if (subCommand === '地震') {
-    const eqData = await getEarthquake();
+    // ✅ 從 cwa 呼叫函式
+    const eqData = await cwa.getEarthquake();  
     if (!eqData) {
         return interaction.editReply({ content: '✅ 目前沒有最新的地震速報資訊。' });
     }
+
     const embed = new EmbedBuilder()
         .setColor('#ff4d4d')
         .setTitle('🚨 最新地震速報')
         .setDescription(`**${eqData.location}** 發生有感地震`)
         .addFields(
-            { name: '發生時間', value: eqData.dateLocal, inline: false },
-            { name: '芮氏規模', value: `**${eqData.magnitude}**`, inline: true },
-            { name: '地震深度', value: `${eqData.depth} 公里`, inline: true },
+            { name: '發生時間', value: eqData.dateLocal || 'N/A', inline: false },
+            { name: '芮氏規模', value: `**${eqData.magnitude || 'N/A'}**`, inline: true },
+            { name: '地震深度', value: `${eqData.depth || 'N/A'} 公里`, inline: true },
             { name: '報告內容', value: eqData.report || 'N/A' }
         )
-        .setImage(eqData.shakemap || eqData.reportImage) // 先震度圖，再報告圖
+        // 先顯示震度圖，沒有再顯示報告圖
+        .setImage(eqData.shakemap || eqData.reportImage || null)
         .setTimestamp()
         .setFooter({ text: '資料來源：中央氣象署' });
 

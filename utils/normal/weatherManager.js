@@ -59,7 +59,7 @@ async function getAirQuality(city) {
         return null;
     }
 }
-
+// ---------- 地震 ----------
 async function getEarthquake() {
     try {
         const url = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization=${API_KEY}&limit=1&format=JSON`;
