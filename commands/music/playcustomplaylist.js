@@ -3,6 +3,22 @@ const { getCollections } = require('../../utils/db/mongodb.js');
 const config = require("../../config.js");
 const musicIcons = require('../../UI/icons/musicicons.js');
 
+/**
+ * 清理 YouTube URL
+ * - 將 youtu.be 轉成 youtube.com/watch?v=
+ * - 移除 ?si= 及多餘參數
+ */
+function cleanYouTubeURL(url) {
+    if (!url) return url;
+    if (url.includes('youtu.be')) {
+        url = url.split('?')[0];
+        return url.replace('youtu.be/', 'www.youtube.com/watch?v=');
+    } else if (url.includes('youtube.com/watch')) {
+        return url.split('&')[0]; // 移除多餘參數
+    }
+    return url;
+}
+
 async function playCustomPlaylist(client, interaction, lang) {
     try {
         const { playlistCollection } = getCollections();
@@ -15,7 +31,6 @@ async function playCustomPlaylist(client, interaction, lang) {
                 .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.noVoiceChannel);
-
             await interaction.reply({ embeds: [embed], ephemeral: true });
             return;
         }
@@ -27,7 +42,6 @@ async function playCustomPlaylist(client, interaction, lang) {
                 .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.playlistNotFound);
-
             await interaction.reply({ embeds: [embed], ephemeral: true });
             return;
         }
@@ -38,7 +52,6 @@ async function playCustomPlaylist(client, interaction, lang) {
                 .setAuthor({ name: lang.playCustomPlaylist.embed.accessDenied, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.noPermission);
-
             await interaction.reply({ embeds: [embed], ephemeral: true });
             return;
         }
@@ -49,12 +62,11 @@ async function playCustomPlaylist(client, interaction, lang) {
                 .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.emptyPlaylist);
-
             await interaction.reply({ embeds: [embed], ephemeral: true });
             return;
         }
 
-        // 建立連線並等待完成
+        // 建立連線
         const player = await client.riffy.createConnection({
             guildId: interaction.guildId,
             voiceChannel: interaction.member.voice.channelId,
@@ -68,15 +80,7 @@ async function playCustomPlaylist(client, interaction, lang) {
 
         for (const song of playlist.songs) {
             try {
-                let query = song.url || song.name;
-
-                // 自動清理 YouTube 短網址和 ?si= 參數
-                if (query.includes('youtu.be')) {
-                    query = query.split('?')[0];
-                    query = query.replace('youtu.be/', 'www.youtube.com/watch?v=');
-                } else if (query.includes('youtube.com/watch')) {
-                    query = query.split('&')[0]; // 移除多餘參數
-                }
+                let query = cleanYouTubeURL(song.url || song.name);
 
                 const resolve = await client.riffy.resolve({ query, requester: interaction.user.username });
 
@@ -86,7 +90,6 @@ async function playCustomPlaylist(client, interaction, lang) {
                 }
 
                 const track = resolve.tracks.shift();
-                // track.info.requester = interaction.user.username; // 可選
                 player.queue.add(track);
                 console.log('Added track:', track.info.title);
                 tracksAdded++;
