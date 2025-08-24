@@ -260,10 +260,27 @@ async function play(client, interaction, lang) {
 
     } catch (error) {
         console.error('Error processing play command:', error);
-        if (interaction.deferred || interaction.replied) {
-            await interaction.followUp({ content: "❌ 處理你的請求時發生錯誤。", ephemeral: true });
-        } else {
-            await interaction.reply({ content: "❌ 處理你的請求時發生錯誤。", ephemeral: true });
+
+        const replyPayload = { 
+            content: "❌ 處理你的請求時發生錯誤。", 
+            ephemeral: false 
+        };
+
+        try {
+            let msg;
+            if (interaction.deferred || interaction.replied) {
+                msg = await interaction.followUp(replyPayload);
+            } else {
+                msg = await interaction.reply(replyPayload);
+            }
+
+            // 三秒後自動刪除錯誤提示
+            setTimeout(() => {
+                msg.delete().catch(err => console.error("刪除錯誤訊息失敗:", err));
+            }, 3000);
+
+        } catch (err) {
+            console.error("Failed to send error reply:", err);
         }
     }
 }
