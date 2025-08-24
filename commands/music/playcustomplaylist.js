@@ -2,43 +2,21 @@ const { ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
 const { getCollections } = require('../../utils/db/mongodb.js');
 const config = require("../../config.js");
 const musicIcons = require('../../UI/icons/musicicons.js');
-const { getData } = require('spotify-url-info')(require('node-fetch'));
-const SpotifyWebApi = require('spotify-web-api-node');
 
-const spotifyApi = new SpotifyWebApi({
-    clientId: process.env.spotifyClientId,
-    clientSecret: process.env.spotifyClientSecret,
-});
-
-// Spotify 歌單解析
-async function getSpotifyPlaylistTracks(playlistId) {
-    try {
-        const data = await spotifyApi.clientCredentialsGrant();
-        spotifyApi.setAccessToken(data.body.access_token);
-
-        let tracks = [];
-        let offset = 0;
-        const limit = 100;
-        let total = 0;
-
-        do {
-            const response = await spotifyApi.getPlaylistTracks(playlistId, { limit, offset });
-            total = response.body.total;
-            offset += limit;
-
-            for (const item of response.body.items) {
-                if (item.track && item.track.name && item.track.artists) {
-                    const trackName = `${item.track.name} - ${item.track.artists.map(a => a.name).join(', ')}`;
-                    tracks.push(trackName);
-                }
-            }
-        } while (tracks.length < total);
-
-        return tracks;
-    } catch (error) {
-        console.error("Error fetching Spotify playlist tracks:", error);
-        return [];
+/**
+ * 清理 YouTube URL
+ * - 把 youtu.be 轉成 youtube.com/watch?v=
+ * - 移除 ?si= 及多餘參數
+ */
+function cleanYouTubeURL(url) {
+    if (!url) return url;
+    if (url.includes('youtu.be')) {
+        url = url.split('?')[0];
+        return url.replace('youtu.be/', 'https://www.youtube.com/watch?v=');
+    } else if (url.includes('youtube.com/watch')) {
+        return url.split('&')[0];
     }
+    return url;
 }
 
 async function playCustomPlaylist(client, interaction, lang) {
@@ -53,7 +31,7 @@ async function playCustomPlaylist(client, interaction, lang) {
                 .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.noVoiceChannel);
-            return await interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
         const playlist = await playlistCollection.findOne({ name: playlistName });
@@ -63,7 +41,7 @@ async function playCustomPlaylist(client, interaction, lang) {
                 .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.playlistNotFound);
-            return await interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
         if (playlist.isPrivate && playlist.userId !== userId) {
@@ -72,7 +50,7 @@ async function playCustomPlaylist(client, interaction, lang) {
                 .setAuthor({ name: lang.playCustomPlaylist.embed.accessDenied, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.noPermission);
-            return await interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
         if (!playlist.songs || !playlist.songs.length) {
@@ -81,10 +59,10 @@ async function playCustomPlaylist(client, interaction, lang) {
                 .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.emptyPlaylist);
-            return await interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
-        // 建立 Lavalink 連線
+        // 建立連線
         const player = await client.riffy.createConnection({
             guildId: interaction.guildId,
             voiceChannel: interaction.member.voice.channelId,
@@ -98,40 +76,19 @@ async function playCustomPlaylist(client, interaction, lang) {
 
         for (const song of playlist.songs) {
             try {
-                let query = song.url || song.name;
+                let query = cleanYouTubeURL(song.url || song.name);
 
-                // Spotify URL 處理
-                if (query.includes('spotify.com')) {
-                    const spotifyData = await getData(query);
+                // ✅ 跟 play.js 一樣的邏輯
+                const resolve = await client.riffy.resolve(query, interaction.user);
 
-                    if (spotifyData.type === 'track') {
-                        query = `${spotifyData.name} - ${spotifyData.artists.map(a => a.name).join(', ')}`;
-                    } else if (spotifyData.type === 'playlist') {
-                        const match = query.match(/playlist\/([a-zA-Z0-9]+)(\?|$)/);
-                        if (match) {
-                            const playlistId = match[1];
-                            const spotifyTracks = await getSpotifyPlaylistTracks(playlistId);
-                            for (const t of spotifyTracks) {
-                                const resolve = await client.riffy.resolve({ query: t, requester: interaction.user.username });
-                                if (resolve?.tracks?.length) {
-                                    player.queue.add(resolve.tracks.shift());
-                                    tracksAdded++;
-                                }
-                            }
-                            continue; // Spotify 歌單已加入，跳過下面
-                        }
-                    }
-                }
-
-                // YouTube URL / Lavalink 搜尋
-                const resolve = await client.riffy.resolve({ query, requester: interaction.user.username });
-                if (!resolve?.tracks?.length) {
-                    console.log('無法解析歌曲:', query);
+                if (!resolve || !resolve.tracks || resolve.tracks.length === 0) {
+                    console.log(`無法解析歌曲: ${query}`);
                     continue;
                 }
 
                 const track = resolve.tracks.shift();
                 player.queue.add(track);
+                console.log(`已加入歌曲: ${track.info.title}`);
                 tracksAdded++;
 
             } catch (err) {
@@ -139,25 +96,28 @@ async function playCustomPlaylist(client, interaction, lang) {
             }
         }
 
+        console.log('Total tracks added:', tracksAdded);
+
         if (tracksAdded > 0) {
             if (!player.playing && !player.paused && player.queue.length > 0) player.play();
-            player.volume.set(50);
+            player.volume.set(50); // 預設音量 50%
+
+            const embed = new EmbedBuilder()
+                .setColor(config.embedColor)
+                .setAuthor({ name: lang.playCustomPlaylist.embed.playingPlaylist, iconURL: musicIcons.beats2Icon, url: config.SupportServer })
+                .setDescription(lang.playCustomPlaylist.embed.playlistPlaying.replace("{playlistName}", playlistName))
+                .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon });
+
+            await interaction.editReply({ embeds: [embed] });
+
         } else {
             const embed = new EmbedBuilder()
                 .setColor('#ff0000')
                 .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription('播放列表中沒有可播放的歌曲');
-            return await interaction.followUp({ embeds: [embed], ephemeral: true });
+            await interaction.editReply({ embeds: [embed] });
         }
-
-        const embed = new EmbedBuilder()
-            .setColor(config.embedColor)
-            .setAuthor({ name: lang.playCustomPlaylist.embed.playingPlaylist, iconURL: musicIcons.beats2Icon, url: config.SupportServer })
-            .setDescription(lang.playCustomPlaylist.embed.playlistPlaying.replace("{playlistName}", playlistName))
-            .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon });
-
-        await interaction.followUp({ embeds: [embed] });
 
     } catch (error) {
         console.error('Error playing custom playlist:', error);
