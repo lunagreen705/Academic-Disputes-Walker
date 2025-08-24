@@ -67,36 +67,25 @@ async function getEarthquake() {
         const res = await fetch(url);
         const data = await res.json();
 
-        if (!data.records || !data.records.earthquake?.length) return null;
-
-        const latest = data.records.earthquake[0];
-
-        // 取震度區域，支援多筆
-        const shaking = latest.intensity?.shakingArea ?? [];
-        const intensity = shaking.length
-            ? shaking.map(a => {
-                const area = a.areaDesc ?? a.location ?? '未知區域';
-                const val = a.maxInt ?? a.maxIntensity ?? a.intensity ?? a.level ?? null;
-                return val ? `${area}: ${val}` : area;
-              }).join('\n')
-            : 'N/A';
+        const latest = data.records?.Earthquake?.[0];
+        if (!latest) return null;
 
         return {
-            date: latest.earthquakeInfo?.originTime ?? null, // ISO 字串
-            dateLocal: latest.earthquakeInfo?.originTime
-                ? new Date(latest.earthquakeInfo.originTime).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
+            date: latest.EarthquakeInfo?.OriginTime ?? 'N/A',
+            dateLocal: latest.EarthquakeInfo?.OriginTime
+                ? new Date(latest.EarthquakeInfo.OriginTime).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
                 : 'N/A',
-            location: latest.earthquakeInfo?.epicenter?.location ?? '未知地點',
-            magnitude: latest.earthquakeInfo?.magnitude?.magnitudeValue ?? 'N/A',
-            depth: latest.earthquakeInfo?.focalDepth ?? 'N/A',
-            intensity
+            location: latest.Location ?? '未知地點',
+            magnitude: latest.MagnitudeValue ?? 'N/A',
+            depth: latest.FocalDepth ?? 'N/A',
+            intensity: latest.AreaDesc ?? 'N/A',
+            report: latest.ReportContent ?? ''
         };
     } catch (err) {
         console.error("Earthquake API Error:", err);
         return null;
     }
 }
-
 
 // ---------- 颱風 ----------
 async function getTyphoon() {
@@ -109,24 +98,62 @@ async function getTyphoon() {
         if (!cyclones || cyclones.length === 0) return null;
 
         const latestCyclone = cyclones[0];
+
+        // 取分析資料最新位置
         const fixes = latestCyclone.analysisData?.fix;
         if (!fixes || fixes.length === 0) return null;
-
-        const latestFix = fixes[fixes.length - 1]; // 取最新一筆分析資料
+        const latestFix = fixes[fixes.length - 1];
         const [lon, lat] = latestFix.coordinate.split(',').map(Number);
 
+        // 嘗試抓 forecastData 的 stateTransfers
+        let status = 'N/A';
+        const forecastFixes = latestCyclone.forecastData?.fix;
+        if (forecastFixes && forecastFixes.length > 0) {
+            for (let i = forecastFixes.length - 1; i >= 0; i--) {
+                const fix = forecastFixes[i];
+                if (fix.stateTransfers) {
+                    const zh = fix.stateTransfers.find(s => s.lang === 'zh-hant');
+                    if (zh) {
+                        status = zh.value;
+                        break;
+                    }
+                }
+            }
+        }
+
         return {
-    name: latestCyclone.cwaTyphoonName || '未知', // 中文名
-    enName: latestCyclone.typhoonName || 'N/A', // 英文名
-    status: latestFix.stateTransfers?.find(s => s.lang === 'zh-hant')?.value
-            || 'N/A', // 狀態
-    lat,
-    lon,
-    windSpeed: latestFix.maxWindSpeed ?? 0
-};
+            name: latestCyclone.cwaTyphoonName || '未知', // 中文名
+            enName: latestCyclone.typhoonName || 'N/A', // 英文名
+            status, // 狀態
+            lat,
+            lon,
+            windSpeed: latestFix.maxWindSpeed ?? 0
+        };
 
     } catch (err) {
         console.error("Typhoon API Error:", err);
+        return null;
+    }
+}
+//豪大雨特報
+async function getHeavyRain() {
+    try {
+        const url = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${API_KEY}&limit=1&format=JSON`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        const latest = data.records?.location?.[0]; // 取最新一筆
+        if (!latest) return null;
+
+        return {
+            location: latest.locationName ?? '未知地點',
+            startTime: latest.startTime ?? 'N/A',
+            endTime: latest.endTime ?? 'N/A',
+            rainfall: latest.parameter?.parameterName ?? 'N/A',
+            description: latest.parameter?.parameterValue ?? 'N/A'
+        };
+    } catch (err) {
+        console.error("Heavy Rain API Error:", err);
         return null;
     }
 }
@@ -136,5 +163,7 @@ module.exports = {
     getWeather,
     getAirQuality,
     getEarthquake,
+    getHeavyRain,
     getTyphoon
 };
+
