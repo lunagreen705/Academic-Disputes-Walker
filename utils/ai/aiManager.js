@@ -74,7 +74,7 @@ const personaName = getPersona(sessionId) || "bigteacher";
  * @returns {Promise<string>} - AI 生成的塔羅解讀內容。
  */
 async function getTarotAIResponse(rawPrompt) {
-  const personaName = "bro";
+  const personaName = "master";
   const personaConfig = aiConfig[personaName];
 
   const systemInstruction = personaConfig.systemInstruction || "你是一位帥氣的塔羅師，請用繁體中文提供靈性且專業的解讀。";
