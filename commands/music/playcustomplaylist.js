@@ -5,7 +5,7 @@ const musicIcons = require('../../UI/icons/musicicons.js');
 
 async function playCustomPlaylist(client, interaction, lang) {
     try {
-        const { playlistCollection } = getCollections(); // ✅ 安全取得集合
+        const { playlistCollection } = getCollections();
         const playlistName = interaction.options.getString('name');
         const userId = interaction.user.id;
 
@@ -54,7 +54,8 @@ async function playCustomPlaylist(client, interaction, lang) {
             return;
         }
 
-        const player = client.riffy.createConnection({
+        // 建立連線並等待完成
+        const player = await client.riffy.createConnection({
             guildId: interaction.guildId,
             voiceChannel: interaction.member.voice.channelId,
             textChannel: interaction.channelId,
@@ -63,25 +64,52 @@ async function playCustomPlaylist(client, interaction, lang) {
 
         await interaction.deferReply();
 
+        let tracksAdded = 0;
+
         for (const song of playlist.songs) {
             try {
-                const query = song.url || song.name;
+                let query = song.url || song.name;
+
+                // 自動清理 YouTube 短網址和 ?si= 參數
+                if (query.includes('youtu.be')) {
+                    query = query.split('?')[0];
+                    query = query.replace('youtu.be/', 'www.youtube.com/watch?v=');
+                } else if (query.includes('youtube.com/watch')) {
+                    query = query.split('&')[0]; // 移除多餘參數
+                }
+
                 const resolve = await client.riffy.resolve({ query, requester: interaction.user.username });
 
-                if (!resolve || typeof resolve !== 'object') continue;
-
-                const { loadType, tracks } = resolve;
-                if ((loadType === 'track' || loadType === 'search') && tracks.length) {
-                    const track = tracks.shift();
-                    track.info.requester = interaction.user.username;
-                    player.queue.add(track);
+                if (!resolve?.tracks?.length) {
+                    console.log('Failed to resolve:', query, resolve);
+                    continue;
                 }
+
+                const track = resolve.tracks.shift();
+                // track.info.requester = interaction.user.username; // 可選
+                player.queue.add(track);
+                console.log('Added track:', track.info.title);
+                tracksAdded++;
+
             } catch (err) {
                 console.error(`Failed to resolve song "${song.name || song.url}":`, err);
             }
         }
 
-        if (!player.playing && !player.paused) player.play();
+        console.log('Total tracks added:', tracksAdded);
+
+        if (tracksAdded > 0) {
+            if (!player.playing && !player.paused && player.queue.length > 0) player.play();
+            player.volume.set(50); // 設定音量 50%
+        } else {
+            const embed = new EmbedBuilder()
+                .setColor('#ff0000')
+                .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
+                .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
+                .setDescription('播放列表中沒有可播放的歌曲');
+            await interaction.followUp({ embeds: [embed], ephemeral: true });
+            return;
+        }
 
         const embed = new EmbedBuilder()
             .setColor(config.embedColor)
