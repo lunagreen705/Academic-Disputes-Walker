@@ -63,7 +63,7 @@ async function getAirQuality(city) {
 // ---------- 地震速報 ----------
 async function getEarthquake() {
     try {
-        const url = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization=${API_KEY}`;
+        const url = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization=${API_KEY}&limit=1&format=JSON`;
         const res = await fetch(url);
         const data = await res.json();
 
@@ -71,18 +71,32 @@ async function getEarthquake() {
 
         const latest = data.records.earthquake[0];
 
+        // 取震度區域，支援多筆
+        const shaking = latest.intensity?.shakingArea ?? [];
+        const intensity = shaking.length
+            ? shaking.map(a => {
+                const area = a.areaDesc ?? a.location ?? '未知區域';
+                const val = a.maxInt ?? a.maxIntensity ?? a.intensity ?? a.level ?? null;
+                return val ? `${area}: ${val}` : area;
+              }).join('\n')
+            : 'N/A';
+
         return {
-            date: latest.earthquakeInfo.originTime,
-            location: latest.earthquakeInfo.epicenter.location,
-            magnitude: latest.earthquakeInfo.magnitude.magnitudeValue,
-            depth: latest.earthquakeInfo.focalDepth,
-            intensity: latest.intensity.shakingArea[0]?.areaDesc || "N/A"
+            date: latest.earthquakeInfo?.originTime ?? null, // ISO 字串
+            dateLocal: latest.earthquakeInfo?.originTime
+                ? new Date(latest.earthquakeInfo.originTime).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
+                : 'N/A',
+            location: latest.earthquakeInfo?.epicenter?.location ?? '未知地點',
+            magnitude: latest.earthquakeInfo?.magnitude?.magnitudeValue ?? 'N/A',
+            depth: latest.earthquakeInfo?.focalDepth ?? 'N/A',
+            intensity
         };
     } catch (err) {
         console.error("Earthquake API Error:", err);
         return null;
     }
 }
+
 
 // ---------- 颱風 ----------
 async function getTyphoon() {
@@ -102,12 +116,15 @@ async function getTyphoon() {
         const [lon, lat] = latestFix.coordinate.split(',').map(Number);
 
         return {
-            name: latestCyclone.typhoonName || latestCyclone.cwaTyphoonName,
-            status: latestCyclone.typhoonStatus || 'N/A',
-            lat,
-            lon,
-            windSpeed: latestFix.maxWindSpeed
-        };
+    name: latestCyclone.cwaTyphoonName || '未知', // 中文名
+    enName: latestCyclone.typhoonName || 'N/A', // 英文名
+    status: latestFix.stateTransfers?.find(s => s.lang === 'zh-hant')?.value
+            || 'N/A', // 狀態
+    lat,
+    lon,
+    windSpeed: latestFix.maxWindSpeed ?? 0
+};
+
     } catch (err) {
         console.error("Typhoon API Error:", err);
         return null;

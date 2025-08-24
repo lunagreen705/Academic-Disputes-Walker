@@ -140,28 +140,30 @@ if (subCommand === '空氣') {
 
     return interaction.editReply({ embeds });
 }
-        // 地震速報
-        if (subCommand === '地震') {
-            const eqData = await cwa.getEarthquake();
-            if (!eqData) {
-                return interaction.editReply({ content: '✅ 目前沒有最新的地震速報資訊。' });
-            }
+   // 地震速報
+if (subCommand === '地震') {
+    const eqData = await cwa.getEarthquake();
+    if (!eqData) {
+        return interaction.editReply({ content: '✅ 目前沒有最新的地震速報資訊。' });
+    }
 
-            const embed = new EmbedBuilder()
-                .setColor('#ff4d4d')
-                .setTitle('🚨 最新地震速報')
-                .setDescription(`**${eqData.location}** 發生有感地震`)
-                .addFields(
-                    { name: '發生時間', value: eqData.date },
-                    { name: '芮氏規模', value: `**${eqData.magnitude}**`, inline: true },
-                    { name: '地震深度', value: `${eqData.depth} 公里`, inline: true },
-                    { name: '各地最大震度', value: eqData.intensity }
-                )
-                .setTimestamp()
-                .setFooter({ text: '資料來源：中央氣象署' });
+    const truncate = (s, n = 1024) => (s && s.length > n ? s.slice(0, n - 3) + '...' : (s ?? 'N/A'));
 
-            return interaction.editReply({ embeds: [embed] });
-        }
+    const embed = new EmbedBuilder()
+        .setColor('#ff4d4d')
+        .setTitle('🚨 最新地震速報')
+        .setDescription(`**${eqData.location ?? '未知地點'}** 發生有感地震`)
+        .addFields(
+            { name: '發生時間', value: eqData.dateLocal ?? 'N/A', inline: false },
+            { name: '芮氏規模', value: `**${eqData.magnitude ?? 'N/A'}**`, inline: true },
+            { name: '地震深度', value: `${eqData.depth ?? 'N/A'} 公里`, inline: true },
+            { name: '各地最大震度', value: truncate(eqData.intensity) }
+        )
+        .setTimestamp()
+        .setFooter({ text: '資料來源：中央氣象署' });
+
+    return interaction.editReply({ embeds: [embed] });
+}
 
         // 颱風
         if (subCommand === '颱風') {
