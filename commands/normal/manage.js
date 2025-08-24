@@ -37,6 +37,11 @@ module.exports = {
         },
       ],
     },
+    {
+      name: 'clear',
+      description: '清除頻道前五條訊息',
+      type: 1, // SUB_COMMAND
+    },
   ],
 
   run: async (client, interaction) => {
@@ -116,6 +121,22 @@ module.exports = {
       } catch (err) {
         return interaction.reply({
           content: `⚠️ 無法取得成員名單：${err.message}，請確認已開啟 SERVER MEMBERS INTENT。`,
+          ephemeral: true,
+        });
+      }
+    }
+
+    if (subCommand === 'clear') {
+      try {
+        const fetched = await interaction.channel.messages.fetch({ limit: 5 });
+        await interaction.channel.bulkDelete(fetched, true);
+        return interaction.reply({
+          content: `🧹 已清除頻道前五條訊息。`,
+          ephemeral: true,
+        });
+      } catch (err) {
+        return interaction.reply({
+          content: `⚠️ 清除訊息失敗：${err.message}`,
           ephemeral: true,
         });
       }
