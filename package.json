@@ -15,7 +15,7 @@
     "musicard": "^2.0.5",
     "node-fetch": "^2.7.0",
     "node-cron": "^3.0.0",  
-    "riffy": "^2.0.5",
+    "riffy": "^1.0.7",
     "songcard": "^1.2.13",
     "spotify-url-info": "^3.2.18",
     "spotify-web-api-node": "^5.0.2",
