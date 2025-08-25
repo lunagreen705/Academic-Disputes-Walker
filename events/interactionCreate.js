@@ -180,65 +180,48 @@ module.exports = async (client, interaction) => {
             return;
         }
 
-      // ============================
-//      斜線指令處理
-// ============================
-if (interaction.type === InteractionType.ApplicationCommand) {
-    const command = client.commands.get(interaction.commandName);
-    if (!command) {
-        return interaction.reply({
-            content: lang.errors?.commandNotFound || "⚠️ 指令不存在。",
-            ephemeral: true
-        });
-    }
+        // ============================
+        //      斜線指令處理
+        // ============================
+        if (interaction.type === InteractionType.ApplicationCommand) {
+            const command = client.commands.get(interaction.commandName);
+            if (!command) {
+                return interaction.reply({
+                    content: lang.errors?.commandNotFound || "⚠️ 指令不存在。",
+                    ephemeral: true
+                });
+            }
 
-    const defaultPermissions = '0x0000000000000800';
-    const requiredPermissions = command.permissions || defaultPermissions;
-    if (!interaction.member.permissions.has(requiredPermissions)) {
-        return interaction.reply({
-            content: lang.errors?.noPermission || "⚠️ 你沒有權限使用此指令。",
-            ephemeral: true
-        });
-    }
+            const defaultPermissions = '0x0000000000000800';
+            const requiredPermissions = command.permissions || defaultPermissions;
+            if (!interaction.member.permissions.has(requiredPermissions)) {
+                return interaction.reply({
+                    content: lang.errors?.noPermission || "⚠️ 你沒有權限使用此指令。",
+                    ephemeral: true
+                });
+            }
 
-    // ▼▼▼ 修改的核心邏輯開始 ▼▼▼
+            try {
+                await command.run(client, interaction, lang);
+            } catch (e) {
+                console.error(`❌ Command execution error for /${interaction.commandName}: ${e.stack || e}`);
+                const errorMessage = lang.errors?.generalError?.replace("{error}", e.message) 
+                    || `⚠️ 指令執行錯誤：${e.message}`;
 
-    // 檢查指令檔中是否有 'showModal' 屬性，以此判斷是否為 Modal 指令
-    const isModalCommand = command.showModal;
-
-    // 如果不是 Modal 指令，就先延遲回覆，避免 3 秒超時
-    if (!isModalCommand) {
-        await interaction.deferReply();
-    }
-
-    // ▲▲▲ 修改的核心邏輯結束 ▲▲▲
-
-    try {
-        // 現在可以安全地執行指令
-        // - 普通指令已經被 defer，可以在 run 裡面用 editReply
-        // - Modal 指令的 interaction 尚未被回覆，可以在 run 裡面用 showModal
-        await command.run(client, interaction, lang);
-
-    } catch (e) {
-        console.error(`❌ Command execution error for /${interaction.commandName}: ${e.stack || e}`);
-        const errorMessage = lang.errors?.generalError?.replace("{error}", e.message) 
-            || `⚠️ 指令執行錯誤：${e.message}`;
-
-        // 這裡的錯誤處理邏輯已經很完善，可以正確處理已延遲和未延遲的情況
-        if (interaction.deferred || interaction.replied) {
-            await interaction.editReply({
-                content: errorMessage,
-                embeds: [],
-                components: []
-            }).catch(console.error);
-        } else {
-            await interaction.reply({
-                content: errorMessage,
-                ephemeral: true
-            }).catch(console.error);
+                if (interaction.deferred || interaction.replied) {
+                    await interaction.editReply({
+                        content: errorMessage,
+                        embeds: [],
+                        components: []
+                    }).catch(console.error);
+                } else {
+                    await interaction.reply({
+                        content: errorMessage,
+                        ephemeral: true
+                    }).catch(console.error);
+                }
+            }
         }
-    }
-}
 
     } catch (e) {
         console.error("❌ A critical error occurred in the interaction handler:", e.stack || e);
