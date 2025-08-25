@@ -3,11 +3,16 @@ const { google } = require('googleapis');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const fs = require('fs');
 const { getAuth } = require('../auth/oauth2'); 
-const parentCache = new Map();
-const PARENT_CACHE_TTL = 1000 * 60 * 30; // 30 分鐘
+// --- 快取機制 ---
+// 快取圖書館內所有資料夾 ID 的快取物件。
+const folderIdCache = {
+    ids: null,
+    timestamp: 0,
+};
+const FOLDER_CACHE_TTL = 1000 * 60 * 30; // 資料夾結構的快取時間為 30 分鐘
 
 // --- 服務帳戶認證 (用於查詢功能) ---
-// 從 Secret Manager 讀取並解析 Google Service Account 的憑證 (保持不變)
+// 從 Secret Manager 讀取並解析 Google Service Account 的憑證 
 const serviceAccountData = fs.readFileSync('/etc/secrets/GOOGLE_SERVICE_ACCOUNT_JSON', 'utf8');
 const serviceAccountCredentials = JSON.parse(serviceAccountData);
 
@@ -17,17 +22,17 @@ const serviceAccountAuth = new google.auth.GoogleAuth({
   scopes: ['https://www.googleapis.com/auth/drive.readonly'], 
 });
 
-// 建立 Google Drive API 客戶端 (用於查詢功能)
+// 建立 Google Drive API 客戶端 (查詢功能)
 const drive = google.drive({ version: 'v3', auth: serviceAccountAuth });
 // ------------------------------------
 
-// --- 常數設定 (保持不變) ---
+// --- 常數設定 ---
 const LIBRARY_FOLDER_ID = '1NNbsjeQZrG8MQABXwf8nqaIHgRtO4_sY'; // 圖書館根目錄的 Google Drive 資料夾 ID
 const BOOKSPAGE = 5; // 在瀏覽模式下，每頁顯示的項目數量
 const SUPPORTED_EXTENSIONS = ['pdf', 'epub', 'mobi', 'azw3', 'txt', 'doc', 'docx', 'odt', 'rtf', 'html', 'md', 'xlsx', 'jpg']; // 支援的檔案類型
 
 /**
- * 檢查檔案名稱是否為支援的書籍格式。(保持不變)
+ * 檢查檔案名稱是否為支援的書籍格式。
  * @param {string} fileName - 要檢查的檔案名稱。
  * @returns {boolean} 如果支援則返回 true，否則返回 false。
  */
@@ -35,10 +40,50 @@ function isSupportedFile(fileName) {
   const ext = fileName.split('.').pop().toLowerCase();
   return SUPPORTED_EXTENSIONS.includes(ext);
 }
+/**
+ * 輔助函式與快取邏輯
+ * 遞迴地獲取圖書館主資料夾內的所有資料夾 ID。
+ * 結果會被快取，以避免在後續的搜尋中重複發起 API 呼叫。
+ * @returns {Promise<string[]>} 一個包含所有資料夾 ID 的扁平化陣列。
+ */
+async function getAllLibraryFolderIds() {
+    // 首先檢查快取
+    if (folderIdCache.ids && (Date.now() - folderIdCache.timestamp) < FOLDER_CACHE_TTL) {
+        console.log('[INFO] 正在使用快取的資料夾 ID 列表。');
+        return folderIdCache.ids;
+    }
 
-// 以下所有查詢功能 (listSubfolders, listAllBooksRecursively, listBooksAtLevel, searchBooks, getRandomBook, getLibraryStat, autocompleteCategory)
-// 都將繼續使用 `drive` 物件 (由 serviceAccountAuth 建立)，因此不需要修改。
-// ... (所有你原有的查詢相關函數，從 listSubfolders 到 autocompleteCategory，請原樣保留) ...
+    console.log('[INFO] 快取過期或為空。正在重新獲取圖書館資料夾結構...');
+    // 使用 Set 來自動處理重複的 ID，並從根目錄開始
+    const allFolderIds = new Set([LIBRARY_FOLDER_ID]); 
+
+    async function fetchSubfolders(currentFolderId) {
+        try {
+            const res = await drive.files.list({
+                q: `'${currentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed = false`,
+                fields: 'files(id)',
+            });
+            const subfolders = res.data.files || [];
+
+            // 使用 Promise.all 來並行處理下一層的遞迴，加快速度
+            await Promise.all(subfolders.map(async (folder) => {
+                allFolderIds.add(folder.id);
+                await fetchSubfolders(folder.id); // 遞迴呼叫
+            }));
+        } catch (err) {
+            console.error(`[ERROR] 無法獲取資料夾 ${currentFolderId} 的子資料夾: ${err.message}`);
+        }
+    }
+
+    await fetchSubfolders(LIBRARY_FOLDER_ID);
+
+    // 更新快取
+    folderIdCache.ids = Array.from(allFolderIds);
+    folderIdCache.timestamp = Date.now();
+    
+    console.log(`[INFO] 已快取 ${folderIdCache.ids.length} 個資料夾 ID。`);
+    return folderIdCache.ids;
+}
 /**
  * 列出指定資料夾 ID 下的子資料夾。
  * 讓 listSubfolders 更靈活，若未提供 parentId，則預設使用根目錄。
@@ -105,74 +150,63 @@ async function listBooksAtLevel(folderId) {
 }
 
 /**
- * 使用 Google Drive 的搜尋功能，搜尋整個圖書館資料夾結構中的電子書。
+ * 優化後的搜尋函式
+ * 使用預先獲取的所有圖書館資料夾 ID 列表，來執行單一且高效的搜尋查詢。
  * @param {string} keyword - 搜尋的關鍵字。
  * @returns {Promise<Array<Object>>} 搜尋結果的電子書列表。
  */
 async function searchBooks(keyword) {
   try {
     if (typeof keyword !== 'string' || !keyword?.trim()) {
-      console.warn(`[WARN] Invalid or empty keyword provided for searchBooks: ${keyword}`);
+      console.warn(`[WARN] searchBooks 提供了無效或為空的關鍵字: ${keyword}`);
       return [];
     }
+    
+    // 1. 獲取所有資料夾 ID (從快取或重新獲取)
+    const allFolderIds = await getAllLibraryFolderIds();
+    if (allFolderIds.length === 0) {
+        console.warn('[WARN] 找不到可用於搜尋的圖書館資料夾。');
+        return [];
+    }
 
+    // 2. 準備查詢語句的各個部分
     const safeKeyword = keyword.trim().replace(/'/g, "\\'").replace(/"/g, '\\"');
+    const parentQueries = allFolderIds.map(id => `'${id}' in parents`);
+    const supportedMimeTypesQuery = "mimeType != 'application/vnd.google-apps.folder'";
 
-    const res = await drive.files.list({ // <-- 這裡繼續使用 serviceAccountAuth 建立的 drive
-      q: `name contains '${safeKeyword}' and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
-      fields: 'files(id, name, webViewLink, webContentLink, mimeType, parents)',
-      corpora: 'user',
+    // 3. 建構最終的、強大的查詢語句
+    const fullQuery = [
+      `name contains '${safeKeyword}'`,
+      `(${parentQueries.join(' or ')})`, // 關鍵：搜尋所有可能的父資料夾
+      supportedMimeTypesQuery,
+      'trashed = false'
+    ].join(' and ');
+
+
+    // 4. 執行這一次高效的 API 呼叫
+    const res = await drive.files.list({
+      q: fullQuery,
+      fields: 'files(id, name, webViewLink, webContentLink, mimeType)',
+      corpora: 'user', // 對於搜尋與服務帳戶共享的資料夾很重要
+      pageSize: 100, // 可選：一次獲取更多結果
     });
 
     const files = res.data.files || [];
-    const validFiles = [];
 
-    async function isInLibraryFolder(fileId) {
-      const cacheKey = fileId;
-      if (parentCache.has(cacheKey) && (Date.now() - parentCache.get(cacheKey).timestamp) < PARENT_CACHE_TTL) {
-        return parentCache.get(cacheKey).isInLibrary;
-      }
+    // 5. 映射結果 (不再需要額外的過濾)
+    return files
+      .filter(file => isSupportedFile(file.name)) // 最好還是再次確認一下副檔名
+      .map(file => ({
+        id: file.id,
+        name: file.name,
+        webViewLink: file.webViewLink,
+        webContentLink: file.webContentLink,
+        mimeType: file.mimeType,
+        downloadLink: file.webContentLink || file.webViewLink || null,
+      }));
 
-      try {
-        const fileRes = await drive.files.get({ // <-- 這裡繼續使用 serviceAccountAuth 建立的 drive
-          fileId,
-          fields: 'parents',
-        });
-        const parents = fileRes.data.parents || [];
-        if (parents.includes(LIBRARY_FOLDER_ID)) {
-          parentCache.set(cacheKey, { isInLibrary: true, timestamp: Date.now() });
-          return true;
-        }
-        for (const parentId of parents) {
-          if (await isInLibraryFolder(parentId)) {
-            parentCache.set(cacheKey, { isInLibrary: true, timestamp: Date.now() });
-            return true;
-          }
-        }
-        parentCache.set(cacheKey, { isInLibrary: false, timestamp: Date.now() });
-        return false;
-      } catch (err) {
-        console.error(`[ERROR] Failed to check parent for file ${fileId}: ${err.message}`);
-        return false;
-      }
-    }
-
-    for (const file of files) {
-      if (isSupportedFile(file.name) && await isInLibraryFolder(file.id)) {
-        validFiles.push({
-          id: file.id,
-          name: file.name,
-          webViewLink: file.webViewLink,
-          webContentLink: file.webContentLink,
-          mimeType: file.mimeType,
-          downloadLink: file.webContentLink || file.webViewLink || null,
-        });
-      }
-    }
-
-    return validFiles;
   } catch (error) {
-    console.error(`[ERROR] searchBooks failed: ${error.message}, keyword: ${keyword ?? 'undefined'}`);
+    console.error(`[ERROR] searchBooks 執行失敗: ${error.message}, 關鍵字: ${keyword ?? 'undefined'}`);
     throw new Error(`搜尋書籍失敗: ${error.message}`);
   }
 }
@@ -223,8 +257,7 @@ async function autocompleteCategory(partial) {
 }
 
 
-// --- 以下是建立 Embed 和 Button 的輔助函式 (保持不變) ---
-// ... (所有 createPaginatedEmbed 到 createRandomBookEmbed 函數，請原樣保留) ...
+// --- 建立 Embed 和 Button 的輔助函式  ---
 
 function createPaginatedEmbed(categoryName, files, page = 0) {
   const start = page * BOOKSPAGE;

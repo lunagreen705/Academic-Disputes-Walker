@@ -3,7 +3,7 @@ const { PermissionFlagsBits } = require('discord.js');
 const config = require('../../config');
 
 module.exports = {
-  name: 'guilds',
+  name: 'manage',
   description: '伺服器管理',
   options: [
     {

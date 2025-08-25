@@ -5,6 +5,14 @@ const allCards = require('../../data/entertainment/tarot/cards.json');
 const allSpreads = require('../../data/entertainment/tarot/spreads.json');
 const config = require("../../config.js");
 
+// --- 常數設定區，方便統一管理 ---
+const PENDING_TIMEOUT_MS = 5 * 60 * 1000; // 5 分鐘
+const DEFAULT_QUESTION = "請給我現在最需要的綜合指引。";
+const AI_FALLBACK_RESPONSE = "解讀時遇到了一些困難，塔羅師累了，暫時沒有給出回應。";
+const MISSING_QUESTION_ERROR = "找不到您最初的問題。可能因為等待時間過長或機器人重啟，請重新發起占卜。";
+const SPREAD_NOT_FOUND_ERROR = "找不到對應的牌陣資訊。";
+// ---
+
 // 使用 Map 物件作為暫存快取，處理多使用者同時占卜的狀態
 const pendingReadings = new Map();
 
@@ -14,6 +22,7 @@ const pendingReadings = new Map();
 function drawCards(numToDraw) {
     const deck = [...allCards];
     const drawn = [];
+    // Fisher-Yates Shuffle 演算法
     for (let i = deck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -81,26 +90,27 @@ module.exports = {
 
     run: async (client, interaction, lang) => {
         try {
-            let userQuestion = interaction.options.getString('question');
-            if (!userQuestion) {
-                userQuestion = "請給我指引。";
-            }
+            const userQuestion = interaction.options.getString('question') || DEFAULT_QUESTION;
 
-            // 將問題存入暫存，以使用者ID為key
-            pendingReadings.set(interaction.user.id, userQuestion);
-            
-            // 設定5分鐘後自動清除，避免使用者未選擇而造成記憶體洩漏
-            setTimeout(() => {
+            // 【改善點】設定5分鐘後自動清除的計時器
+            const timeoutId = setTimeout(() => {
                 if (pendingReadings.has(interaction.user.id)) {
                     pendingReadings.delete(interaction.user.id);
+                    console.log(`已自動清除超時的占卜請求: ${interaction.user.id}`);
                 }
-            }, 5 * 60 * 1000); 
+            }, PENDING_TIMEOUT_MS);
 
+            // 【改善點】將問題和計時器ID都存入暫存
+            pendingReadings.set(interaction.user.id, {
+                question: userQuestion,
+                timeout: timeoutId,
+            });
+            
             const embed = new EmbedBuilder()
                 .setColor(config.embedColor || '#8A2BE2')
                 .setTitle('🔮 塔羅占卜')
                 .setDescription(`**你的問題是：**\n> ${userQuestion}\n\n請從下方的選單中，選擇一個你想要的牌陣來進行抽牌。`)
-                .setFooter({ text: '請在 5 分鐘內做出選擇' });
+                .setFooter({ text: `請在 ${PENDING_TIMEOUT_MS / 60 / 1000} 分鐘內做出選擇` });
 
             const spreadOptions = Object.keys(allSpreads).map(key => ({
                 label: `${allSpreads[key].name} (${allSpreads[key].cards_to_draw}張牌)`,
@@ -131,23 +141,24 @@ module.exports = {
 
     handleSelectMenu: async (client, interaction, lang) => {
         try {
-            // 立即更新訊息，防止超時並提供良好UX
+            // 【改善點】提供更明確的等待訊息，改善使用者體驗
             await interaction.update({
-                content: '🔮 正在為您洗牌抽牌請稍候...',
+                content: '🔮 洗牌完畢，正在為您召喚塔羅師進行解讀，請靜心等候...',
                 embeds: [],
                 components: []
             });
 
-            const userQuestion = pendingReadings.get(interaction.user.id);
+            const readingData = pendingReadings.get(interaction.user.id);
 
-            if (!userQuestion) {
-                throw new Error("找不到您最初的問題。可能因為等待時間過長或機器人重啟，請重新發起占卜。");
+            if (!readingData) {
+                throw new Error(MISSING_QUESTION_ERROR);
             }
+            const userQuestion = readingData.question;
 
             const spreadKey = interaction.values[0];
             const spread = allSpreads[spreadKey];
             if (!spread) {
-                throw new Error("找不到對應的牌陣資訊。");
+                throw new Error(SPREAD_NOT_FOUND_ERROR);
             }
             
             const drawnCards = drawCards(spread.cards_to_draw);
@@ -166,7 +177,8 @@ module.exports = {
                 .setColor('#4E9F3D')
                 .setTitle('🔮 塔羅占卜結果')
                 .setDescription(resultDescription)
-                .addFields({ name: '🧠 綜合解讀', value: aiInterpretation || "累了，沒有給出回應。" })
+                // 提示：若能確保 AI 回應格式，可將 aiInterpretation 字串分割後放入多個 Field，排版更佳
+                .addFields({ name: '🧠 綜合解讀', value: aiInterpretation || AI_FALLBACK_RESPONSE })
                 .setFooter({ text: `由 ${interaction.user.username} 占卜`, iconURL: interaction.user.displayAvatarURL() })
                 .setTimestamp();
 
@@ -178,9 +190,15 @@ module.exports = {
                 content: e.message || "處理您的請求時發生錯誤。",
                 embeds: [],
                 components: []
-            }).catch(console.error);
+            }).catch(console.error); // 避免在錯誤處理中再次拋出錯誤
         } finally {
-            // 無論成功或失敗，最後都從暫存中刪除該次占卜的資料
+            // 【改善點】無論成功或失敗，都清除計時器並刪除暫存資料
+            const readingData = pendingReadings.get(interaction.user.id);
+            if (readingData) {
+                // 清除先前設定的自動刪除計時器，防止記憶體洩漏
+                clearTimeout(readingData.timeout);
+            }
+            // 從暫存中刪除該次占卜的資料
             pendingReadings.delete(interaction.user.id);
         }
     }

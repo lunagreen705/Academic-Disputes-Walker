@@ -97,7 +97,7 @@ loadCommands(path.join(__dirname, config.commandsDir));
 
 // ========== Bot Ready  ==========
 
-client.once("ready", async () => {
+client.once("clientReady", async () => {
   console.log('\n' + '─'.repeat(40));
   console.log(`${colors.magenta}${colors.bright}🤖 DISCORD BOT STATUS${colors.reset}`);
   console.log('─'.repeat(40));

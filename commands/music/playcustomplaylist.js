@@ -19,12 +19,25 @@ function cleanYouTubeURL(url) {
     return url;
 }
 
+/**
+ * Lavalink 相容 v3/v4
+ * 根據 resolve 的結果取得音軌陣列
+ */
+function getTracksFromResolve(resolve) {
+    if (!resolve) return [];
+    if (Array.isArray(resolve.tracks)) return resolve.tracks; // 舊版
+    if (Array.isArray(resolve.data)) return resolve.data;     // 新版
+    return [];
+}
+
+
 async function playCustomPlaylist(client, interaction, lang) {
     try {
         const { playlistCollection } = getCollections();
         const playlistName = interaction.options.getString('name');
         const userId = interaction.user.id;
 
+        // --- 基本檢查 ---
         if (!interaction.member.voice.channelId) {
             const embed = new EmbedBuilder()
                 .setColor('#ff0000')
@@ -62,6 +75,8 @@ async function playCustomPlaylist(client, interaction, lang) {
             return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
+        await interaction.deferReply();
+
         // 建立連線
         const player = await client.riffy.createConnection({
             guildId: interaction.guildId,
@@ -70,23 +85,28 @@ async function playCustomPlaylist(client, interaction, lang) {
             deaf: true
         });
 
-        await interaction.deferReply();
-
         let tracksAdded = 0;
 
+        // --- 修正後的歌曲處理迴圈 ---
         for (const song of playlist.songs) {
             try {
-                let query = cleanYouTubeURL(song.url || song.name);
+                const query = cleanYouTubeURL(song.url || song.name);
 
-                // ✅ 跟 play.js 一樣的邏輯
-                const resolve = await client.riffy.resolve(query, interaction.user);
+                const resolve = await client.riffy.resolve({
+                    query: query,
+                    requester: interaction.user.username
+                });
 
-                if (!resolve || !resolve.tracks || resolve.tracks.length === 0) {
+                const tracks = getTracksFromResolve(resolve);
+
+                if (!tracks || tracks.length === 0) {
                     console.log(`無法解析歌曲: ${query}`);
-                    continue;
+                    continue; // 跳過這首歌，繼續處理下一首
                 }
 
-                const track = resolve.tracks.shift();
+                const track = tracks.shift();
+                track.info.requester = interaction.user.username; // 設定點播者
+                
                 player.queue.add(track);
                 console.log(`已加入歌曲: ${track.info.title}`);
                 tracksAdded++;
@@ -98,15 +118,18 @@ async function playCustomPlaylist(client, interaction, lang) {
 
         console.log('Total tracks added:', tracksAdded);
 
+        // --- 結果回覆 ---
         if (tracksAdded > 0) {
-            if (!player.playing && !player.paused && player.queue.length > 0) player.play();
-            player.volume.set(50); // 預設音量 50%
+            if (!player.playing && !player.paused) {
+                player.play();
+            }
+            player.volume = 50; // 預設音量 50%
 
             const embed = new EmbedBuilder()
                 .setColor(config.embedColor)
                 .setAuthor({ name: lang.playCustomPlaylist.embed.playingPlaylist, iconURL: musicIcons.beats2Icon, url: config.SupportServer })
-                .setDescription(lang.playCustomPlaylist.embed.playlistPlaying.replace("{playlistName}", playlistName))
-                .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon });
+                .setDescription(lang.playCustomPlaylist.embed.playlistPlaying.replace("{playlistName}", playlistName).replace("{count}", tracksAdded))
+                .setFooter({ text: `由 ${interaction.user.username} 點播`, iconURL: interaction.user.displayAvatarURL() });
 
             await interaction.editReply({ embeds: [embed] });
 
@@ -115,7 +138,7 @@ async function playCustomPlaylist(client, interaction, lang) {
                 .setColor('#ff0000')
                 .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
-                .setDescription('播放列表中沒有可播放的歌曲');
+                .setDescription('播放列表中的所有歌曲都無法解析播放。');
             await interaction.editReply({ embeds: [embed] });
         }
 

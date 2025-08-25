@@ -11,7 +11,8 @@ const config = require("../../config.js");
 
 module.exports = {
   name: "say",
-  description: "透過輸入框將訊息發送到指定頻道 (僅限開發者)",
+  description: "透過輸入框將訊息發送到指定頻道 (開發者)",
+  showModal: true,
   permissions: "0x0000000000000800",
   options: [
     {
