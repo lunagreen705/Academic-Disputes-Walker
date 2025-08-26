@@ -138,7 +138,7 @@ async function handleHalt(source, generateLink) {
 
     let publicEmbed;
     if (generateLink) {
-        const link = `https://fake-seal-renderer.com/log/${guildId}/${Date.now()}`;
+        const link = `https://logtrpg.lovable.app${guildId}/${Date.now()}`;
         await trpgSessionLogCollection.updateOne({ guildId, logName: logNameToHalt }, { $set: { content: finalContent, rendererLink: link } });
         publicEmbed = new EmbedBuilder().setColor('Gold').setTitle('🔚 日誌已停止並上傳').setDescription(`日誌 **${logNameToHalt}** 已停止記錄。`).addFields({ name: '渲染器連結', value: `[點此查看](${link})` });
     } else {
@@ -246,7 +246,6 @@ async function handleExport(source, logName) {
     
     const successEmbed = new EmbedBuilder().setColor('Green').setTitle('📄 日誌匯出成功').setDescription(`您的日誌 **${logName}** 已成功匯出為 .docx 檔案。`);
     
-    // 由於檔案不能是 ephemeral，我們需要用 followUp 或新的回覆
     await source.channel.send({ embeds: [successEmbed], files: [attachment] });
     await source.interaction.editReply({ content: '匯出檔案已傳送至頻道。', ephemeral: true });
 }
@@ -270,8 +269,8 @@ async function recordMessage(message) {
     
     log.currentLogContent += logEntry;
 
-    // 為了效能，可以考慮每隔一段時間或一定訊息量再寫入資料庫，而不是每次都寫
-    // 這裡為了簡單起見，我們在每次記錄後都更新
+
+    // 每次記錄後都更新
     await trpgSessionLogCollection.updateOne(
         { guildId, logName: log.currentLogName },
         { $set: { content: log.currentLogContent } }
