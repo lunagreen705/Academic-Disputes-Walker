@@ -6,18 +6,26 @@ const musicIcons = require('../../UI/icons/musicicons.js');
 /**
  * 清理 YouTube URL
  * - 將 youtu.be 轉成 youtube.com/watch?v=
- * - 移除 ?si= 與多餘參數
+ * - 移除 ?si= 與多餘參數，只保留 videoId
  */
 function cleanYouTubeURL(url) {
     if (!url) return url;
     url = url.trim();
     if (url.startsWith('https://https://')) url = url.replace('https://https://', 'https://');
 
-    if (url.includes('youtu.be')) {
-        url = url.replace('youtu.be/', 'www.youtube.com/watch?v=').split('?')[0];
-    } else if (url.includes('youtube.com/watch')) {
-        url = url.split(/[&?]/)[0]; // 移除多餘參數
+    try {
+        if (url.includes('youtu.be')) {
+            const id = url.split('youtu.be/')[1].split(/[?&]/)[0];
+            url = `https://www.youtube.com/watch?v=${id}`;
+        } else if (url.includes('youtube.com/watch')) {
+            const urlObj = new URL(url);
+            const v = urlObj.searchParams.get("v");
+            if (v) url = `https://www.youtube.com/watch?v=${v}`;
+        }
+    } catch (e) {
+        console.error("URL parse failed:", e);
     }
+
     return url;
 }
 
@@ -26,6 +34,10 @@ async function playCustomPlaylist(client, interaction, lang) {
         const { playlistCollection } = getCollections();
         const playlistName = interaction.options.getString('name');
         const userId = interaction.user.id;
+        const guildId = interaction.guildId;
+
+        // ⚠️ 避免超時：一開始就 defer
+        await interaction.deferReply({ ephemeral: true });
 
         if (!interaction.member.voice.channelId) {
             const embed = new EmbedBuilder()
@@ -33,19 +45,18 @@ async function playCustomPlaylist(client, interaction, lang) {
                 .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.noVoiceChannel);
-            await interaction.reply({ embeds: [embed], ephemeral: true });
-            return;
+            return await interaction.editReply({ embeds: [embed] });
         }
 
-        const playlist = await playlistCollection.findOne({ name: playlistName });
+        // 查詢加上 guildId，避免不同伺服器互相干擾
+        const playlist = await playlistCollection.findOne({ name: playlistName, guildId });
         if (!playlist) {
             const embed = new EmbedBuilder()
                 .setColor('#ff0000')
                 .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.playlistNotFound);
-            await interaction.reply({ embeds: [embed], ephemeral: true });
-            return;
+            return await interaction.editReply({ embeds: [embed] });
         }
 
         if (playlist.isPrivate && playlist.userId !== userId) {
@@ -54,8 +65,7 @@ async function playCustomPlaylist(client, interaction, lang) {
                 .setAuthor({ name: lang.playCustomPlaylist.embed.accessDenied, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.noPermission);
-            await interaction.reply({ embeds: [embed], ephemeral: true });
-            return;
+            return await interaction.editReply({ embeds: [embed] });
         }
 
         if (!playlist.songs || !playlist.songs.length) {
@@ -64,8 +74,7 @@ async function playCustomPlaylist(client, interaction, lang) {
                 .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
                 .setDescription(lang.playCustomPlaylist.embed.emptyPlaylist);
-            await interaction.reply({ embeds: [embed], ephemeral: true });
-            return;
+            return await interaction.editReply({ embeds: [embed] });
         }
 
         // 建立 Lavalink 連線
@@ -76,8 +85,9 @@ async function playCustomPlaylist(client, interaction, lang) {
             deaf: true
         });
 
-        // 延遲回覆，避免 Discord 超時
-        await interaction.deferReply();
+        if (!player) {
+            return await interaction.editReply({ content: "❌ 無法建立播放器，請確認 Lavalink 是否正常。", ephemeral: true });
+        }
 
         let tracksAdded = 0;
 
@@ -86,7 +96,6 @@ async function playCustomPlaylist(client, interaction, lang) {
                 const query = cleanYouTubeURL(song.url || song.name);
                 console.log('Resolving URL:', query);
 
-                // ✅ 完全沿用 /play.js 的解析方式
                 const resolve = await client.riffy.resolve({
                     query: query,
                     requester: interaction.user.username
@@ -140,11 +149,7 @@ async function playCustomPlaylist(client, interaction, lang) {
             .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
             .setDescription(lang.playCustomPlaylist.embed.errorPlayingPlaylist);
 
-        if (interaction.deferred || interaction.replied) {
-            await interaction.editReply({ embeds: [errorEmbed] });
-        } else {
-            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
-        }
+        await interaction.editReply({ embeds: [errorEmbed] }).catch(() => {});
     }
 }
 

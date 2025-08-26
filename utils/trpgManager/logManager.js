@@ -1,11 +1,34 @@
 // logManager.js 
-const { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const { Document, Packer, Paragraph, TextRun, HeadingLevel } = require('docx');
 
 let trpgSessionLogCollection;
 let trpgLogStateCollection;
 let dbConnected = false;
 const guildCache = new Map();
+
+// ⚠️ 修改成你的實際網站網址
+const WEBSITE_BASE_URL = 'https://logtrpg.lovable.app';
+
+// 日誌編碼和連結生成函數
+function encodeLogContent(content) {
+  const cleanContent = content.trim();
+  return Buffer.from(encodeURIComponent(cleanContent)).toString('base64');
+}
+
+function generateRendererLink(baseUrl, logName, content, guildId) {
+  const encodedContent = encodeLogContent(content);
+  const encodedName = encodeURIComponent(logName);
+  const timestamp = Date.now();
+  
+  let url = `${baseUrl}/#/log/${timestamp}?data=${encodedContent}&name=${encodedName}`;
+  
+  if (guildId) {
+    url += `&guild=${guildId}`;
+  }
+  
+  return url;
+}
 
 function initialize(dbCollections) {
     if (dbCollections) {
@@ -68,7 +91,7 @@ async function handleLogCommand(source, args) {
     }
 }
 
-// --- 子指令處理函數 (全部修正) ---
+// --- 子指令處理函數 ---
 
 async function handleNew(source, logName) {
     const guildId = source.guild.id;
@@ -80,7 +103,6 @@ async function handleNew(source, logName) {
     const existingLog = await trpgSessionLogCollection.findOne({ guildId, logName });
     if (existingLog) return source.interaction.editReply({ content: `❌ 名為 \`${logName}\` 的日誌已存在。`, ephemeral: true });
 
-    // ... 資料庫操作 ...
     await trpgSessionLogCollection.insertOne({ guildId, logName, content: `--- 日誌開始於 ${getTimestamp()} ---\n\n`, rendererLink: null, createdAt: new Date() });
     await trpgLogStateCollection.updateOne({ guildId }, { $set: { currentLogName: logName, isLogging: true } }, { upsert: true });
     guildData.currentLogName = logName;
@@ -138,12 +160,32 @@ async function handleHalt(source, generateLink) {
 
     let publicEmbed;
     if (generateLink) {
-        const link = `https://logtrpg.lovable.app${guildId}/${Date.now()}`;
-        await trpgSessionLogCollection.updateOne({ guildId, logName: logNameToHalt }, { $set: { content: finalContent, rendererLink: link } });
-        publicEmbed = new EmbedBuilder().setColor('Gold').setTitle('🔚 日誌已停止並上傳').setDescription(`日誌 **${logNameToHalt}** 已停止記錄。`).addFields({ name: '渲染器連結', value: `[點此查看](${link})` });
+        const link = generateRendererLink(WEBSITE_BASE_URL, logNameToHalt, finalContent, guildId);
+        
+        await trpgSessionLogCollection.updateOne(
+            { guildId, logName: logNameToHalt }, 
+            { $set: { content: finalContent, rendererLink: link } }
+        );
+
+        publicEmbed = new EmbedBuilder()
+            .setColor('Gold')
+            .setTitle('🔚 日誌已停止並上傳')
+            .setDescription(`日誌 **${logNameToHalt}** 已停止記錄並上傳至渲染器。`)
+            .addFields({ 
+                name: '🌐 渲染器連結', 
+                value: `[📖 點此查看格式化日誌](${link})`,
+                inline: false
+            });
     } else {
-        await trpgSessionLogCollection.updateOne({ guildId, logName: logNameToHalt }, { $set: { content: finalContent } });
-        publicEmbed = new EmbedBuilder().setColor('Orange').setTitle('⏹️ 日誌已停止').setDescription(`日誌 **${logNameToHalt}** 已停止記錄。`);
+        await trpgSessionLogCollection.updateOne(
+            { guildId, logName: logNameToHalt }, 
+            { $set: { content: finalContent } }
+        );
+
+        publicEmbed = new EmbedBuilder()
+            .setColor('Orange')
+            .setTitle('⏹️ 日誌已停止')
+            .setDescription(`日誌 **${logNameToHalt}** 已停止記錄。`);
     }
     
     await trpgLogStateCollection.updateOne({ guildId }, { $set: { currentLogName: null, isLogging: false } });
@@ -176,11 +218,25 @@ async function handleList(source) {
 async function handleGet(source, logName) {
     if (!logName) return source.interaction.editReply({ content: '❌ 請提供要獲取連結的日誌名稱。', ephemeral: true });
     
-    const logData = await trpgSessionLogCollection.findOne({ guildId: source.guild.id, logName });
+    const guildId = source.guild.id;
+    const logData = await trpgSessionLogCollection.findOne({ guildId, logName });
     if (!logData) return source.interaction.editReply({ content: `❌ 找不到名為 \`${logName}\` 的日誌。`, ephemeral: true });
-    if (!logData.rendererLink) return source.interaction.editReply({ content: `⚠️ 日誌 \`${logName}\` 沒有可用的渲染器連結。`, ephemeral: true });
-
-    await source.interaction.editReply({ content: `這是日誌 \`${logName}\` 的渲染器連結：\n${logData.rendererLink}`, ephemeral: true });
+    
+    if (!logData.rendererLink) {
+        const link = generateRendererLink(WEBSITE_BASE_URL, logName, logData.content, guildId);
+        
+        await trpgSessionLogCollection.updateOne({ guildId, logName }, { $set: { rendererLink: link } });
+        
+        await source.interaction.editReply({ 
+            content: `這是日誌 \`${logName}\` 的渲染器連結：\n📖 ${link}`, 
+            ephemeral: true 
+        });
+    } else {
+        await source.interaction.editReply({ 
+            content: `這是日誌 \`${logName}\` 的渲染器連結：\n📖 ${logData.rendererLink}`, 
+            ephemeral: true 
+        });
+    }
 }
 
 async function handleDel(source, logName) {
@@ -269,8 +325,6 @@ async function recordMessage(message) {
     
     log.currentLogContent += logEntry;
 
-
-    // 每次記錄後都更新
     await trpgSessionLogCollection.updateOne(
         { guildId, logName: log.currentLogName },
         { $set: { content: log.currentLogContent } }
