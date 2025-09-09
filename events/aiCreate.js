@@ -23,7 +23,7 @@ module.exports = {
       try {
         await message.channel.sendTyping();
 
-        const rawPrompt = `生成一條每日事件紀錄給用戶 ${message.author.username}。
+        const rawPrompt = `生成一條第一人稱調查員，每日事件紀錄給用戶，並且要有生動情緒 ${message.author.username}。
 
 【世界觀設定】
 本紀錄隸屬於「米斯卡托尼克大學 / 異常現象觀測局 (M.I.O.)」，其檔案保存在多重加密與封印的數據庫中，僅供授權調查員查閱。
