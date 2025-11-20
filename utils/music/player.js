@@ -1,7 +1,7 @@
 // player.js
 const { Riffy, Player } = require("riffy");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, PermissionsBitField } = require("discord.js");
-const { requesters } = require("../../commands/music/play.js"); // 確保 play.js 正確導出 requesters
+const { requesters } = require("../../commands/music/play.js"); 
 const { Dynamic } = require("musicard");
 const config = require("../../config.js");
 const musicIcons = require('../../UI/icons/musicicons.js');
@@ -26,7 +26,7 @@ async function sendMessageWithPermissionsCheck(channel, embed, attachment, actio
         const message = await channel.send({
             embeds: [embed],
             files: [attachment],
-            components: [actionRow1, actionRow2] // 注意：這裡只傳遞了兩個 ActionRow
+            components: [actionRow1, actionRow2] 
         });
         return message;
     } catch (error) {
@@ -92,7 +92,6 @@ client.riffy.on("nodeDisconnect", (node, reason) => {
         }
         const guildId = player.guildId;
         const trackUri = track.info.uri;
-        // 確保 requester 是從 Map 中獲取的用戶對象或用戶名
         let requesterDisplay = "Autoplay/Unknown";
         const requesterUser = requesters.get(trackUri);
         if (requesterUser) {
@@ -131,7 +130,7 @@ client.riffy.on("nodeDisconnect", (node, reason) => {
                 `- **標題:** [${track.info.title}](${track.info.uri})\n` +
                 `- **作者:** ${track.info.author || 'Unknown Artist'}\n` +
                 `- **長度:** ${formatDuration(track.info.length)}\n` +
-                `- **使用者:** ${requesterDisplay}\n` + // 使用處理過的 requesterDisplay
+                `- **使用者:** ${requesterDisplay}\n` + 
                 `- **來源:** ${track.info.sourceName}\n` + '**- 功能 :**\n 🔁 `循環`, 📜 `播放歌單`, ⏭️ `跳過`, 🎤 `歌詞`, 🗑️ `清空播放歌單`\n ⏹️ `退出`, ⏸️ `暫停`, ▶️ `恢復播放`, 🔊 `聲量 +`, 🔉 `聲量 -`')
             .setImage('attachment://musicard.png')
             .setColor('#FF7A00');
@@ -196,15 +195,10 @@ client.riffy.on("nodeDisconnect", (node, reason) => {
     });
 
     client.riffy.on("trackEnd", async (player) => {
-        // 之前這裡呼叫 cleanupTrackMessages，但 trackStart 時已經呼叫了 cleanupPreviousTrackMessages
-        // 通常在 trackEnd 後，如果沒有下一首歌，會觸發 queueEnd
-        // 如果有下一首歌，會觸發 trackStart，它會自己清理
-        // 為了避免在播放列表中每首歌結束都刪除"Now Playing"，這裡可以先不清理，讓 queueEnd 或 playerDisconnect 處理
-        // 或者確保 cleanupTrackMessages 只刪除特定 type 的訊息
     });
 
     client.riffy.on("playerDisconnect", async (player) => {
-        await cleanupTrackMessages(client, player, ['track', 'lyrics']); // 清理所有相關訊息
+        await cleanupTrackMessages(client, player, ['track', 'lyrics']); 
     });
 
    client.riffy.on("queueEnd", async (player) => {
@@ -214,13 +208,13 @@ client.riffy.on("nodeDisconnect", (node, reason) => {
     await cleanupTrackMessages(client, player, ['track']);
 
     try {
-        // 這裡先取得最新 collection
+    
         const { autoplayCollection } = getCollections();
 
         const autoplaySetting = await autoplayCollection.findOne({ guildId });
 
         if (autoplaySetting?.autoplay) {
-            // 你的自動播放邏輯
+        
             const previousTrack = player.current;
             const nextTrack = await player.autoplay(previousTrack || player);
 

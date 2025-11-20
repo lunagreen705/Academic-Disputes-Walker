@@ -49,7 +49,7 @@ async function playCustomPlaylist(client, interaction, lang) {
         }
 
         // 查詢加上 guildId，避免不同伺服器互相干擾
-        const playlist = await playlistCollection.findOne({ name: playlistName, guildId });
+        const playlist = await playlistCollection.findOne({ name: { $regex: new RegExp(`^${playlistName}$`, 'i') } });
         if (!playlist) {
             const embed = new EmbedBuilder()
                 .setColor('#ff0000')
