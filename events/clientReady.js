@@ -1,6 +1,6 @@
 const config = require("../config.js");
 const { ActivityType } = require("discord.js");
-const colors = require("../UI/colors/colors");
+const colors = require("../UI/colors/colors.js");
 
 module.exports = async (client) => {
     const { REST } = require("@discordjs/rest");
