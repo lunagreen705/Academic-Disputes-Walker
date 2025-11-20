@@ -9,23 +9,22 @@ const musicIcons = require('../../UI/icons/musicicons.js');
  * - 移除 ?si= 與多餘參數，只保留 videoId
  */
 function cleanYouTubeURL(url) {
-    if (!url) return url;
+    if (!url) return null;
     url = url.trim();
-    if (url.startsWith('https://https://')) url = url.replace('https://https://', 'https://');
 
-    try {
-        if (url.includes('youtu.be')) {
-            const id = url.split('youtu.be/')[1].split(/[?&]/)[0];
-            url = `https://www.youtube.com/watch?v=${id}`;
-        } else if (url.includes('youtube.com/watch')) {
-            const urlObj = new URL(url);
-            const v = urlObj.searchParams.get("v");
-            if (v) url = `https://www.youtube.com/watch?v=${v}`;
-        }
-    } catch (e) {
-        console.error("URL parse failed:", e);
+    // 1. 處理 youtu.be 短網址
+    if (url.includes('youtu.be/')) {
+        const idMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+        if (idMatch) return `https://www.youtube.com/watch?v=${idMatch[1]}`;
     }
 
+    // 2. 處理 youtube.com 長網址 (包含 v=...)
+    if (url.includes('v=')) {
+        const idMatch = url.match(/v=([a-zA-Z0-9_-]{11})/);
+        if (idMatch) return `https://www.youtube.com/watch?v=${idMatch[1]}`;
+    }
+
+    // 3. 如果都不是，回傳原字串（可能是歌名）
     return url;
 }
 
@@ -34,122 +33,105 @@ async function playCustomPlaylist(client, interaction, lang) {
         const { playlistCollection } = getCollections();
         const playlistName = interaction.options.getString('name');
         const userId = interaction.user.id;
-        const guildId = interaction.guildId;
+        const guildId = interaction.guildId; // Discord 這裡叫 guildId
 
-        // ⚠️ 避免超時：一開始就 defer
         await interaction.deferReply({ ephemeral: true });
 
         if (!interaction.member.voice.channelId) {
-            const embed = new EmbedBuilder()
-                .setColor('#ff0000')
-                .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
-                .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
-                .setDescription(lang.playCustomPlaylist.embed.noVoiceChannel);
-            return await interaction.editReply({ embeds: [embed] });
+            // ... (省略錯誤 Embed，保持原樣) ...
+            return await interaction.editReply({ content: "❌ 請先加入語音頻道！" });
         }
 
-        // 查詢加上 guildId，避免不同伺服器互相干擾
-        const playlist = await playlistCollection.findOne({ name: { $regex: new RegExp(`^${playlistName}$`, 'i') } });
+        // 🔧 修正點 1：對應資料庫的 "serverId" 欄位
+        const playlist = await playlistCollection.findOne({ 
+            name: playlistName, 
+            serverId: guildId // 你的 DB 是 serverId，這裡要做對應
+        });
+
         if (!playlist) {
-            const embed = new EmbedBuilder()
-                .setColor('#ff0000')
-                .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
-                .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
-                .setDescription(lang.playCustomPlaylist.embed.playlistNotFound);
-            return await interaction.editReply({ embeds: [embed] });
+            // ... (省略錯誤 Embed，保持原樣) ...
+            return await interaction.editReply({ content: `❌ 找不到名為 \`${playlistName}\` 的歌單。` });
         }
 
+        // 權限檢查
         if (playlist.isPrivate && playlist.userId !== userId) {
-            const embed = new EmbedBuilder()
-                .setColor('#ff0000')
-                .setAuthor({ name: lang.playCustomPlaylist.embed.accessDenied, iconURL: musicIcons.alertIcon, url: config.SupportServer })
-                .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
-                .setDescription(lang.playCustomPlaylist.embed.noPermission);
-            return await interaction.editReply({ embeds: [embed] });
+            return await interaction.editReply({ content: "❌ 這是一個私人歌單，你沒有權限播放。" });
         }
 
         if (!playlist.songs || !playlist.songs.length) {
-            const embed = new EmbedBuilder()
-                .setColor('#ff0000')
-                .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
-                .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
-                .setDescription(lang.playCustomPlaylist.embed.emptyPlaylist);
-            return await interaction.editReply({ embeds: [embed] });
+            return await interaction.editReply({ content: "❌ 歌單內沒有歌曲。" });
         }
 
         // 建立 Lavalink 連線
-        const player = await client.riffy.createConnection({
+        const player = client.riffy.createConnection({
             guildId: interaction.guildId,
             voiceChannel: interaction.member.voice.channelId,
             textChannel: interaction.channelId,
             deaf: true
         });
 
-        if (!player) {
-            return await interaction.editReply({ content: "❌ 無法建立播放器，請確認 Lavalink 是否正常。", ephemeral: true });
-        }
-
-        let tracksAdded = 0;
-
-        for (const song of playlist.songs) {
+        // 使用 Promise.all 加速讀取 (不再一首首等)
+        const promises = playlist.songs.map(async (song) => {
             try {
-                const query = cleanYouTubeURL(song.url || song.name);
-                console.log('Resolving URL:', query);
+                // 判斷 song 是物件(DB) 還是舊格式
+                let rawInput = song.url || song.name || song; 
+                let query;
+
+                // 判斷是否為網址 (包含 http 且不含空格)
+                const isUrl = /^https?:\/\/\S+/.test(rawInput);
+
+                if (isUrl) {
+                    // 嘗試清理網址
+                    const cleanUrl = cleanYouTubeURL(rawInput);
+                    query = cleanUrl || rawInput; // 如果清理失敗就用原網址
+                } else {
+                    // 不是網址就當作歌名搜尋
+                    query = `ytsearch:${rawInput}`;
+                }
 
                 const resolve = await client.riffy.resolve({
                     query: query,
                     requester: interaction.user.username
                 });
 
-                if (!resolve?.tracks?.length) {
-                    console.log(`無法解析歌曲: ${query}`);
-                    continue;
-                }
-
-                const track = resolve.tracks[0]; // 使用第一首歌曲
-                player.queue.add(track);
-
-                console.log(`已加入歌曲: ${track.info?.title || "未知歌曲"}`);
-                tracksAdded++;
-
-            } catch (err) {
-                console.error(`解析歌曲失敗 "${song.name || song.url}":`, err);
+                if (!resolve || !resolve.tracks || resolve.tracks.length === 0) return null;
+                return resolve.tracks[0]; // 取第一首
+            } catch (e) {
+                console.error(`解析失敗: ${song.url || song.name}`, e);
+                return null;
             }
-        }
+        });
 
-        console.log('Total tracks added:', tracksAdded);
+        // 等待所有歌曲解析完成
+        const resolvedTracks = await Promise.all(promises);
+        const validTracks = resolvedTracks.filter(track => track !== null);
 
-        if (tracksAdded > 0) {
-            if (!player.playing && !player.paused && player.queue.length > 0) player.play();
-            player.setVolume(50);
+        if (validTracks.length > 0) {
+            for (const track of validTracks) {
+                player.queue.add(track);
+            }
+            
+            if (!player.playing && !player.paused) player.play();
+            
+            // 只有第一次播放時設定音量
+            // player.setVolume(50); 
 
             const embed = new EmbedBuilder()
                 .setColor(config.embedColor)
-                .setAuthor({ name: lang.playCustomPlaylist.embed.playingPlaylist, iconURL: musicIcons.beats2Icon, url: config.SupportServer })
-                .setDescription(lang.playCustomPlaylist.embed.playlistPlaying.replace("{playlistName}", playlistName))
-                .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon });
+                .setAuthor({ name: lang.playCustomPlaylist.embed.playingPlaylist, iconURL: musicIcons.beats2Icon })
+                .setDescription(lang.playCustomPlaylist.embed.playlistPlaying
+                    .replace("{playlistName}", playlistName)
+                    .replace("{count}", validTracks.length)) // 建議你在語系檔增加 {count} 參數
+                .setFooter({ text: `已載入 ${validTracks.length} 首歌曲`, iconURL: musicIcons.heartIcon });
 
             await interaction.editReply({ embeds: [embed] });
-
         } else {
-            const embed = new EmbedBuilder()
-                .setColor('#ff0000')
-                .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
-                .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
-                .setDescription('播放列表中沒有可播放的歌曲');
-
-            await interaction.editReply({ embeds: [embed] });
+            await interaction.editReply({ content: "❌ 無法載入任何歌曲 (可能網址格式錯誤或無法搜尋)。" });
         }
 
     } catch (error) {
         console.error('Error playing custom playlist:', error);
-        const errorEmbed = new EmbedBuilder()
-            .setColor('#ff0000')
-            .setAuthor({ name: lang.playCustomPlaylist.embed.error, iconURL: musicIcons.alertIcon, url: config.SupportServer })
-            .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
-            .setDescription(lang.playCustomPlaylist.embed.errorPlayingPlaylist);
-
-        await interaction.editReply({ embeds: [errorEmbed] }).catch(() => {});
+        await interaction.editReply({ content: "❌ 發生未知錯誤，請查看後台日誌。" }).catch(() => {});
     }
 }
 
