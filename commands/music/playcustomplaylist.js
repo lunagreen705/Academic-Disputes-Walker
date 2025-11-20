@@ -45,7 +45,6 @@ async function playCustomPlaylist(client, interaction, lang) {
         // 🔧 修正點 1：對應資料庫的 "serverId" 欄位
         const playlist = await playlistCollection.findOne({ 
             name: playlistName, 
-            serverId: guildId // 你的 DB 是 serverId，這裡要做對應
         });
 
         if (!playlist) {
