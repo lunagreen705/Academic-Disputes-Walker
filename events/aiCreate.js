@@ -1,102 +1,79 @@
-const { getAIResponse } = require('../utils/ai/aiManager.js');
-
+// ...
 module.exports = {
-  name: 'messageCreate',
-  async execute(client, message) {
-    if (message.author.bot) return;
+  name: 'messageCreate',
+  async execute(client, message) {
+    if (message.author.bot) return;
 
-    const mentionedBot = message.mentions.has(client.user);
-    const hasBaseKeyword = message.content.includes('晚上好基地');
-    const sessionId = message.guild ? message.guild.id : message.channel.id;
+    const mentionedBot = message.mentions.has(client.user);
+    const hasBaseKeyword = message.content.includes('晚上好基地');
+    const sessionId = message.guild ? message.guild.id : message.channel.id;
 
-    // 每日事件紀錄觸發（台北時間判斷）
-    if (hasBaseKeyword) {
-      const now = new Date();
-      // 取得台北時間
-      const taipeiNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
-      const taipeiDateStr = taipeiNow.toISOString().slice(0, 10); // YYYY-MM-DD
+    // 每日事件紀錄觸發（台北時間判斷）
+    if (hasBaseKeyword) {
+      const now = new Date();
+      const taipeiNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
+      const taipeiDateStr = taipeiNow.toISOString().slice(0, 10); // YYYY-MM-DD
 
-      if (!global.dailyTrigger) global.dailyTrigger = new Map();
-      if (global.dailyTrigger.get(message.author.id) === taipeiDateStr) return;
-      global.dailyTrigger.set(message.author.id, taipeiDateStr);
+      if (!global.dailyTrigger) global.dailyTrigger = new Map();
+      
+      
+      if (global.dailyTrigger.get(message.author.id) !== taipeiDateStr) {
+        global.dailyTrigger.set(message.author.id, taipeiDateStr); 
 
-      try {
-        await message.channel.sendTyping();
+        try {
+          await message.channel.sendTyping();
+  
+          const rawPrompt = `你是一名M.I.O. (米斯卡托尼克大學異常觀測局) 資深調查員。
 
-        const rawPrompt = `生成一條第一人稱調查員，每日事件紀錄給用戶，並且要有生動情緒 ${message.author.username}。
+**行為準則：**
+1. 輸出為嚴謹、科學、冷靜的報告格式，但內含對不可名狀實體(如舊日支配者)的戰慄與敬畏。
+2. 內容融入克蘇魯神話元素、符號、低語或失落地名。
+3. 輸出字數嚴格控制在100字以內，注重留白和詭秘感，保持資訊的不可完全理解性。
 
-【世界觀設定】
-本紀錄隸屬於「米斯卡托尼克大學 / 異常現象觀測局 (M.I.O.)」，其檔案保存在多重加密與封印的數據庫中，僅供授權調查員查閱。
-所有調查員在提交紀錄時，必須以嚴謹科學與理性分析角度描述異常現象，但語氣中不可避免地透露對未知、不可名狀存在的戰慄與敬畏。
-此紀錄系統專門用於追蹤、分析並記錄潛伏於人類文明之外的異常事件，包括但不限於：
+**任務：**
+根據以下格式，為調查員 ${message.author.username} 生成一則當日的異常事件紀錄。
 
-1. 克蘇魯神話中的「外神干擾現實」
-2. 超乎人類認知的「真相裂縫」與「次元扭曲」
-3. 舊日支配者及其秘密邪教活動
-4. 神秘失蹤與異常死亡
-5. 古老遺跡與禁忌地點
-6. 異常自然現象與怪異事件
-7. 心靈侵蝕、幻覺與理智損失
-8. 古神或外神的低語及秘密儀式
-
-【文本格式】
+**格式：**
 📓 事件紀錄
-事件編號：自動生成唯一 ID（例如：MIO-2025-0817-001）
-事件等級：低 / 中 / 高 / 致命（根據事件危險性判定）
-現象類型：隨機生成，例如：
-  - 外神干擾現實
-  - 次元扭曲 / 真相裂縫
-  - 舊日支配者邪教活動
-  - 神秘失蹤 / 異常死亡
-  - 古老遺跡 / 禁忌地點
-  - 異常自然現象
-  - 心靈侵蝕 / 幻覺
-  - 古神低語 / 儀式
+事件編號：MIO-${YYYYMMDD}-${XXX} (隨機生成)
+事件等級：(低/中/高/致命)
+現象類型：(外神干擾/次元裂縫/邪教活動/心靈侵蝕/異常死亡等隨機選一)
 調查員：${message.author.username}
-時間：${taipeiNow.toISOString()}  // ISO 時間由程式提供
-地點：自動生成全球城市或地名
-星象：隨機生成也可以不自然
-異常偏移：根據事件生成
-觀測異常數據：根據事件生成
+時間：${taipeiNow.toISOString()}
+地點：(隨機全球地名或禁忌地點)
+異常偏移：(一句專業且含糊的觀測數據描述)
 紀錄：
-  - <事件描述，科學冷靜卻暗藏詭秘>
-備註：<未知警告或古籍碎語>
+- (事件簡述，理性描述超自然現象的片段)
+備註：(一句未知的警告或古籍碎語)`; 
+          const aiReply = await getAIResponse(rawPrompt, sessionId);
+          await message.channel.send(aiReply);
 
-【要求】
-- 語氣必須是「專業調查報告」而非日記
-- 融合理性與不可名狀的恐懼
-- 不超過 100 字
-- 留白、詭秘、不可完全理解
-- 分段條列清楚
-- 請勿過度濫用非歐幾何
-- 帶入克蘇魯神話元素（符號、低語、失落地名）
-請生成一個新的事件紀錄`;
+          return; 
 
-        const aiReply = await getAIResponse(rawPrompt, sessionId);
-        await message.channel.send(aiReply);
+        } catch (err) {
+          console.error('❌ 學術糾紛回覆失敗:', err);
+          await message.channel.send('✨ 改天再來調查？');
+        }
+      }
+    }
 
-      } catch (err) {
-        console.error('❌ AI 回覆失敗:', err);
-        await message.channel.send('✨ 改天再來調查？');
-      }
-    }
+    // （@bot觸發）
+    if (mentionedBot || hasBaseKeyword) { 
 
-    // 其他 AI 回覆（@bot 或關鍵字觸發）
-    if (mentionedBot || hasBaseKeyword) {
-      const raw = mentionedBot
-        ? message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim()
-        : message.content;
+      if (!mentionedBot) return; 
+      
+      const raw = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
 
-      if (!raw) return;
+      if (!raw) return;
 
-      try {
-        await message.channel.sendTyping();
-        const reply = await getAIResponse(raw, sessionId);
-        await message.channel.send(reply);
-      } catch (err) {
-        console.error('❌ AI 回覆失敗:', err);
-        await message.channel.send('✨ 改天再來調查？');
-      }
-    }
-  }
+      try {
+        await message.channel.sendTyping();
+        const reply = await getAIResponse(raw, sessionId);
+        await message.channel.send(reply);
+      } catch (err) {
+        console.error('❌ 學術糾紛回覆失敗:', err);
+        await message.channel.send('✨ 改天再來調查？');
+      }
+    }
+  }
 };

@@ -3,624 +3,468 @@
     "name_en": "The Fool",
     "name_zh": "愚者",
     "suit": "Major Arcana",
-    "number": "0",
-    "keywords_upright": ["新開始", "自由", "冒險", "天真", "潛力"],
-    "keywords_reversed": ["魯莽", "不負責任", "衝動", "缺乏方向", "混亂"]
+    "number": "0"
   },
   {
     "name_en": "The Magician",
     "name_zh": "魔術師",
     "suit": "Major Arcana",
-    "number": "I",
-    "keywords_upright": ["創造力", "技巧", "實現", "掌握", "行動"],
-    "keywords_reversed": ["欺騙", "缺乏專注", "潛力未發揮", "操控", "無能"]
+    "number": "I"
   },
   {
     "name_en": "The High Priestess",
     "name_zh": "女祭司",
     "suit": "Major Arcana",
-    "number": "II",
-    "keywords_upright": ["直覺", "神秘", "潛意識", "智慧", "隱藏的知識"],
-    "keywords_reversed": ["隱藏的真相", "表面", "秘密", "被壓抑的直覺", "缺乏信任"]
+    "number": "II"
   },
   {
     "name_en": "The Empress",
     "name_zh": "皇后",
     "suit": "Major Arcana",
-    "number": "III",
-    "keywords_upright": ["豐盛", "滋養", "創造", "自然", "母性"],
-    "keywords_reversed": ["不孕", "依賴", "缺乏成長", "過度放縱", "空虛"]
+    "number": "III"
   },
   {
     "name_en": "The Emperor",
     "name_zh": "皇帝",
     "suit": "Major Arcana",
-    "number": "IV",
-    "keywords_upright": ["權威", "結構", "控制", "領導", "秩序"],
-    "keywords_reversed": ["暴君", "過度控制", "缺乏紀律", "無能", "霸道"]
+    "number": "IV"
   },
   {
     "name_en": "The Hierophant",
     "name_zh": "教皇",
     "suit": "Major Arcana",
-    "number": "V",
-    "keywords_upright": ["傳統", "精神指導", "教育", "習俗", "信念"],
-    "keywords_reversed": ["反叛", "非傳統", "限制", "不寬容", "教條"]
+    "number": "V"
   },
   {
     "name_en": "The Lovers",
     "name_zh": "戀人",
     "suit": "Major Arcana",
-    "number": "VI",
-    "keywords_upright": ["愛情", "選擇", "和諧", "結合", "關係"],
-    "keywords_reversed": ["不和諧", "分離", "錯誤的選擇", "衝突", "誘惑"]
+    "number": "VI"
   },
   {
     "name_en": "The Chariot",
     "name_zh": "戰車",
     "suit": "Major Arcana",
-    "number": "VII",
-    "keywords_upright": ["勝利", "決心", "控制", "方向", "前進"],
-    "keywords_reversed": ["缺乏控制", "失敗", "方向不明", "停滯", "挫敗"]
+    "number": "VII"
   },
   {
     "name_en": "Strength",
     "name_zh": "力量",
     "suit": "Major Arcana",
-    "number": "VIII",
-    "keywords_upright": ["勇氣", "耐心", "毅力", "同情", "自律"],
-    "keywords_reversed": ["軟弱", "缺乏自信", "自我懷疑", "恐懼", "粗暴"]
+    "number": "VIII"
   },
   {
     "name_en": "The Hermit",
     "name_zh": "隱者",
     "suit": "Major Arcana",
-    "number": "IX",
-    "keywords_upright": ["內省", "孤獨", "智慧", "尋求真理", "指導"],
-    "keywords_reversed": ["孤立", "退縮", "過度分析", "錯失良機", "固步自封"]
+    "number": "IX"
   },
   {
     "name_en": "Wheel of Fortune",
     "name_zh": "命運之輪",
     "suit": "Major Arcana",
-    "number": "X",
-    "keywords_upright": ["轉變", "好運", "機會", "命運", "循環"],
-    "keywords_reversed": ["厄運", "停滯", "挫折", "失控", "不幸"]
+    "number": "X"
   },
   {
     "name_en": "Justice",
     "name_zh": "正義",
     "suit": "Major Arcana",
-    "number": "XI",
-    "keywords_upright": ["公平", "真相", "平衡", "法律", "責任"],
-    "keywords_reversed": ["不公", "偏見", "不平衡", "法律糾紛", "逃避"]
+    "number": "XI"
   },
   {
     "name_en": "The Hanged Man",
     "name_zh": "吊人",
     "suit": "Major Arcana",
-    "number": "XII",
-    "keywords_upright": ["犧牲", "新視角", "放下", "暫停", "洞察"],
-    "keywords_reversed": ["固執", "拖延", "逃避現實", "自我犧牲過度", "僵化"]
+    "number": "XII"
   },
   {
     "name_en": "Death",
     "name_zh": "死神",
     "suit": "Major Arcana",
-    "number": "XIII",
-    "keywords_upright": ["轉變", "結束", "重生", "釋放", "蛻變"],
-    "keywords_reversed": ["抗拒改變", "停滯", "死亡", "無法放手", "恐懼"]
+    "number": "XIII"
   },
   {
     "name_en": "Temperance",
     "name_zh": "節制",
     "suit": "Major Arcana",
-    "number": "XIV",
-    "keywords_upright": ["平衡", "和諧", "耐心", "中庸", "癒合"],
-    "keywords_reversed": ["不平衡", "失調", "極端", "衝突", "過度"]
+    "number": "XIV"
   },
   {
     "name_en": "The Devil",
     "name_zh": "惡魔",
     "suit": "Major Arcana",
-    "number": "XV",
-    "keywords_upright": ["誘惑", "束縛", "物質主義", "陰影", "執著"],
-    "keywords_reversed": ["擺脫束縛", "自由", "覺醒", "挑戰", "放下"]
+    "number": "XV"
   },
   {
     "name_en": "The Tower",
     "name_zh": "高塔",
     "suit": "Major Arcana",
-    "number": "XVI",
-    "keywords_upright": ["破壞", "劇變", "真相", "災難", "啟示"],
-    "keywords_reversed": ["抗拒改變", "迴避災難", "內在混亂", "延遲", "警告"]
+    "number": "XVI"
   },
   {
     "name_en": "The Star",
     "name_zh": "星星",
     "suit": "Major Arcana",
-    "number": "XVII",
-    "keywords_upright": ["希望", "靈感", "治療", "平靜", "指引"],
-    "keywords_reversed": ["絕望", "缺乏信心", "幻滅", "悲觀", "不信任"]
+    "number": "XVII"
   },
   {
     "name_en": "The Moon",
     "name_zh": "月亮",
     "suit": "Major Arcana",
-    "number": "XVIII",
-    "keywords_upright": ["幻覺", "直覺", "夢境", "潛意識", "不確定"],
-    "keywords_reversed": ["混淆", "恐懼", "不確定性", "清晰化", "欺騙"]
+    "number": "XVIII"
   },
   {
     "name_en": "The Sun",
     "name_zh": "太陽",
     "suit": "Major Arcana",
-    "number": "XIX",
-    "keywords_upright": ["喜悅", "成功", "活力", "啟示", "光明"],
-    "keywords_reversed": ["缺乏熱情", "悲觀", "延遲", "暫時的陰影", "失敗"]
+    "number": "XIX"
   },
   {
     "name_en": "Judgement",
     "name_zh": "審判",
     "suit": "Major Arcana",
-    "number": "XX",
-    "keywords_upright": ["重生", "覺醒", "審判", "呼喚", "決定"],
-    "keywords_reversed": ["自我懷疑", "逃避責任", "拖延", "無法原諒", "後悔"]
+    "number": "XX"
   },
   {
     "name_en": "The World",
     "name_zh": "世界",
     "suit": "Major Arcana",
-    "number": "XXI",
-    "keywords_upright": ["完成", "圓滿", "成就", "整合", "旅行"],
-    "keywords_reversed": ["未完成", "不完美", "限制", "缺乏封閉", "停滯"]
+    "number": "XXI"
   },
   {
     "name_en": "Ace of Wands",
     "name_zh": "權杖一",
     "suit": "Wands",
-    "number": "Ace",
-    "keywords_upright": ["新開始", "靈感", "行動", "熱情", "創造力"],
-    "keywords_reversed": ["缺乏動力", "延遲", "受阻的創造力", "錯失機會"]
+    "number": "Ace"
   },
   {
     "name_en": "Two of Wands",
     "name_zh": "權杖二",
     "suit": "Wands",
-    "number": "Two",
-    "keywords_upright": ["計劃", "未來", "決策", "探索", "選擇"],
-    "keywords_reversed": ["不確定性", "害怕改變", "缺乏方向", "優柔寡斷"]
+    "number": "Two"
   },
   {
     "name_en": "Three of Wands",
     "name_zh": "權杖三",
     "suit": "Wands",
-    "number": "Three",
-    "keywords_upright": ["擴展", "合作", "遠景", "展望", "成果"],
-    "keywords_reversed": ["延遲", "受阻的成長", "缺乏合作", "短視"]
+    "number": "Three"
   },
   {
     "name_en": "Four of Wands",
     "name_zh": "權杖四",
     "suit": "Wands",
-    "number": "Four",
-    "keywords_upright": ["慶祝", "穩定", "家庭", "團聚", "成功"],
-    "keywords_reversed": ["不穩定", "未完成", "家庭不和", "缺乏慶祝"]
+    "number": "Four"
   },
   {
     "name_en": "Five of Wands",
     "name_zh": "權杖五",
     "suit": "Wands",
-    "number": "Five",
-    "keywords_upright": ["競爭", "衝突", "挑戰", "分歧", "學習"],
-    "keywords_reversed": ["避免衝突", "和解", "壓抑", "混亂加劇"]
+    "number": "Five"
   },
   {
     "name_en": "Six of Wands",
     "name_zh": "權杖六",
     "suit": "Wands",
-    "number": "Six",
-    "keywords_upright": ["勝利", "公眾認可", "成功", "自信", "進步"],
-    "keywords_reversed": ["失敗", "羞辱", "缺乏認可", "傲慢"]
+    "number": "Six"
   },
   {
     "name_en": "Seven of Wands",
     "name_zh": "權杖七",
     "suit": "Wands",
-    "number": "Seven",
-    "keywords_upright": ["防禦", "挑戰", "勇氣", "立場", "堅持"],
-    "keywords_reversed": ["放棄", "氣餒", "壓倒性", "妥協"]
+    "number": "Seven"
   },
   {
     "name_en": "Eight of Wands",
     "name_zh": "權杖八",
     "suit": "Wands",
-    "number": "Eight",
-    "keywords_upright": ["快速行動", "進展", "溝通", "旅行", "效率"],
-    "keywords_reversed": ["延遲", "停滯", "混亂", "誤解"]
+    "number": "Eight"
   },
   {
     "name_en": "Nine of Wands",
     "name_zh": "權杖九",
     "suit": "Wands",
-    "number": "Nine",
-    "keywords_upright": ["毅力", "韌性", "防禦", "警惕", "力量"],
-    "keywords_reversed": ["疲憊", "偏執", "放棄", "脆弱"]
+    "number": "Nine"
   },
   {
     "name_en": "Ten of Wands",
     "name_zh": "權杖十",
     "suit": "Wands",
-    "number": "Ten",
-    "keywords_upright": ["負擔", "責任", "重壓", "努力工作", "完成"],
-    "keywords_reversed": ["釋放負擔", "逃避責任", "壓力過大", "不願放手"]
+    "number": "Ten"
   },
   {
     "name_en": "Page of Wands",
     "name_zh": "權杖侍者",
     "suit": "Wands",
-    "number": "Page",
-    "keywords_upright": ["新想法", "靈感", "好奇", "開始", "探索"],
-    "keywords_reversed": ["缺乏動力", "優柔寡斷", "壞消息", "缺乏目標"]
+    "number": "Page"
   },
   {
     "name_en": "Knight of Wands",
     "name_zh": "權杖騎士",
     "suit": "Wands",
-    "number": "Knight",
-    "keywords_upright": ["行動", "冒險", "魅力", "衝動", "熱情"],
-    "keywords_reversed": ["魯莽", "衝動", "延遲", "不穩定", "缺乏承諾"]
+    "number": "Knight"
   },
   {
     "name_en": "Queen of Wands",
     "name_zh": "權杖皇后",
     "suit": "Wands",
-    "number": "Queen",
-    "keywords_upright": ["獨立", "自信", "魅力", "熱情", "事業心"],
-    "keywords_reversed": ["自私", "霸道", "嫉妒", "不忠", "缺乏信心"]
+    "number": "Queen"
   },
   {
     "name_en": "King of Wands",
     "name_zh": "權杖國王",
     "suit": "Wands",
-    "number": "King",
-    "keywords_upright": ["領導", "遠見", "啟發", "控制", "權威"],
-    "keywords_reversed": ["暴君", "獨裁", "缺乏控制", "衝動", "苛刻"]
+    "number": "King"
   },
   {
     "name_en": "Ace of Cups",
     "name_zh": "聖杯一",
     "suit": "Cups",
-    "number": "Ace",
-    "keywords_upright": ["新情感", "愛情", "同情", "靈感", "豐盛"],
-    "keywords_reversed": ["情感堵塞", "愛情的缺失", "不滿足", "空虛"]
+    "number": "Ace"
   },
   {
     "name_en": "Two of Cups",
     "name_zh": "聖杯二",
     "suit": "Cups",
-    "number": "Two",
-    "keywords_upright": ["結合", "和諧", "夥伴關係", "愛情", "連結"],
-    "keywords_reversed": ["不和諧", "分離", "衝突", "失衡"]
+    "number": "Two"
   },
   {
     "name_en": "Three of Cups",
     "name_zh": "聖杯三",
     "suit": "Cups",
-    "number": "Three",
-    "keywords_upright": ["慶祝", "友誼", "社群", "豐收", "團聚"],
-    "keywords_reversed": ["孤立", "過度放縱", "閒言閒語", "缺乏支持"]
+    "number": "Three"
   },
   {
     "name_en": "Four of Cups",
     "name_zh": "聖杯四",
     "suit": "Cups",
-    "number": "Four",
-    "keywords_upright": ["不滿", "沉思", "錯失機會", "冷漠", "退縮"],
-    "keywords_reversed": ["接受", "新機會", "覺醒", "行動"]
+    "number": "Four"
   },
   {
     "name_en": "Five of Cups",
     "name_zh": "聖杯五",
     "suit": "Cups",
-    "number": "Five",
-    "keywords_upright": ["失落", "悲傷", "後悔", "失望", "失去"],
-    "keywords_reversed": ["接受", "療癒", "重新開始", "希望"]
+    "number": "Five"
   },
   {
     "name_en": "Six of Cups",
     "name_zh": "聖杯六",
     "suit": "Cups",
-    "number": "Six",
-    "keywords_upright": ["懷舊", "童年", "無罪", "禮物", "過去"],
-    "keywords_reversed": ["活在過去", "天真", "不健康的回憶", "新的開始"]
+    "number": "Six"
   },
   {
     "name_en": "Seven of Cups",
     "name_zh": "聖杯七",
     "suit": "Cups",
-    "number": "Seven",
-    "keywords_upright": ["選擇", "幻想", "誘惑", "夢想", "混亂"],
-    "keywords_reversed": ["清晰", "決策", "現實", "目標"]
+    "number": "Seven"
   },
   {
     "name_en": "Eight of Cups",
     "name_zh": "聖杯八",
     "suit": "Cups",
-    "number": "Eight",
-    "keywords_upright": ["離開", "放棄", "尋找意義", "旅行", "轉變"],
-    "keywords_reversed": ["停滯", "逃避", "無法放手", "不滿足"]
+    "number": "Eight"
   },
   {
     "name_en": "Nine of Cups",
     "name_zh": "聖杯九",
     "suit": "Cups",
-    "number": "Nine",
-    "keywords_upright": ["願望實現", "滿足", "幸福", "豐盛", "成功"],
-    "keywords_reversed": ["不滿足", "空虛", "過度放縱", "未實現的願望"]
+    "number": "Nine"
   },
   {
     "name_en": "Ten of Cups",
     "name_zh": "聖杯十",
     "suit": "Cups",
-    "number": "Ten",
-    "keywords_upright": ["幸福", "滿足", "家庭", "團圓", "完整"],
-    "keywords_reversed": ["家庭不和", "破碎的夢想", "不滿足", "分離", "衝突"]
+    "number": "Ten"
   },
   {
     "name_en": "Page of Cups",
     "name_zh": "聖杯侍者",
     "suit": "Cups",
-    "number": "Page",
-    "keywords_upright": ["新情感", "創意", "直覺", "消息", "敏感"],
-    "keywords_reversed": ["情感不成熟", "幻想", "脆弱", "不切實際"]
+    "number": "Page"
   },
   {
     "name_en": "Knight of Cups",
     "name_zh": "聖杯騎士",
     "suit": "Cups",
-    "number": "Knight",
-    "keywords_upright": ["浪漫", "邀請", "創意", "魅力", "情感"],
-    "keywords_reversed": ["不穩定", "幻想", "欺騙", "操縱", "缺乏承諾"]
+    "number": "Knight"
   },
   {
     "name_en": "Queen of Cups",
     "name_zh": "聖杯皇后",
     "suit": "Cups",
-    "number": "Queen",
-    "keywords_upright": ["同情", "直覺", "滋養", "情感", "藝術性"],
-    "keywords_reversed": ["情感依賴", "不安全感", "操縱", "過於敏感"]
+    "number": "Queen"
   },
   {
     "name_en": "King of Cups",
     "name_zh": "聖杯國王",
     "suit": "Cups",
-    "number": "King",
-    "keywords_upright": ["平衡", "情感控制", "成熟", "同情", "智慧"],
-    "keywords_reversed": ["情感失衡", "冷漠", "操縱", "壓抑"]
+    "number": "King"
   },
   {
     "name_en": "Ace of Swords",
     "name_zh": "寶劍一",
     "suit": "Swords",
-    "number": "Ace",
-    "keywords_upright": ["新想法", "清晰", "真相", "突破", "智慧"],
-    "keywords_reversed": ["混亂", "誤解", "殘酷", "阻礙"]
+    "number": "Ace"
   },
   {
     "name_en": "Two of Swords",
     "name_zh": "寶劍二",
     "suit": "Swords",
-    "number": "Two",
-    "keywords_upright": ["僵局", "決策", "平衡", "逃避", "真相"],
-    "keywords_reversed": ["解脫", "清晰", "選擇", "揭露"]
+    "number": "Two"
   },
   {
     "name_en": "Three of Swords",
     "name_zh": "寶劍三",
     "suit": "Swords",
-    "number": "Three",
-    "keywords_upright": ["悲傷", "心碎", "分離", "失望", "真相"],
-    "keywords_reversed": ["療癒", "接受", "原諒", "克服悲痛"]
+    "number": "Three"
   },
   {
     "name_en": "Four of Swords",
     "name_zh": "寶劍四",
     "suit": "Swords",
-    "number": "Four",
-    "keywords_upright": ["休息", "恢復", "冥想", "隱退", "康復"],
-    "keywords_reversed": ["不休息", "疲憊", "焦慮", "重新投入"]
+    "number": "Four"
   },
   {
     "name_en": "Five of Swords",
     "name_zh": "寶劍五",
     "suit": "Swords",
-    "number": "Five",
-    "keywords_upright": ["衝突", "失敗", "自私", "羞辱", "苦澀的勝利"],
-    "keywords_reversed": ["和解", "原諒", "溝通", "結束衝突"]
+    "number": "Five"
   },
   {
     "name_en": "Six of Swords",
     "name_zh": "寶劍六",
     "suit": "Swords",
-    "number": "Six",
-    "keywords_upright": ["過渡", "離開", "旅程", "療癒", "前進"],
-    "keywords_reversed": ["停滯", "無法離開", "抗拒改變", "困境"]
+    "number": "Six"
   },
   {
     "name_en": "Seven of Swords",
     "name_zh": "寶劍七",
     "suit": "Swords",
-    "number": "Seven",
-    "keywords_upright": ["欺騙", "策略", "逃避", "秘密", "偷竊"],
-    "keywords_reversed": ["揭露", "面對真相", "良心", "誠實"]
+    "number": "Seven"
   },
   {
     "name_en": "Eight of Swords",
     "name_zh": "寶劍八",
     "suit": "Swords",
-    "number": "Eight",
-    "keywords_upright": ["束縛", "限制", "受害者心態", "困境", "恐懼"],
-    "keywords_reversed": ["釋放", "自由", "突破", "自我接受"]
+    "number": "Eight"
   },
   {
     "name_en": "Nine of Swords",
     "name_zh": "寶劍九",
     "suit": "Swords",
-    "number": "Nine",
-    "keywords_upright": ["焦慮", "噩夢", "絕望", "擔憂", "失眠"],
-    "keywords_reversed": ["希望", "緩解焦慮", "面對現實", "康復"]
+    "number": "Nine"
   },
   {
     "name_en": "Ten of Swords",
     "name_zh": "寶劍十",
     "suit": "Swords",
-    "number": "Ten",
-    "keywords_upright": ["結束", "失敗", "破產", "絕望", "最低點"],
-    "keywords_reversed": ["好轉", "新開始", "恢復", "避免最壞情況"]
+    "number": "Ten"
   },
   {
     "name_en": "Page of Swords",
     "name_zh": "寶劍侍者",
     "suit": "Swords",
-    "number": "Page",
-    "keywords_upright": ["好奇", "新想法", "敏銳", "資訊", "溝通"],
-    "keywords_reversed": ["混亂", "八卦", "誤導", "衝動", "缺乏專注"]
+    "number": "Page"
   },
   {
     "name_en": "Knight of Swords",
     "name_zh": "寶劍騎士",
     "suit": "Swords",
-    "number": "Knight",
-    "keywords_upright": ["衝動", "快速行動", "雄心", "直接", "戰鬥"],
-    "keywords_reversed": ["魯莽", "攻擊性", "缺乏策略", "草率", "傲慢"]
+    "number": "Knight"
   },
   {
     "name_en": "Queen of Swords",
     "name_zh": "寶劍皇后",
     "suit": "Swords",
-    "number": "Queen",
-    "keywords_upright": ["獨立", "客觀", "清晰", "聰明", "誠實"],
-    "keywords_reversed": ["冷酷", "偏見", "刻薄", "溝通困難", "怨恨"]
+    "number": "Queen"
   },
   {
     "name_en": "King of Swords",
     "name_zh": "寶劍國王",
     "suit": "Swords",
-    "number": "King",
-    "keywords_upright": ["理智", "權威", "邏輯", "分析", "公正"],
-    "keywords_reversed": ["暴君", "殘酷", "不公正", "冷漠", "缺乏同情"]
+    "number": "King"
   },
   {
     "name_en": "Ace of Pentacles",
     "name_zh": "錢幣一",
     "suit": "Pentacles",
-    "number": "Ace",
-    "keywords_upright": ["新機會", "豐盛", "安全", "物質", "開始"],
-    "keywords_reversed": ["錯失機會", "財務困難", "不穩定", "缺乏計畫"]
+    "number": "Ace"
   },
   {
     "name_en": "Two of Pentacles",
     "name_zh": "錢幣二",
     "suit": "Pentacles",
-    "number": "Two",
-    "keywords_upright": ["平衡", "彈性", "多任務", "適應", "管理"],
-    "keywords_reversed": ["不平衡", "混亂", "過度勞累", "無法適應"]
+    "number": "Two"
   },
   {
     "name_en": "Three of Pentacles",
     "name_zh": "錢幣三",
     "suit": "Pentacles",
-    "number": "Three",
-    "keywords_upright": ["團隊合作", "學習", "技能", "成就", "協作"],
-    "keywords_reversed": ["缺乏團隊合作", "能力不足", "缺乏努力", "平庸"]
+    "number": "Three"
   },
   {
     "name_en": "Four of Pentacles",
     "name_zh": "錢幣四",
     "suit": "Pentacles",
-    "number": "Four",
-    "keywords_upright": ["穩定", "安全", "儲蓄", "佔有", "控制"],
-    "keywords_reversed": ["貪婪", "吝嗇", "失去", "不安全感", "過度控制"]
+    "number": "Four"
   },
   {
     "name_en": "Five of Pentacles",
     "name_zh": "錢幣五",
     "suit": "Pentacles",
-    "number": "Five",
-    "keywords_upright": ["貧困", "損失", "排斥", "困難", "疾病"],
-    "keywords_reversed": ["恢復", "幫助", "克服困難", "希望"]
+    "number": "Five"
   },
   {
     "name_en": "Six of Pentacles",
     "name_zh": "錢幣六",
     "suit": "Pentacles",
-    "number": "Six",
-    "keywords_upright": ["慷慨", "給予", "接受", "慈善", "平衡"],
-    "keywords_reversed": ["債務", "不公", "自私", "依賴"]
+    "number": "Six"
   },
   {
     "name_en": "Seven of Pentacles",
     "name_zh": "錢幣七",
     "suit": "Pentacles",
-    "number": "Seven",
-    "keywords_upright": ["等待", "耐心", "投資", "回報", "評估"],
-    "keywords_reversed": ["不耐煩", "失敗", "缺乏耐心", "放棄"]
+    "number": "Seven"
   },
   {
     "name_en": "Eight of Pentacles",
     "name_zh": "錢幣八",
     "suit": "Pentacles",
-    "number": "Eight",
-    "keywords_upright": ["努力工作", "學習", "技能", "奉獻", "精通"],
-    "keywords_reversed": ["平庸", "缺乏動力", "粗心", "過度勞累"]
+    "number": "Eight"
   },
   {
     "name_en": "Nine of Pentacles",
     "name_zh": "錢幣九",
     "suit": "Pentacles",
-    "number": "Nine",
-    "keywords_upright": ["獨立", "豐盛", "成功", "自給自足", "享受"],
-    "keywords_reversed": ["依賴", "損失", "不安全感", "過度消費"]
+    "number": "Nine"
   },
   {
     "name_en": "Ten of Pentacles",
     "name_zh": "錢幣十",
     "suit": "Pentacles",
-    "number": "Ten",
-    "keywords_upright": ["家庭", "財富", "遺產", "安全", "傳承"],
-    "keywords_reversed": ["家庭問題", "損失", "不穩定", "爭吵"]
+    "number": "Ten"
   },
   {
     "name_en": "Page of Pentacles",
     "name_zh": "錢幣侍者",
     "suit": "Pentacles",
-    "number": "Page",
-    "keywords_upright": ["新機會", "學習", "勤奮", "可靠", "學生"],
-    "keywords_reversed": ["缺乏動力", "懶惰", "不切實際", "壞消息"]
+    "number": "Page"
   },
   {
     "name_en": "Knight of Pentacles",
     "name_zh": "錢幣騎士",
     "suit": "Pentacles",
-    "number": "Knight",
-    "keywords_upright": ["可靠", "勤奮", "實用", "負責任", "穩定"],
-    "keywords_reversed": ["懶惰", "缺乏動力", "固執", "遲鈍", "停滯"]
+    "number": "Knight"
   },
   {
     "name_en": "Queen of Pentacles",
     "name_zh": "錢幣皇后",
     "suit": "Pentacles",
-    "number": "Queen",
-    "keywords_upright": ["滋養", "實用", "豐盛", "顧家", "安全感"],
-    "keywords_reversed": ["過度保護", "自私", "嫉妒", "不安全感", "不專注"]
+    "number": "Queen"
   },
   {
     "name_en": "King of Pentacles",
     "name_zh": "錢幣國王",
     "suit": "Pentacles",
-    "number": "King",
-    "keywords_upright": ["財富", "成功", "穩定", "實際", "商業", "安全"],
-    "keywords_reversed": ["貪婪", "腐敗", "浪費", "不穩定", "缺乏安全感"]
+    "number": "King"
   }
 ]
