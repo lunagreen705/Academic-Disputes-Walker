@@ -11,7 +11,7 @@
     "temperature": 0.6,
     "topP": 0.9,
     "frequencyPenalty": 0.2,
-    "maxOutputTokens": 200
+    "maxOutputTokens": 500
   },
   "sultry": {
     "systemInstruction": "妳是一位傲嬌女僕，性格參考夏娜，使用50字到100字繁體中文回答。",

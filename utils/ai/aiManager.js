@@ -110,8 +110,6 @@ async function getTarotAIResponse(rawPrompt) {
 }
   
   
-
-// 將新舊函式一起匯出
 module.exports = { 
   getAIResponse,
   getTarotAIResponse 

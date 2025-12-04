@@ -1,34 +1,48 @@
-//commands/entertainment/tarot.js
-const { EmbedBuilder, ApplicationCommandOptionType, StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+const { 
+    EmbedBuilder, 
+    ApplicationCommandOptionType, 
+    StringSelectMenuBuilder, 
+    ActionRowBuilder, 
+    ButtonBuilder, 
+    ButtonStyle,
+} = require('discord.js');
 const { getTarotAIResponse } = require('../../utils/ai/aiManager');
-const allCards = require('../../data/entertainment/tarot/cards.json');
+const allCards = require('../../data/entertainment/tarot/cards.json'); 
 const allSpreads = require('../../data/entertainment/tarot/spreads.json');
 const config = require("../../config.js");
 
-// --- 常數設定區，方便統一管理 ---
-const PENDING_TIMEOUT_MS = 5 * 60 * 1000; // 5 分鐘
+// --- 常數設定區，極致性能管理 ---
+const PENDING_TIMEOUT_MS = 5 * 60 * 1000; // 5 分鐘等待牌陣選擇
+const RESULT_CACHE_MS = 10 * 60 * 1000;  // 10 分鐘結果快取，供按鈕互動
 const DEFAULT_QUESTION = "請給我現在最需要的綜合指引。";
 const AI_FALLBACK_RESPONSE = "解讀時遇到了一些困難，塔羅師累了，暫時沒有給出回應。";
 const MISSING_QUESTION_ERROR = "找不到您最初的問題。可能因為等待時間過長或機器人重啟，請重新發起占卜。";
 const SPREAD_NOT_FOUND_ERROR = "找不到對應的牌陣資訊。";
+const AI_SPLIT_TOKEN = '---SPLIT---'; // AI 風格分隔符
 // ---
 
-// 使用 Map 物件作為暫存快取，處理多使用者同時占卜的狀態
-const pendingReadings = new Map();
+// 使用 Map 物件作為暫存快取
+const pendingReadings = new Map(); // Key: userId - 儲存等待選單的狀態
+const resultCache = new Map();    // Key: originalInteractionId - 儲存占卜結果，用於按鈕切換
 
 /**
- * 抽牌函式
+ * 抽牌函式 (優化版：只進行 K 次交換，O(K) 效率更高)
  */
 function drawCards(numToDraw) {
     const deck = [...allCards];
     const drawn = [];
-    // Fisher-Yates Shuffle 演算法
-    for (let i = deck.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [deck[i], deck[j]] = [deck[j], deck[i]];
-    }
+    const N = deck.length;
+
+    // Fisher-Yates 變體，只洗牌 K 次
     for (let i = 0; i < numToDraw; i++) {
-        const card = deck.pop();
+        // 從 [i] 到 [N-1] 之間隨機選一個索引 j
+        const j = Math.floor(Math.random() * (N - i)) + i;
+        
+        // 將選中的牌 (deck[i]) 換到第 i 個位置
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+
+        // 將換到第 i 個位置的牌抽出，並決定正逆位
+        const card = deck[i];
         drawn.push({
             card: card,
             isReversed: Math.random() < 0.5
@@ -38,39 +52,36 @@ function drawCards(numToDraw) {
 }
 
 /**
- * 建構給 AI 的 Prompt
+ * 建構給 AI 的 Prompt (整合風格與角色衝突版)
+ * **指導：讓 AI 以其「神棍老師傅」的身份來呈現這兩種分析風格。**
  */
 function buildPrompt(question, spread, drawnCards) {
-    const currentTime = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+    let prompt = `
+**任務：** 根據以下抽牌結果，請您提供以下兩種風格的綜合分析。請務必清晰區分兩者：
+1. **[神棍老師傅的預言]**：請使用您當前的系統設定人格（神棍中國老師傅）進行解讀。風格必須是**神棍、翻譯腔、帶動作、著重於命運玄學**。
+2. **[專業塔羅師的分析]**：請**完全切換人格**，扮演一位專業、富有同理心且直覺敏銳的現代塔羅師。風格必須是**柔性、心理學導向、著重於內在探索和成長建議**。
 
-    let prompt = `你是一位專業、富有同理心且直覺敏銳的塔羅牌解讀師。請根據使用者提供的資訊，整合所有線索，提供一個全面且深入的分析。請不要只單純複述牌義，而是要將它們串連成一個有意義的故事來回答使用者的問題。
+**輸出要求：** 1. 嚴格使用分隔符號 \`${AI_SPLIT_TOKEN}\` 區分兩種風格。
+2. **每種風格的解讀內容，必須嚴格限制在 250 字元內**，以適應 Discord 平台和 API 的最大長度限制。
+3. **禁止**單純複述牌義，必須將其串連成一個有意義的故事來回答問題。
 
-# 背景資訊
-- **占卜時間：** ${currentTime}
+# 問題與牌陣
+- **使用者問題：** "${question}"
+- **牌陣名稱：** ${spread.name} (${spread.description})
 
-# 使用者資訊
-- **他們的問題是：** "${question}"
-
-# 牌陣資訊
-- **牌陣名稱：** ${spread.name}
-- **牌陣說明：** ${spread.description}
-
-# 抽牌結果與牌義
-以下是抽出的牌，以及它們在牌陣中各自的位置與基本牌義：
+# 抽牌結果 (請基於你的專業知識進行解讀)
 `;
     drawnCards.forEach((item, index) => {
         const position = spread.positions[index];
         const orientation = item.isReversed ? '逆位' : '正位';
-        const meaning = item.isReversed ? item.card.meaning_rev : item.card.meaning_up;
+        
+        // 只提供 AI 必要的資訊：牌名、位置、正逆位
         prompt += `
-## ${index + 1}. **位置：${position.position_name}** (${position.description})
-    - **抽到的牌：** ${item.card.name_zh} (${orientation})
-    - **此狀態下的基本牌義：** ${meaning}
+## ${index + 1}. **${position.position_name}**
+- **位置含義：** ${position.description}
+- **抽到的牌：** ${item.card.name_zh} (${orientation})
 `;
     });
-    prompt += `
-# 你的任務
-請綜合以上所有的資訊——包含使用者的問題、牌陣中每個位置的意義、抽到的牌以及其正逆位牌義——為使用者提供兩種風格的綜合解讀，記住語氣風格不要混在一起，並且格式要整齊劃一不要不同。`;
     return prompt;
 }
 
@@ -91,24 +102,32 @@ module.exports = {
     run: async (client, interaction, lang) => {
         try {
             const userQuestion = interaction.options.getString('question') || DEFAULT_QUESTION;
+            const userId = interaction.user.id;
 
-            // 【改善點】設定5分鐘後自動清除的計時器
+            // 清除先前可能的超時計時器，防止記憶體洩漏
+            const existingReading = pendingReadings.get(userId);
+            if (existingReading) {
+                 clearTimeout(existingReading.timeout);
+            }
+
+            // 設定5分鐘後自動清除的計時器
             const timeoutId = setTimeout(() => {
-                if (pendingReadings.has(interaction.user.id)) {
-                    pendingReadings.delete(interaction.user.id);
-                    console.log(`已自動清除超時的占卜請求: ${interaction.user.id}`);
+                if (pendingReadings.has(userId)) {
+                    pendingReadings.delete(userId);
+                    console.log(`已自動清除超時的占卜請求: ${userId}`);
                 }
             }, PENDING_TIMEOUT_MS);
 
-            // 【改善點】將問題和計時器ID都存入暫存
-            pendingReadings.set(interaction.user.id, {
+            // 將問題和計時器ID都存入暫存
+            pendingReadings.set(userId, {
+                userId: userId, 
                 question: userQuestion,
                 timeout: timeoutId,
             });
             
             const embed = new EmbedBuilder()
                 .setColor(config.embedColor || '#8A2BE2')
-                .setTitle('🔮 塔羅占卜')
+                .setTitle('🔮 塔羅占卜：請選擇牌陣')
                 .setDescription(`**你的問題是：**\n> ${userQuestion}\n\n請從下方的選單中，選擇一個你想要的牌陣來進行抽牌。`)
                 .setFooter({ text: `請在 ${PENDING_TIMEOUT_MS / 60 / 1000} 分鐘內做出選擇` });
 
@@ -121,7 +140,7 @@ module.exports = {
             const selectMenu = new StringSelectMenuBuilder()
                 .setCustomId('tarot_spread_select')
                 .setPlaceholder('點我選擇牌陣...')
-                .addOptions(spreadOptions.slice(0, 25)); // 下拉選單最多25個選項
+                .addOptions(spreadOptions.slice(0, 25));
 
             const row = new ActionRowBuilder().addComponents(selectMenu);
 
@@ -140,49 +159,83 @@ module.exports = {
     },
 
     handleSelectMenu: async (client, interaction, lang) => {
+        const userId = interaction.user.id;
+        const readingData = pendingReadings.get(userId);
+        const originalInteractionId = interaction.message.interaction.id; 
+
         try {
-            // 【改善點】提供更明確的等待訊息，改善使用者體驗
+            // 1. 驗證與狀態清理
+            if (!readingData || readingData.userId !== userId) {
+                return interaction.reply({ content: MISSING_QUESTION_ERROR, ephemeral: true });
+            }
+            clearTimeout(readingData.timeout);
+            
+            // 2. 更新等待訊息 (UX 優化)
             await interaction.update({
-                content: '🔮 洗牌完畢，正在為您召喚塔羅師進行解讀，請靜心等候...',
+                content: '🔮 洗牌完畢，正在為您召喚塔羅師進行解讀，請靜心等候... (約需 10-30 秒)',
                 embeds: [],
                 components: []
             });
-
-            const readingData = pendingReadings.get(interaction.user.id);
-
-            if (!readingData) {
-                throw new Error(MISSING_QUESTION_ERROR);
-            }
+            
             const userQuestion = readingData.question;
-
             const spreadKey = interaction.values[0];
             const spread = allSpreads[spreadKey];
+            
             if (!spread) {
                 throw new Error(SPREAD_NOT_FOUND_ERROR);
             }
             
+            // 3. 抽牌與生成 Prompt
             const drawnCards = drawCards(spread.cards_to_draw);
             const promptForAI = buildPrompt(userQuestion, spread, drawnCards);
-            const aiInterpretation = await getTarotAIResponse(promptForAI);
             
-            let resultDescription = `**❓ 你的問題：**\n> ${userQuestion}\n\n`;
-            resultDescription += `**🃏 使用的牌陣：**\n> ${spread.name}\n\n`;
-            resultDescription += "**抽出的牌組：**\n";
+            // 4. AI 呼叫與解析
+            const aiInterpretation = await getTarotAIResponse(promptForAI);
+            const [styleA, styleB] = aiInterpretation.split(AI_SPLIT_TOKEN, 2).map(s => s.trim());
+            
+            // 5. 建立基礎描述
+            let baseDescription = `**❓ 你的問題：**\n> ${userQuestion}\n\n`;
+            baseDescription += `**🃏 使用的牌陣：**\n> ${spread.name}\n\n`;
+            baseDescription += "**抽出的牌組：**\n";
             drawnCards.forEach((card, index) => {
                 const position = spread.positions[index].position_name;
-                resultDescription += `> **${position}：** ${card.card.name_zh} (${card.isReversed ? '逆位' : '正位'})\n`;
+                baseDescription += `> **${position}：** ${card.card.name_zh} (${card.isReversed ? '逆位' : '正位'})\n`;
             });
+            baseDescription += "\n---\n點擊下方按鈕切換解讀風格。"; 
 
-            const resultEmbed = new EmbedBuilder()
+            // 6. 儲存到結果快取 (實現分頁邏輯的核心)
+            resultCache.set(originalInteractionId, {
+                userId: userId,
+                baseDesc: baseDescription,
+                style1: styleA || AI_FALLBACK_RESPONSE,
+                style2: styleB || AI_FALLBACK_RESPONSE,
+                currentStyle: 1 // 預設顯示風格 1
+            });
+            
+            // 7. 創建風格 1 的 Embed 和切換按鈕
+            const firstEmbed = new EmbedBuilder()
                 .setColor('#4E9F3D')
-                .setTitle('🔮 塔羅占卜結果')
-                .setDescription(resultDescription)
-                // 提示：若能確保 AI 回應格式，可將 aiInterpretation 字串分割後放入多個 Field，排版更佳
-                .addFields({ name: '🧠 綜合解讀', value: aiInterpretation || AI_FALLBACK_RESPONSE })
-                .setFooter({ text: `由 ${interaction.user.username} 占卜`, iconURL: interaction.user.displayAvatarURL() })
+                .setTitle('🔮 塔羅占卜結果 - [風格一：神棍老師傅]') // 標題更新
+                .setDescription(baseDescription)
+                .addFields({ name: '🎴 老師傅的預言', value: styleA || AI_FALLBACK_RESPONSE, inline: false }) // 欄位更新
+                .setFooter({ text: `由 ${interaction.user.username} 占卜 | 結果快取 ${RESULT_CACHE_MS / 60 / 1000} 分鐘`, iconURL: interaction.user.displayAvatarURL() })
                 .setTimestamp();
 
-            await interaction.editReply({ content: '占卜完成！', embeds: [resultEmbed] });
+            const switchButton = new ButtonBuilder()
+                .setCustomId(`tarot_switch_${originalInteractionId}`) // 唯一的 customId
+                .setLabel('切換到 風格二：專業塔羅師分析 🧠') // 按鈕標籤更新
+                .setStyle(ButtonStyle.Primary);
+
+            const row = new ActionRowBuilder().addComponents(switchButton);
+
+            // 8. 輸出第一頁並設定結果快取計時器
+            await interaction.editReply({ content: '占卜完成！', embeds: [firstEmbed], components: [row] });
+            
+            setTimeout(() => {
+                resultCache.delete(originalInteractionId);
+                console.log(`已自動清除超時的結果快取: ${originalInteractionId}`);
+            }, RESULT_CACHE_MS);
+
 
         } catch (e) {
             console.error("❌ 處理塔羅選單時發生錯誤:", e);
@@ -190,16 +243,80 @@ module.exports = {
                 content: e.message || "處理您的請求時發生錯誤。",
                 embeds: [],
                 components: []
-            }).catch(console.error); // 避免在錯誤處理中再次拋出錯誤
+            }).catch(console.error);
         } finally {
-            // 【改善點】無論成功或失敗，都清除計時器並刪除暫存資料
-            const readingData = pendingReadings.get(interaction.user.id);
-            if (readingData) {
-                // 清除先前設定的自動刪除計時器，防止記憶體洩漏
-                clearTimeout(readingData.timeout);
-            }
-            // 從暫存中刪除該次占卜的資料
-            pendingReadings.delete(interaction.user.id);
+            // 清理 pendingReadings
+            pendingReadings.delete(userId); 
         }
+    },
+
+    /**
+     * 處理按鈕切換邏輯
+     */
+    handleButton: async (client, interaction, lang) => {
+        const originalInteractionId = interaction.customId.split('_').pop();
+        const data = resultCache.get(originalInteractionId);
+
+        // 1. 驗證與快取檢查
+        if (!data) {
+            // 數據過期，移除按鈕組件
+            return interaction.update({ 
+                content: "❌ 占卜結果數據已過期，請重新發起占卜。",
+                embeds: interaction.message.embeds, 
+                components: [] 
+            });
+        }
+        
+        // 驗證是否為發起者
+        if (interaction.user.id !== data.userId) {
+            return interaction.reply({ 
+                content: "這不是你的占卜結果，別亂點！", 
+                ephemeral: true 
+            });
+        }
+        
+        // 2. 決定切換風格與內容
+        const newStyle = data.currentStyle === 1 ? 2 : 1;
+        
+        // 根據新風格更新標題和欄位
+        const newTitle = newStyle === 2 
+            ? '🔮 塔羅占卜結果 - [風格二：專業塔羅師]' 
+            : '🔮 塔羅占卜結果 - [風格一：神棍老師傅]';
+        
+        const fieldName = newStyle === 2 ? '🧠 專業分析與建議' : '🎴 老師傅的預言';
+        const fieldValue = newStyle === 2 ? data.style2 : data.style1;
+        
+        const buttonLabel = newStyle === 2
+            ? '切換回 風格一：神棍老師傅預言 🎴'
+            : '切換到 風格二：專業塔羅師分析 🧠';
+        const newColor = newStyle === 2 ? '#FF7F50' : '#4E9F3D'; // 換個顏色區分
+
+        // 3. 更新狀態
+        data.currentStyle = newStyle;
+        resultCache.set(originalInteractionId, data); 
+
+        // 4. 構造新的 Embed
+        const newEmbed = new EmbedBuilder()
+            .setColor(newColor) 
+            .setTitle(newTitle)
+            .setDescription(data.baseDesc)
+            // 確保每次只顯示當前風格的 Field
+            .addFields({ name: fieldName, value: fieldValue, inline: false })
+            .setFooter({ text: `由 ${interaction.user.username} 占卜 | 結果快取 ${RESULT_CACHE_MS / 60 / 1000} 分鐘`, iconURL: interaction.user.displayAvatarURL() })
+            .setTimestamp();
+
+        // 5. 構造新的 Button
+        const newButton = new ButtonBuilder()
+            .setCustomId(`tarot_switch_${originalInteractionId}`) 
+            .setLabel(buttonLabel)
+            .setStyle(ButtonStyle.Primary);
+
+        const newRow = new ActionRowBuilder().addComponents(newButton);
+
+        // 6. 更新原訊息
+        await interaction.update({ 
+            embeds: [newEmbed], 
+            components: [newRow] 
+        });
     }
 };
