@@ -99,6 +99,9 @@ module.exports = {
         }
     ],
 
+    // **【優化】新增自定義 ID 前綴，用於主程序路由**
+    customIdPrefixes: ['tarot_spread_select', 'tarot_switch_'], 
+
     run: async (client, interaction, lang) => {
         try {
             const userQuestion = interaction.options.getString('question') || DEFAULT_QUESTION;
