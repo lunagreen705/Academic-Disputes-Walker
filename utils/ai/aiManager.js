@@ -84,7 +84,7 @@ async function getTarotAIResponse(rawPrompt) {
 
   try {
     const result = await ai.models.generateContent({
-      model: "models/gemini-3-flash",
+      model: "models/gemini-3-flash-preview",
       contents: [
         {
           role: "user",
