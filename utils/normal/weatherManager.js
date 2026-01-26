@@ -29,64 +29,44 @@ async function getWeather(city) {
 }
 
 // ---------- 空氣品質 ----------
-async function getAirQuality(inputQuery) {
-    // 雖然不想承認，但有些 API 就是這麼慢，設個 timeout 是基本素養
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒不回就切斷，別浪費生命
-
+async function getAirQuality(city) {
     try {
-        // 把 API Key 抽離或是確保環境變數存在，這裡假設你已經處理好了
+        // 老哥提醒：api_key 記得藏好，別直接 push 到 GitHub 上當肉雞
         const url = `https://data.moenv.gov.tw/api/v2/aqx_p_432?language=zh&api_key=${API2_KEY}`;
         
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId); // 成功拿到就取消計時器，節省資源
-
-        if (!res.ok) throw new Error(`API 請求失敗: ${res.status}`);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP 錯誤！狀態碼: ${res.status}`);
 
         const data = await res.json();
-        if (!data.records) return null;
 
-        // --- 核心優化區 ---
-        
-        // 1. 標準化函式：拔掉干擾項（台/臺、市、縣），統一轉乾淨
-        // 這樣 "臺北市"、"台北"、"台北市" 最後都會變成 "台北"
-        const cleanName = str => str
-            .replace(/臺/g, "台") // 統一用台
-            .replace(/[縣市]/g, "") // 拔掉行政區後綴
-            .trim();
-
-        const target = cleanName(inputQuery);
-
-        // 2. 模糊比對：只要 API 的縣市名稱處理後包含你的目標，或者測站名稱包含目標，都算中
-        const records = data.records.filter(r => {
-            const apiCounty = cleanName(r.county);
-            const apiSite = cleanName(r.sitename);
-            
-            // 邏輯：輸入 "基隆" -> 抓到 "基隆市" (縣市) 或 "基隆" (測站)
-            return apiCounty === target || apiSite === target;
-        });
-
-        if (!records.length) {
-            console.warn(`找無此地資料: ${inputQuery} (你是輸入了火星文嗎？)`);
+        // 檢查 records 到底在哪，有些 API v2 會封裝在不同層級
+        const rawRecords = data.records || data.Records || [];
+        if (!Array.isArray(rawRecords) || rawRecords.length === 0) {
+            console.warn("API 沒回傳任何 records，檢查一下 API Key 或參數吧。");
             return null;
         }
 
-        // 3. 資料清洗：映射回傳，防呆處理
-        return records.map(r => ({
-            site: r.sitename || "未知測站", // 居然會有測站沒名字？公部門 API 不意外
-            county: r.county || "未知縣市", 
-            AQI: r.aqi || "N/A",
-            PM25: r["pm2.5"] || "N/A",
-            status: r.status || "機器壞了", // Status 若空大概是感測器掛了
-            publishTime: r.publishtime || new Date().toLocaleString()
-        }));
+        const normalize = str => str ? str.replace("台", "臺").trim() : "";
+        const targetCity = normalize(city);
+
+        // 篩選並轉換
+        const filtered = rawRecords
+            .filter(r => normalize(r.county) === targetCity)
+            .map(r => ({
+                site: r.sitename || "未知測站",
+                location: r.county || city,
+                AQI: r.aqi || "N/A",
+                // 注意：API 有時回傳 "pm2.5"，有時是 "pm2_5"，這裡用邏輯或保險一點
+                PM25: r["pm2.5"] || r["pm2_5"] || "N/A",
+                status: r.status || "N/A",
+                publishTime: r.publishtime || "未知時間"
+            }));
+
+        return filtered.length > 0 ? filtered : null;
 
     } catch (err) {
-        if (err.name === 'AbortError') {
-            console.error("請求超時，那破伺服器估計又卡了");
-        } else {
-            console.error("AirQuality 炸了:", err);
-        }
+        // 別只會 console.error，好歹噴點有用的資訊
+        console.error("AirQuality 炸了，可能是網路或 API 格式改了:", err.message);
         return null;
     }
 }
