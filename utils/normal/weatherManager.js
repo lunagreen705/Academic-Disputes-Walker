@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
 
-const API_KEY = process.env.WEATHER_API || '你的APIKey';
-const API2_KEY = process.env.MOENV_API || '你的APIKey';
+const API_KEY = process.env.WEATHER_API || 'APIKey';
+const API2_KEY = process.env.MOENV_API || 'APIKey';
 
 // ---------- 天氣 ----------
 async function getWeather(city) {
@@ -31,7 +31,6 @@ async function getWeather(city) {
 // ---------- 空氣品質 ----------
 async function getAirQuality(city) {
     try {
-        // 老哥提醒：api_key 記得藏好，別直接 push 到 GitHub 上當肉雞
         const url = `https://data.moenv.gov.tw/api/v2/aqx_p_432?language=zh&api_key=${API2_KEY}`;
         
         const res = await fetch(url);
@@ -39,25 +38,32 @@ async function getAirQuality(city) {
 
         const data = await res.json();
 
-        // 檢查 records 到底在哪，有些 API v2 會封裝在不同層級
-        const rawRecords = data.records || data.Records || [];
+        // 這支 API 回來就是陣列，別再幻想 records
+        const rawRecords = Array.isArray(data)
+            ? data
+            : (data?.records || data?.Records || []);
+
         if (!Array.isArray(rawRecords) || rawRecords.length === 0) {
-            console.warn("API 沒回傳任何 records，檢查一下 API Key 或參數吧。");
+            console.warn("真的沒資料，這次才輪到 API 的問題。");
             return null;
         }
 
-        const normalize = str => str ? str.replace("台", "臺").trim() : "";
+        // 正規化（處理 台/臺 + 市）
+        const normalize = str =>
+            str
+                ? str.replace(/台/g, "臺").replace(/市/g, "").trim()
+                : "";
+
         const targetCity = normalize(city);
 
         // 篩選並轉換
         const filtered = rawRecords
-            .filter(r => normalize(r.county) === targetCity)
+            .filter(r => normalize(r.county).includes(targetCity))
             .map(r => ({
                 site: r.sitename || "未知測站",
                 location: r.county || city,
-                AQI: r.aqi || "N/A",
-                // 注意：API 有時回傳 "pm2.5"，有時是 "pm2_5"，這裡用邏輯或保險一點
-                PM25: r["pm2.5"] || r["pm2_5"] || "N/A",
+                AQI: r.aqi ? Number(r.aqi) : null,
+                PM25: r["pm2.5"] || r["pm2_5"] || null,
                 status: r.status || "N/A",
                 publishTime: r.publishtime || "未知時間"
             }));
@@ -65,8 +71,7 @@ async function getAirQuality(city) {
         return filtered.length > 0 ? filtered : null;
 
     } catch (err) {
-        // 別只會 console.error，好歹噴點有用的資訊
-        console.error("AirQuality 炸了，可能是網路或 API 格式改了:", err.message);
+        console.error("AirQuality 炸了，不是你就是 API:", err.message);
         return null;
     }
 }
