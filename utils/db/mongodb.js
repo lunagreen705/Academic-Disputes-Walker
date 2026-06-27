@@ -13,6 +13,11 @@ let playlistCollection;
 let autoplayCollection;
 // ------------------------------------
 
+// --- Telegram 訂閱者相關變數 ---
+let telegramDb;
+let tgSubscribersCollection;
+// ------------------------------------
+
 // --- TRPG CoC 跑團相關變數 ---
 let trpgDb;
 let cocCharacterCollection;
@@ -59,6 +64,10 @@ async function connectToDatabase() {
         googleDb = client.db("google");
         googleTokensCollection = googleDb.collection("token");
 
+        // --- 初始化 Telegram 訂閱者相關資料庫和集合 ---
+    telegramDb = client.db("Telegram-Bot");
+    tgSubscribersCollection = telegramDb.collection("Subscribers");
+
         // --- 連線成功日誌 ---
         console.log('\n' + '─'.repeat(40));
         console.log(`${colors.magenta}${colors.bright}🕸️  DATABASE CONNECTION${colors.reset}`);
@@ -67,6 +76,7 @@ async function connectToDatabase() {
         console.log('\x1b[36m[ DATABASE ]\x1b[0m', `  - Music DB: "${musicDb.databaseName}"`);
         console.log('\x1b[36m[ DATABASE ]\x1b[0m', `  - TRPG DB:  "${trpgDb.databaseName}"`);
         console.log('\x1b[36m[ DATABASE ]\x1b[0m', `  - Google Auth DB:  "${googleDb.databaseName}"`);
+        console.log('\x1b[36m[ DATABASE ]\x1b[0m', `  - Telegram DB:  "${telegramDb.databaseName}"`);
 
     } catch (err) {
         console.warn("\x1b[33m[ WARNING ]\x1b[0m Could not connect to MongoDB. Continuing without database functionality.");
@@ -85,16 +95,17 @@ function getCollections() {
         throw new Error("❌ One or more collections not initialized. Did you forget to call connectToDatabase() or did the connection fail?");
     }
     return {
-        // 匯出音樂功能相關集合
+        // 匯出音樂相關集合
         playlistCollection,
         autoplayCollection,
 
-        // 匯出 TRPG CoC 跑團相關集合
+        // 匯出 TRPG 相關集合
         cocCharacterCollection,
         trpgSessionLogCollection,
-        trpgLogStateCollection, // <--- 新增匯出
-
-        // 匯出 Google OAuth2 Token 相關集合
+        trpgLogStateCollection, 
+        // 匯出 TG 相關集合
+        tgSubscribersCollection,
+        // 匯出 Google 相關集合
         googleTokensCollection,
     };
 }
