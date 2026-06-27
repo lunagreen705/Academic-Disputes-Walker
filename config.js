@@ -17,8 +17,8 @@ module.exports = {
   nodes: [
 {
      name:"musix",
-     password:"https://dsc.gg/ajidevserver",
-     host:"lava-v4.ajieblogs.eu.org",
+     password:"https://seretia.link/discord",
+     host:"lavalinkv4.serenetia.com",
      port:443,
      secure: true
 }
