@@ -1,7 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 const path = require('path');
-const colors = require('../UI/colors/colors');
+const colors = require("../../UI/colors/colors"); 
 
 const TG_TOKEN = process.env.TG_TOKEN;
 const TG_ADMIN_ID = parseInt(process.env.TG_ADMIN_ID);
