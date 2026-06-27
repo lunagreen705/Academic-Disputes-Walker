@@ -20,21 +20,21 @@ module.exports = {
 
     async autocomplete(interaction) {
         const focusedValue = interaction.options.getFocused();
-        // 從 deckManager 獲取所有可用牌堆名稱，這些名稱就是 .json 檔案的名稱（不含副檔名）
+
         const availableDecks = deckManager.getAvailableDeckNames(); 
 
-        // 直接將牌堆的原始英文名稱作為選項的 name 和 value
+        
         const choices = availableDecks.map(name => ({
-            name: name, // 直接使用原始名稱作為顯示名稱
+            name: name, 
             value: name  
         }));
 
-        // 根據用戶輸入過濾選項，使用 includes 實現模糊匹配
+        // 模糊匹配
         const filtered = choices.filter(choice =>
             choice.name.toLowerCase().includes(focusedValue.toLowerCase()) 
         );
 
-        // 回應 Discord，最多顯示 25 個選項
+
         await interaction.respond(
             filtered.slice(0, 25) 
         );

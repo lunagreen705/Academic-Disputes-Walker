@@ -5,7 +5,7 @@ const musicIcons = require('../../UI/icons/musicicons.js');
 
 async function deleteSong(client, interaction, lang) {
     try {
-        const { playlistCollection } = getCollections(); // ✅ 安全取得集合
+        const { playlistCollection } = getCollections(); // ✅ 取得集合
 
         const playlistName = interaction.options.getString('playlist');
         const songName = interaction.options.getString('song');

@@ -11,7 +11,7 @@ const allCards = require('../../data/entertainment/tarot/cards.json');
 const allSpreads = require('../../data/entertainment/tarot/spreads.json');
 const config = require("../../config.js");
 
-// --- 常數設定區，極致性能管理 ---
+// --- 常數設定---
 const PENDING_TIMEOUT_MS = 5 * 60 * 1000; // 5 分鐘等待牌陣選擇
 const RESULT_CACHE_MS = 10 * 60 * 1000;  // 10 分鐘結果快取，供按鈕互動
 const DEFAULT_QUESTION = "請給我現在最需要的綜合指引。";
@@ -21,7 +21,7 @@ const SPREAD_NOT_FOUND_ERROR = "找不到對應的牌陣資訊。";
 const AI_SPLIT_TOKEN = '---SPLIT---'; // AI 風格分隔符
 // ---
 
-// 使用 Map 物件作為暫存快取
+// Map暫存快取
 const pendingReadings = new Map(); // Key: userId - 儲存等待選單的狀態
 const resultCache = new Map();    // Key: originalInteractionId - 儲存占卜結果，用於按鈕切換
 
@@ -52,30 +52,29 @@ function drawCards(numToDraw) {
 }
 
 /**
- * 建構給 AI 的 Prompt (整合風格與角色衝突版)
- * **指導：讓 AI 以其「神棍老師傅」的身份來呈現這兩種分析風格。**
+ * AI Prompt
  */
 function buildPrompt(question, spread, drawnCards) {
     let prompt = `
-**任務：** 根據以下抽牌結果，請您提供以下兩種風格的綜合分析。請務必清晰區分兩者：
-1. **[神棍老師傅的預言]**：請使用您當前的系統設定人格（神棍中國老師傅）進行解讀。風格必須是**神棍、翻譯腔、帶動作、著重於命運玄學**。
-2. **[專業塔羅師的分析]**：請**完全切換人格**，扮演一位專業、富有同理心且直覺敏銳的現代塔羅師。風格必須是**柔性、心理學導向、著重於內在探索和成長建議**。
-
-**輸出要求：** 1. 嚴格使用分隔符號 \`${AI_SPLIT_TOKEN}\` 區分兩種風格。
-2. **每種風格的解讀內容，必須嚴格限制在 500 字元內**，以適應 Discord 平台和 API 的最大長度限制。
-3. **禁止**單純複述牌義，必須將其串連成一個有意義的故事來回答問題。
+**任務：** 根據抽牌結果，請提供以下兩種風格的分析：
+1. **[神棍老師傅]**：扮演神棍中國老師傅進行解讀。風格是**神棍、翻譯腔、帶動作、著重於命運玄學**。
+2. **[專業塔羅師]**：扮演專業、富有同理心且直覺敏銳的現代塔羅師。風格是**柔性、心理學導向、著重於內在探索和成長建議**。
+**輸出要求：** 
+1. **嚴格使用分隔符號 \`${AI_SPLIT_TOKEN}\` 區分兩種風格。
+2. **每種風格的解讀內容，嚴格限制500 中文字。
+3. **禁止單純複述牌義，必須將其串連成有意義的故事回答問題。
 
 # 問題與牌陣
 - **使用者問題：** "${question}"
 - **牌陣名稱：** ${spread.name} (${spread.description})
 
-# 抽牌結果 (請基於你的專業知識進行解讀)
+# 抽牌結果
 `;
     drawnCards.forEach((item, index) => {
         const position = spread.positions[index];
         const orientation = item.isReversed ? '逆位' : '正位';
         
-        // 只提供 AI 必要的資訊：牌名、位置、正逆位
+   
         prompt += `
 ## ${index + 1}. **${position.position_name}**
 - **位置含義：** ${position.description}
@@ -99,7 +98,6 @@ module.exports = {
         }
     ],
 
-    // **【優化】新增自定義 ID 前綴，用於主程序路由**
     customIdPrefixes: ['tarot_spread_select', 'tarot_switch_'], 
 
     run: async (client, interaction, lang) => {
@@ -150,7 +148,7 @@ module.exports = {
             await interaction.reply({
                 embeds: [embed],
                 components: [row],
-                ephemeral: false
+                ephemeral: true
             });
 
         } catch (e) {
@@ -215,23 +213,23 @@ module.exports = {
                 currentStyle: 1 // 預設顯示風格 1
             });
             
-            // 7. 創建風格 1 的 Embed 和切換按鈕
+    
             const firstEmbed = new EmbedBuilder()
                 .setColor('#4E9F3D')
-                .setTitle('🔮 塔羅占卜結果 - [風格一：神棍老師傅]') // 標題更新
+                .setTitle('🔮 塔羅占卜結果 - [風格一：神棍老師傅]') 
                 .setDescription(baseDescription)
-                .addFields({ name: '🎴 老師傅的預言', value: styleA || AI_FALLBACK_RESPONSE, inline: false }) // 欄位更新
+                .addFields({ name: '🎴 老師傅的預言', value: styleA || AI_FALLBACK_RESPONSE, inline: false }) 
                 .setFooter({ text: `由 ${interaction.user.username} 占卜 | 結果快取 ${RESULT_CACHE_MS / 60 / 1000} 分鐘`, iconURL: interaction.user.displayAvatarURL() })
                 .setTimestamp();
 
             const switchButton = new ButtonBuilder()
-                .setCustomId(`tarot_switch_${originalInteractionId}`) // 唯一的 customId
-                .setLabel('切換到 風格二：專業塔羅師分析 🧠') // 按鈕標籤更新
+                .setCustomId(`tarot_switch_${originalInteractionId}`) 
+                .setLabel('切換到 風格二：專業塔羅師分析 🧠')
                 .setStyle(ButtonStyle.Primary);
 
             const row = new ActionRowBuilder().addComponents(switchButton);
 
-            // 8. 輸出第一頁並設定結果快取計時器
+    
             await interaction.editReply({ content: '占卜完成！', embeds: [firstEmbed], components: [row] });
             
             setTimeout(() => {
@@ -248,7 +246,7 @@ module.exports = {
                 components: []
             }).catch(console.error);
         } finally {
-            // 清理 pendingReadings
+         
             pendingReadings.delete(userId); 
         }
     },
@@ -292,7 +290,7 @@ module.exports = {
         const buttonLabel = newStyle === 2
             ? '切換回 風格一：神棍老師傅預言 🎴'
             : '切換到 風格二：專業塔羅師分析 🧠';
-        const newColor = newStyle === 2 ? '#FF7F50' : '#4E9F3D'; // 換個顏色區分
+        const newColor = newStyle === 2 ? '#FF7F50' : '#4E9F3D';
 
         // 3. 更新狀態
         data.currentStyle = newStyle;

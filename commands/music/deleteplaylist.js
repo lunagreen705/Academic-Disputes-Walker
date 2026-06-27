@@ -5,7 +5,7 @@ const config = require('../../config.js');
 
 async function deletePlaylist(client, interaction, lang) {
     try {
-        const { playlistCollection } = getCollections(); // ✅ 安全取得集合
+        const { playlistCollection } = getCollections(); // ✅ 取得集合
 
         const playlistName = interaction.options.getString('name');
         const userId = interaction.user.id;

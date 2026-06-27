@@ -66,7 +66,7 @@ module.exports = async (client, interaction) => {
                 return;
             }
             
-            // **【修補點】硬編碼：新增塔羅按鈕路由檢查**
+            // 塔羅按鈕
             if (customId.startsWith('tarot_switch_')) {
                 const tarotCommand = client.commands.get('塔羅');
                 if (tarotCommand?.handleButton) {
@@ -96,7 +96,7 @@ module.exports = async (client, interaction) => {
 
             }
 
-            // 其他指令的按鈕 (原來的邏輯，假設 customId 是 'commandName|...' 格式)
+            // 其他指令的按鈕
             if (!handled) {
                 const commandName = customId.split('|')[0];
                 const command = client.commands.get(commandName);
@@ -118,7 +118,7 @@ module.exports = async (client, interaction) => {
                 }
             }
 
-            // Fallback (原來的 Fallback)
+            // Fallback 
             if (!handled) {
                 console.warn(`[WARN] Unhandled button interaction: ${customId}`);
                 await interaction.reply({

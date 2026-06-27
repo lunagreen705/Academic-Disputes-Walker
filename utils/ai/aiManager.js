@@ -77,7 +77,7 @@ async function getTarotAIResponse(rawPrompt) {
   const personaName = "master";
   const personaConfig = aiConfig[personaName];
 
-  const systemInstruction = personaConfig.systemInstruction || "你是一位帥氣的塔羅師，請用繁體中文提供靈性且專業的解讀。";
+  const systemInstruction = personaConfig.systemInstruction || "你是一個塔羅解讀 AI。協助理解牌面象徵。保持繁體中文。";
   const maxOutputTokens = personaConfig.maxOutputTokens || 500;
 
   console.log("[AI Manager] Sending Tarot request to Gemini...");

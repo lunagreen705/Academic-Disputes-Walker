@@ -5,7 +5,7 @@ const config = require('../../config.js');
 
 async function myPlaylists(client, interaction, lang) {
     try {
-        const { playlistCollection } = getCollections(); // ✅ 安全取得集合
+        const { playlistCollection } = getCollections(); // ✅ 取得集合
         const userId = interaction.user.id;
 
         const playlists = await playlistCollection.find({ userId: userId }).toArray();

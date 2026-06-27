@@ -24,10 +24,10 @@ async function addSong(client, interaction, lang) {
         const songInput = interaction.options.getString('input');
         const userId = interaction.user.id;
 
-        // ⚠️ 1. 因為解析歌曲需要時間，先使用 deferReply
+
         await interaction.deferReply();
 
-        // 🔍 2. 尋找歌單 (使用與播放指令相同的邏輯：優先找自己的)
+        // 🔍 尋找歌單
         const playlists = await playlistCollection.find({ name: playlistName }).toArray();
         let playlist = playlists.find(p => p.userId === userId);
 
@@ -39,7 +39,7 @@ async function addSong(client, interaction, lang) {
             return await interaction.editReply({ embeds: [embed] });
         }
 
-        // 🔒 3. 權限檢查 (只能修改自己的歌單)
+        // 🔒 3. 權限檢查
         if (playlist.userId !== userId) {
             const embed = new EmbedBuilder()
                 .setColor('#ff0000')
@@ -48,7 +48,7 @@ async function addSong(client, interaction, lang) {
             return await interaction.editReply({ embeds: [embed] });
         }
 
-        // 🎵 4. 解析歌曲資訊 (重點修改)
+        // 🎵 4. 解析歌曲資訊
         let query;
         const isUrl = /^https?:\/\/\S+/.test(songInput);
 
@@ -78,34 +78,34 @@ async function addSong(client, interaction, lang) {
         let songsToAdd = [];
         let addedDescription = "";
 
-        // 📦 情況 A: 这是一个播放清单 (Playlist)
+        // 📦 情況 A: 播放清单
         if (resolve.loadType === 'PLAYLIST_LOADED') {
             for (const track of resolve.tracks) {
                 songsToAdd.push({
                     name: track.info.title,
                     url: track.info.uri,
-                    duration: track.info.length // 可以順便存長度
+                    duration: track.info.length 
                 });
             }
             addedDescription = `已將播放清單 **${resolve.playlistInfo.name}** 中的 **${resolve.tracks.length}** 首歌曲加入。`;
         } 
-        // 🎵 情況 B: 單曲 (或是搜尋結果)
+        // 🎵 情況 B: 單曲 
         else {
-            const track = resolve.tracks[0]; // 取第一首
+            const track = resolve.tracks[0];
             songsToAdd.push({
                 name: track.info.title,
                 url: track.info.uri,
                 duration: track.info.length
             });
             addedDescription = lang.addsong.embed.songAddedDescription
-                .replace("{songInput}", track.info.title) // 這裡顯示解析後的正確歌名
+                .replace("{songInput}", track.info.title) 
                 .replace("{playlistName}", playlistName);
         }
 
         // 💾 5. 存入資料庫
         await playlistCollection.updateOne(
-            { _id: playlist._id }, // 使用 _id 確保更新到正確的那一個
-            { $push: { songs: { $each: songsToAdd } } } // $each 支援一次加入多首
+            { _id: playlist._id }, 
+            { $push: { songs: { $each: songsToAdd } } } 
         );
 
         const embed = new EmbedBuilder()
@@ -128,7 +128,7 @@ async function addSong(client, interaction, lang) {
             .setAuthor({ name: lang.addsong.embed.error, iconURL: musicIcons.alertIcon })
             .setDescription(lang.addsong.embed.errorDescription);
 
-        // 處理 defer 狀態
+        
         if (interaction.deferred || interaction.replied) {
             await interaction.editReply({ embeds: [errorEmbed] });
         } else {
