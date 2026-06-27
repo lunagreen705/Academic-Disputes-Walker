@@ -25,7 +25,7 @@ function initTelegramBot(discordClient) {
   const bot = new TelegramBot(TG_TOKEN, { polling: true });
 
   // ========== 自動載入指令 ==========
-  const commandsPath = path.join(__dirname, 'commands');
+const commandsPath = path.join(process.cwd(), 'tg-commands');
   const files = fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'));
 
   for (const file of files) {
