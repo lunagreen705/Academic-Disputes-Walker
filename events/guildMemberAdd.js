@@ -9,13 +9,12 @@ module.exports = async (client, member) => {
 
 
     // ==========================
-    // 自訂表情 + 身份組設定
+    // MBTI互斥身份組
+    // emoji ID : role ID
     // ==========================
 
-    const roles = {
+    const mbtiRoles = {
 
-
-        // emojiID : roleID
 
         "1519370547417452715": "1519378264517247147",
 
@@ -30,28 +29,34 @@ module.exports = async (client, member) => {
 
 
 
-    // 顯示在訊息上的自訂表情
+
+    // ==========================
+    // 顯示用自訂表情
+    // ==========================
+
 
     const emojis = {
 
 
-        "NT":
+        NT:
         "<:rbmd:1519370547417452715>",
 
 
-        "SJ":
+        SJ:
         "<:rbno:1520444740561010918>",
 
 
-        "SP":
+        SP:
         "<:rbgp:1519370524248248481>",
 
 
-        "NF":
+        NF:
         "<:rbmt:1519370516161368186>"
 
 
     };
+
+
 
 
 
@@ -69,11 +74,9 @@ module.exports = async (client, member) => {
 
         if(!welcomeChannel){
 
-
             console.log(
                 `${colors.red}[WELCOME] 找不到頻道${colors.reset}`
             );
-
 
             return;
 
@@ -84,31 +87,20 @@ module.exports = async (client, member) => {
 
 
 
-        // ==========================
-        // 歡迎訊息
-        // ==========================
-
-
         const welcomeMessage =
 
 `歡迎來到基地，${member.user.tag}！
 這裡供應美國水壺玉米屋 🌽
-
-
 請選擇你的身份組：
 
+${emojis.NT} 紫人
+${emojis.SJ} 藍人
+${emojis.SP} 黃人
+${emojis.NF} 綠人
 
-${emojis["NT"]} 紫人
-
-${emojis["SJ"]} 藍人
-
-${emojis["SP"]} 黃人
-
-${emojis["NF"]} 綠人
+點擊新的身份組會自動替換舊身份組`;
 
 
-
-再次點擊同一表情可以取消身份組`;
 
 
 
@@ -123,13 +115,10 @@ ${emojis["NF"]} 綠人
 
 
 
-        // ==========================
-        // 添加自訂表情
-        // ==========================
-
+        // 加入表情
 
         for(
-            const emojiID of Object.keys(roles)
+            const emojiID of Object.keys(mbtiRoles)
         ){
 
 
@@ -154,9 +143,10 @@ ${emojis["NF"]} 綠人
 
 
 
+
         console.log(
 
-            `${colors.cyan}[ WELCOME ]${colors.reset} `+
+            `${colors.cyan}[WELCOME]${colors.reset} `+
             `${colors.green}${member.user.tag} 歡迎訊息完成${colors.reset}`
 
         );
@@ -169,14 +159,8 @@ ${emojis["NF"]} 綠人
 
 
 
-        // ==========================
-        // 點擊事件
-        // ==========================
-
-
         const collector =
             message.createReactionCollector({
-
 
 
                 filter:(reaction,user)=>{
@@ -184,7 +168,7 @@ ${emojis["NF"]} 綠人
 
                     return (
 
-                        roles[
+                        mbtiRoles[
                             reaction.emoji.id
                         ]
 
@@ -198,7 +182,6 @@ ${emojis["NF"]} 綠人
                 }
 
 
-
             });
 
 
@@ -206,6 +189,12 @@ ${emojis["NF"]} 綠人
 
 
 
+
+
+
+        // ==========================
+        // 點擊表情
+        // ==========================
 
 
         collector.on(
@@ -216,9 +205,8 @@ ${emojis["NF"]} 綠人
                 try{
 
 
-
-                    const roleID =
-                        roles[
+                    const newRoleID =
+                        mbtiRoles[
                             reaction.emoji.id
                         ];
 
@@ -226,15 +214,12 @@ ${emojis["NF"]} 綠人
 
                     const role =
                         member.guild.roles.cache.get(
-                            roleID
+                            newRoleID
                         );
-
 
 
                     if(!role)
                         return;
-
-
 
 
 
@@ -250,23 +235,34 @@ ${emojis["NF"]} 綠人
 
 
 
+                    // ==========================
+                    // 移除其他MBTI身份
+                    // ==========================
 
-                    // 已有身份組 -> 移除
 
-                    if(
-                        targetMember.roles.cache.has(roleID)
+                    for(
+                        const oldRoleID of Object.values(mbtiRoles)
                     ){
 
 
-                        await targetMember.roles.remove(
-                            role
-                        );
+                        if(
+                            oldRoleID !== newRoleID
+                            &&
+                            targetMember.roles.cache.has(oldRoleID)
+                        ){
 
 
+                            await targetMember.roles.remove(
+                                oldRoleID
+                            );
 
-                        console.log(
-                            `[ROLE REMOVE] ${user.tag} - ${role.name}`
-                        );
+
+                            console.log(
+                                `[MBTI REMOVE] ${user.tag} - ${oldRoleID}`
+                            );
+
+
+                        }
 
 
                     }
@@ -275,19 +271,26 @@ ${emojis["NF"]} 綠人
 
 
 
-                    // 沒有 -> 增加
 
-                    else{
+
+
+                    // ==========================
+                    // 加入新的
+                    // ==========================
+
+
+                    if(
+                        !targetMember.roles.cache.has(newRoleID)
+                    ){
 
 
                         await targetMember.roles.add(
-                            role
+                            newRoleID
                         );
 
 
-
                         console.log(
-                            `[ROLE ADD] ${user.tag} + ${role.name}`
+                            `[MBTI ADD] ${user.tag} + ${role.name}`
                         );
 
 
@@ -295,13 +298,10 @@ ${emojis["NF"]} 綠人
 
 
 
-
-
-                }catch(err){
-
+                }
+                catch(err){
 
                     console.error(err);
-
 
                 }
 
@@ -314,7 +314,96 @@ ${emojis["NF"]} 綠人
 
 
 
-    }catch(error){
+
+
+
+
+
+
+
+        // ==========================
+        // 移除表情
+        // ==========================
+
+
+        collector.on(
+            'remove',
+            async(reaction,user)=>{
+
+
+                try{
+
+
+                    if(user.bot)
+                        return;
+
+
+
+                    const roleID =
+                        mbtiRoles[
+                            reaction.emoji.id
+                        ];
+
+
+
+                    if(!roleID)
+                        return;
+
+
+
+
+
+                    const targetMember =
+                        await member.guild.members.fetch(
+                            user.id
+                        );
+
+
+
+
+
+
+                    if(
+                        targetMember.roles.cache.has(roleID)
+                    ){
+
+
+                        await targetMember.roles.remove(
+                            roleID
+                        );
+
+
+                        console.log(
+                            `[MBTI REMOVE] ${user.tag} - ${roleID}`
+                        );
+
+
+                    }
+
+
+
+
+                }
+                catch(err){
+
+                    console.error(err);
+
+                }
+
+
+            }
+
+        );
+
+
+
+
+
+
+
+
+    }
+    catch(error){
 
 
         console.error(
