@@ -8,7 +8,7 @@
     "action": "affectionLeaderboardPush",
     "args": {
       "limit": 10,
-      "channelId": "1146286703741505679"
+      "channelId": "1519371944196182137"
     }
   },
   {
@@ -19,7 +19,7 @@
     "timezone": "Asia/Taipei",
     "action": "weatherAirQualityPush",
     "args": {
-      "channelId": "1146286703741505679"
+      "channelId": "1519371944196182137"
     }
   }
 ]

@@ -1,4 +1,5 @@
 // bot.js 
+const { initTelegramBot } = require('./utils/Tg/TrManager.js');
 // ========== DC Bot ==========
 const { Client, GatewayIntentBits, Collection } = require("discord.js");
 const { google } = require('googleapis');
@@ -22,6 +23,7 @@ const botManager = require("./utils/normal/botManager");
 const libraryManager = require('./utils/normal/libraryManager');
 const { getAuth, saveToken, CLIENT_SECRET_PATH } = require('./utils/auth/oauth2.js'); 
 const schedulerManager = require('./utils/normal/schedulerManager');
+
 
 //========== 連線設定 ==========
 
@@ -105,7 +107,10 @@ client.once("clientReady", async () => {
   console.log(`${colors.cyan}[ SYSTEM ]${colors.reset} ${colors.green}Client logged as ${colors.yellow}${client.user.tag}${colors.reset}`);
   console.log(`${colors.cyan}[ MUSIC ]${colors.reset} ${colors.green}Riffy Music System Ready 🎵${colors.reset}`);
   console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.green}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
+ const tgBot = initTelegramBot(client);
+if (tgBot) {
   console.log(`${colors.cyan}[ TELEGRAM ]${colors.reset} ${colors.green}TG Bot 同步運行中 🤖${colors.reset}`);
+}
   
   client.riffy.init(client.user.id);
 
