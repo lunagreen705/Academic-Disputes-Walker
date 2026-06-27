@@ -59,6 +59,9 @@ function initializePlayer(client) {
         },
         defaultSearchPlatform: "ytmsearch",
         restVersion: "v4",
+        bypassChecks: {
+        nodeFetchInfo: true
+    }
     });
 client.riffy.on("nodeDisconnect", (node, reason) => {
     console.log(`[ LAVALINK ] Node ${node.name} disconnected ❌ | ${reason || "Unknown reason"}`);
