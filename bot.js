@@ -105,9 +105,7 @@ client.once("clientReady", async () => {
   console.log(`${colors.cyan}[ SYSTEM ]${colors.reset} ${colors.green}Client logged as ${colors.yellow}${client.user.tag}${colors.reset}`);
   console.log(`${colors.cyan}[ MUSIC ]${colors.reset} ${colors.green}Riffy Music System Ready 🎵${colors.reset}`);
   console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.green}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
-  if (tgBot) {
   console.log(`${colors.cyan}[ TELEGRAM ]${colors.reset} ${colors.green}TG Bot 同步運行中 🤖${colors.reset}`);
-}
   
   client.riffy.init(client.user.id);
 
