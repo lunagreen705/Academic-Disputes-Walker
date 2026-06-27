@@ -1,5 +1,5 @@
 // bot.js 
-const { initTelegramBot } = require('./utils/Tg/TrManager.js');
+
 // ========== DC Bot ==========
 const { Client, GatewayIntentBits, Collection } = require("discord.js");
 const { google } = require('googleapis');
@@ -10,7 +10,7 @@ const config = require("./config.js");
 const colors = require("./UI/colors/colors");
 
 //========== 載入模組 ==========
-
+const { initTelegramBot } = require('./utils/Tg/TrManager.js');
 const { initializePlayer } = require("./utils/music/player.js");
 const { connectToDatabase, getCollections } = require("./utils/db/mongodb"); 
 // ========================================================
