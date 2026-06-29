@@ -107,11 +107,7 @@ client.once("clientReady", async () => {
   console.log(`${colors.cyan}[ SYSTEM ]${colors.reset} ${colors.green}Client logged as ${colors.yellow}${client.user.tag}${colors.reset}`);
   console.log(`${colors.cyan}[ MUSIC ]${colors.reset} ${colors.green}Riffy Music System Ready 🎵${colors.reset}`);
   console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.green}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
- const tgBot = initTelegramBot(client);
-if (tgBot) {
   console.log(`${colors.cyan}[ TELEGRAM ]${colors.reset} ${colors.green}TG Bot 同步運行中 🤖${colors.reset}`);
-}
-  
   client.riffy.init(client.user.id);
 
   
@@ -119,7 +115,7 @@ if (tgBot) {
         // 初始化所有需要資料庫或其他前置作業的模組
         await connectToDatabase();
         // =========================================================
-        // ===            初始化 TRPG 日誌記錄模組               ===
+        // ===            初始化 TRPG 日誌記錄               ===
         // =========================================================
         try {
             const collections = getCollections(); // 獲取所有資料庫集合
@@ -130,11 +126,21 @@ if (tgBot) {
         }
         // =========================================================
         
+        // =========================================================
+        // ===            初始化牌堆              ===
+        // =========================================================
         deckManager.loadDecks(); // 牌堆系統
         console.log(`${colors.cyan}[ SYSTEMS ]${colors.reset} ${colors.green}所有主要功能模組已準備就緒 ✅${colors.reset}`);
 
         // =========================================================
-        // ===            初始化排程器 (正確的位置)             ===
+        // ===            初始化TG              ===
+        // =========================================================
+        const tgBot = initTelegramBot(client);
+
+        await tgBot.startPolling();
+
+        // =========================================================
+        // ===            初始化排程器              ===
         // =========================================================
         console.log(`${colors.cyan}[ SCHEDULER ]${colors.reset} ${colors.yellow}正在初始化排程任務...${colors.reset}`);
         

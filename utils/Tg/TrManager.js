@@ -37,7 +37,7 @@ function initTelegramBot(discordClient) {
     return null;
   }
 
-  const bot = new TelegramBot(TG_TOKEN, { polling: true });
+  const bot = new TelegramBot(TG_TOKEN, { polling: false });
 
   // ========== 自動載入指令 ==========
   const commandsPath = path.join(process.cwd(), 'tg-commands');
