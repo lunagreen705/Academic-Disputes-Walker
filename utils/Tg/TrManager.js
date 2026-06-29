@@ -1,21 +1,35 @@
 const { TelegramBot } = require('node-telegram-bot-api');
 const fs = require('fs');
 const path = require('path');
-const colors = require("../../UI/colors/colors"); 
+const colors = require("../../UI/colors/colors");
 const { getCollections } = require('../db/mongodb');
 
 const TG_TOKEN = process.env.TG_TOKEN;
 const TG_ADMIN_ID = parseInt(process.env.TG_ADMIN_ID);
 
+// ========== 訂閱者：改用 MongoDB ==========
 
-function loadSubscribers() {
-  if (fs.existsSync(TG_SUBSCRIBERS_FILE))
-    return new Set(JSON.parse(fs.readFileSync(TG_SUBSCRIBERS_FILE)));
-  return new Set();
+async function loadSubscribers() {
+  const { tgSubscribersCollection } = getCollections();
+  const docs = await tgSubscribersCollection.find({}).toArray();
+  return new Set(docs.map(doc => doc.chatId));
 }
-function saveSubscribers(subs) {
-  fs.writeFileSync(TG_SUBSCRIBERS_FILE, JSON.stringify([...subs]));
+
+async function addSubscriber(chatId) {
+  const { tgSubscribersCollection } = getCollections();
+  await tgSubscribersCollection.updateOne(
+    { chatId },
+    { $set: { chatId, subscribedAt: new Date() } },
+    { upsert: true }
+  );
 }
+
+async function removeSubscriber(chatId) {
+  const { tgSubscribersCollection } = getCollections();
+  await tgSubscribersCollection.deleteOne({ chatId });
+}
+
+// ========== 初始化 Bot ==========
 
 function initTelegramBot(discordClient) {
   if (!TG_TOKEN) {
@@ -26,14 +40,22 @@ function initTelegramBot(discordClient) {
   const bot = new TelegramBot(TG_TOKEN, { polling: true });
 
   // ========== 自動載入指令 ==========
-const commandsPath = path.join(process.cwd(), 'tg-commands');
+  const commandsPath = path.join(process.cwd(), 'tg-commands');
   const files = fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'));
 
   for (const file of files) {
     const cmd = require(path.join(commandsPath, file));
-    // 每個指令監聽自己的 pattern
     bot.onText(cmd.pattern, (msg, match) => {
-      cmd.execute({ bot, msg, match, discordClient, loadSubscribers, saveSubscribers, TG_ADMIN_ID });
+      cmd.execute({
+        bot,
+        msg,
+        match,
+        discordClient,
+        loadSubscribers,
+        addSubscriber,
+        removeSubscriber,
+        TG_ADMIN_ID
+      });
     });
     console.log(`${colors.cyan}[ TG CMD ]${colors.reset} 已載入：${colors.yellow}${cmd.name}${colors.reset}`);
   }
@@ -51,4 +73,4 @@ const commandsPath = path.join(process.cwd(), 'tg-commands');
   return bot;
 }
 
-module.exports = { initTelegramBot, loadSubscribers, saveSubscribers };
+module.exports = { initTelegramBot, loadSubscribers, addSubscriber, removeSubscriber };
