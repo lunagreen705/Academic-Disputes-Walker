@@ -2,10 +2,11 @@ const { TelegramBot } = require('node-telegram-bot-api');
 const fs = require('fs');
 const path = require('path');
 const colors = require("../../UI/colors/colors"); 
+const { getCollections } = require('../db/mongodb');
 
 const TG_TOKEN = process.env.TG_TOKEN;
 const TG_ADMIN_ID = parseInt(process.env.TG_ADMIN_ID);
-const TG_SUBSCRIBERS_FILE = './tg_subscribers.json';
+
 
 function loadSubscribers() {
   if (fs.existsSync(TG_SUBSCRIBERS_FILE))
