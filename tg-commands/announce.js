@@ -9,16 +9,36 @@ module.exports = {
     }
 
     const text = match[1];
-    const subs = loadSubscribers();
-    let success = 0, fail = 0;
+
+    // 等待 MongoDB 查詢完成
+    const subs = await loadSubscribers();
+
+    // 防止資料格式錯誤
+    if (!Array.isArray(subs)) {
+      console.error('loadSubscribers 回傳錯誤:', subs);
+
+      return bot.sendMessage(
+        msg.chat.id,
+        '❌ 訂閱者資料格式錯誤'
+      );
+    }
+
+    let success = 0;
+    let fail = 0;
 
     for (const chatId of subs) {
       try {
         await bot.sendMessage(chatId, `📢 ${text}`);
         success++;
-      } catch { fail++; }
+      } catch (err) {
+        console.error(`發送失敗 ${chatId}:`, err.message);
+        fail++;
+      }
     }
 
-    bot.sendMessage(msg.chat.id, `✅ 發送完成｜成功：${success}｜失敗：${fail}`);
+    await bot.sendMessage(
+      msg.chat.id,
+      `✅ 發送完成｜成功：${success}｜失敗：${fail}`
+    );
   }
 };
