@@ -173,5 +173,10 @@
     "affection": 2,
     "lastGreetDate": "2026-06-29",
     "greetCountToday": 1
+  },
+  "1180724487315013732": {
+    "affection": 1,
+    "lastGreetDate": "2026-06-29",
+    "greetCountToday": 1
   }
 }
