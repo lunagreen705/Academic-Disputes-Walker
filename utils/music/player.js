@@ -63,29 +63,17 @@ function initializePlayer(client) {
         nodeFetchInfo: false
     }
     });
-riffy.on("nodeDisconnect", (node, reason) => {
-  console.log(`[ LAVALINK ] Node ${node.name} disconnected ❌ |`, JSON.stringify(reason));
-    
-    let attempts = 0;
-    const tryReconnect = async () => {
-        try {
-            attempts++;
-            await node.connect();
-            console.log(`[ LAVALINK ] Node ${node.name} reconnected ✅ (after ${attempts} attempts)`);
-        } catch (err) {
-            console.error(`[ LAVALINK ] Node ${node.name} reconnect failed ❌ | ${err.message}`);
-            setTimeout(tryReconnect, 5000);
-        }
-    };
-    setTimeout(tryReconnect, 5000);
-});
+   client.riffy.on("nodeDisconnect", (node, reason) => {
+        console.log(`[ LAVALINK ] Node ${node.name} disconnected ❌ |`, JSON.stringify(reason));
+    });
+
     client.riffy.on("nodeConnect", node => {
         console.log(`${colors.cyan}[ LAVALINK ]${colors.reset} ${colors.green}Node ${node.name} Connected ✅${colors.reset}`);
     });
-    
-    riffy.on("nodeError", (node, error) => {
-  console.log(`[ LAVALINK ] Node ${node.name} 發生錯誤 ❌ |`, error.message || error);
-});
+
+    client.riffy.on("nodeError", (node, error) => {
+        console.log(`[ LAVALINK ] Node ${node.name} 發生錯誤 ❌ |`, error.message || error);
+    });
 
 process.on("unhandledRejection", (err) => {
   console.error("未處理的 Promise 拒絕:", err);
