@@ -63,8 +63,8 @@ function initializePlayer(client) {
         nodeFetchInfo: false
     }
     });
-client.riffy.on("nodeDisconnect", (node, reason) => {
-    console.log(`[ LAVALINK ] Node ${node.name} disconnected ❌ | ${reason || "Unknown reason"}`);
+riffy.on("nodeDisconnect", (node, reason) => {
+  console.log(`[ LAVALINK ] Node ${node.name} disconnected ❌ |`, JSON.stringify(reason));
     
     let attempts = 0;
     const tryReconnect = async () => {
@@ -83,10 +83,13 @@ client.riffy.on("nodeDisconnect", (node, reason) => {
         console.log(`${colors.cyan}[ LAVALINK ]${colors.reset} ${colors.green}Node ${node.name} Connected ✅${colors.reset}`);
     });
     
-    client.riffy.on("nodeError", (node, error) => {
-        console.log(`${colors.cyan}[ LAVALINK ]${colors.reset} ${colors.red}Node ${node.name} Error ❌ | ${error.message}${colors.reset}`);
-    });
+    riffy.on("nodeError", (node, error) => {
+  console.log(`[ LAVALINK ] Node ${node.name} 發生錯誤 ❌ |`, error.message || error);
+});
 
+process.on("unhandledRejection", (err) => {
+  console.error("未處理的 Promise 拒絕:", err);
+});
     client.riffy.on("trackStart", async (player, track) => {
         const channel = client.channels.cache.get(player.textChannel);
         if (!channel) {
@@ -346,7 +349,7 @@ function setupCollector(client, player, channel, message) {
             const disabledActionRow1 = createActionRow1(true);
             const disabledActionRow2 = createActionRow2(true);
             message.edit({ components: [disabledActionRow1, disabledActionRow2] }).catch(err => {
-                if (err.code !== 10008) { // Unknown Message (已被刪除)
+                if (err.code !== 10008) {
                     console.error("Error disabling components on collector end:", err);
                 }
             });
