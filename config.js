@@ -17,10 +17,10 @@ module.exports = {
   nodes: [
 {
      name:"musix",
-     password:"youshallnotpass",
-     host:"lavalink.jirayu.net",
-     port:443,
-     secure: true
+     password:"https://dsc.gg/ajidevserver",
+     host:"lavalinkv4.serenetia.com",
+     port:80,
+     secure: false
 }
   ]
 }
