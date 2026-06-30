@@ -60,7 +60,7 @@ function initializePlayer(client) {
         defaultSearchPlatform: "ytmsearch",
         restVersion: "v4",
         bypassChecks: {
-        nodeFetchInfo: true
+        nodeFetchInfo: false
     }
     });
 client.riffy.on("nodeDisconnect", (node, reason) => {
